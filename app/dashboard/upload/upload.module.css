@@ -1,0 +1,195 @@
+.uploadPage {
+    max-width: 800px;
+}
+
+.uploadPage>h1 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin-bottom: var(--space-2);
+}
+
+.uploadPage>p {
+    color: var(--text-secondary);
+    margin-bottom: var(--space-8);
+}
+
+.dropzone {
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-xl);
+    padding: var(--space-16);
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--transition-base);
+    background: var(--bg-card);
+    margin-bottom: var(--space-6);
+}
+
+.dropzone:hover,
+.dropzone.dragOver {
+    border-color: var(--primary-400);
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.dropzone.hasFile {
+    border-style: solid;
+    border-color: var(--success-500);
+}
+
+.dropContent {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.dropIcon {
+    font-size: 3rem;
+}
+
+.dropContent h3 {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.dropContent p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.formats {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+}
+
+.formats span {
+    padding: var(--space-1) var(--space-3);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.fileInfo {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+}
+
+.fileIcon {
+    font-size: 2.5rem;
+    color: var(--primary-400);
+}
+
+.fileInfo h4 {
+    font-weight: 600;
+}
+
+.fileInfo p {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.processBtn {
+    padding: var(--space-4) var(--space-10);
+    background: var(--gradient-primary);
+    color: white;
+    font-weight: 700;
+    border-radius: var(--radius-full);
+    box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
+    transition: all var(--transition-base);
+}
+
+.processBtn:hover {
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.5);
+    transform: translateY(-1px);
+}
+
+.processingCard {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    padding: var(--space-10);
+    text-align: center;
+}
+
+.processingCard h2 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: var(--space-8);
+}
+
+.stepsContainer {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-8);
+    flex-wrap: wrap;
+}
+
+.step {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 0.85rem;
+    color: var(--text-tertiary);
+    font-weight: 500;
+    transition: color var(--transition-base);
+}
+
+.step.completed {
+    color: var(--success-400);
+}
+
+.step.active {
+    color: var(--primary-400);
+}
+
+.stepIcon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border: 2px solid var(--border-color);
+    transition: all var(--transition-base);
+}
+
+.step.completed .stepIcon {
+    background: var(--success-500);
+    border-color: var(--success-500);
+    color: white;
+}
+
+.step.active .stepIcon {
+    border-color: var(--primary-500);
+    color: var(--primary-400);
+}
+
+.miniSpinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--border-color);
+    border-top-color: var(--primary-500);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+.progressBar {
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+}
+
+.progressFill {
+    height: 100%;
+    background: var(--gradient-primary);
+    border-radius: var(--radius-full);
+    transition: width 0.5s ease;
+}
