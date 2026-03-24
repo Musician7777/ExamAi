@@ -1,17 +1,73 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+// Build list of available API keys for failover
+const API_KEYS = [
+    process.env.GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_2,
+].filter(k => k && k !== 'your_gemini_api_key_here');
+
+function isRateLimitError(error) {
+    return error?.status === 429 || 
+           error?.message?.includes('429') || 
+           error?.message?.includes('Resource has been exhausted') ||
+           error?.message?.includes('quota');
+}
+
+// Try generating content with a single key, with retries
+async function tryWithKey(apiKey, prompt, retries = 2) {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash',
+        generationConfig: { responseMimeType: 'application/json' }
+    });
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            return await model.generateContent(prompt);
+        } catch (error) {
+            if (isRateLimitError(error) && attempt < retries) {
+                const delay = (attempt + 1) * 2000; // 2s, 4s
+                console.log(`Key ${apiKey.slice(-6)} rate limited. Retry ${attempt + 1}/${retries} in ${delay}ms...`);
+                await new Promise(r => setTimeout(r, delay));
+            } else {
+                throw error;
+            }
+        }
+    }
+}
+
+// Try all available API keys with failover
+async function generateWithFailover(prompt) {
+    let lastError = null;
+    for (let i = 0; i < API_KEYS.length; i++) {
+        try {
+            console.log(`Trying Gemini API key ${i + 1}/${API_KEYS.length}...`);
+            return await tryWithKey(API_KEYS[i], prompt);
+        } catch (error) {
+            lastError = error;
+            if (isRateLimitError(error) && i < API_KEYS.length - 1) {
+                console.log(`Key ${i + 1} exhausted. Switching to key ${i + 2}...`);
+            } else if (i < API_KEYS.length - 1) {
+                console.log(`Key ${i + 1} failed (${error.message}). Trying key ${i + 2}...`);
+            }
+        }
+    }
+    throw lastError;
+}
 
 export async function POST(request) {
+    let type = 'generate-exam';
+    let config = {};
     try {
-        const { type, config } = await request.json();
+        const body = await request.json();
+        type = body.type;
+        config = body.config;
 
-        if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your_gemini_api_key_here') {
+        if (API_KEYS.length === 0) {
             return NextResponse.json(getMockResponse(type, config));
         }
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
         let prompt = '';
 
         switch (type) {
@@ -31,7 +87,8 @@ export async function POST(request) {
                 return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
         }
 
-        const result = await model.generateContent(prompt);
+        // Call Gemini with dual-key failover
+        const result = await generateWithFailover(prompt);
         const response = await result.response;
         const text = response.text();
 
@@ -46,54 +103,235 @@ export async function POST(request) {
         return NextResponse.json(parsed);
     } catch (error) {
         console.error('Gemini API error:', error);
-        return NextResponse.json(getMockResponse(type, {}));
+        if (isRateLimitError(error)) {
+            return NextResponse.json({ 
+                error: 'All API keys are rate limited. Please wait 30-60 seconds and try again.',
+                isRateLimited: true 
+            }, { status: 429 });
+        }
+        return NextResponse.json({ 
+            error: 'Failed to generate. Please try again.',
+            details: error?.message 
+        }, { status: 500 });
     }
 }
 
 function buildExamPrompt(config) {
-    return `Generate a structured exam in JSON format based on these specifications:
+    // Detailed exam profiles for each preset type
+    const examProfiles = {
+        'upsc': {
+            fullName: 'UPSC Civil Services Preliminary Examination',
+            description: 'India\'s premier civil services exam conducted by Union Public Service Commission',
+            sections: ['Indian Polity & Governance', 'Indian & World Geography', 'Indian Economy', 'History & Culture', 'General Science & Environment', 'Current Affairs'],
+            topics: 'Indian Constitution, Panchayati Raj, Public Policy, Rights Issues, Parliament, Judiciary, Physical Geography, Economic Geography, Indian rivers/mountains/climate, Budget, Fiscal Policy, Banking, Ancient/Medieval/Modern Indian History, Art & Culture, Ecology, Biodiversity, Climate Change, Government Schemes, International Relations',
+            style: 'Conceptual, analytical questions that test deep understanding. Many questions require elimination of options. Statements-based questions are common (e.g., "Which of the following statements is/are correct?"). Focus on application of knowledge, not rote memorization.',
+            duration: 120,
+            marksPerQuestion: 2,
+            negativeMarking: 0.66,
+        },
+        'ssc': {
+            fullName: 'SSC Combined Graduate Level (CGL) Examination',
+            description: 'Staff Selection Commission exam for Group B & C posts in Government of India',
+            sections: ['Quantitative Aptitude', 'Reasoning & General Intelligence', 'English Comprehension', 'General Awareness'],
+            topics: 'Number System, Percentage, Ratio & Proportion, Profit & Loss, Time & Work, Time Speed Distance, Algebra, Geometry, Trigonometry, Data Interpretation, Analogies, Syllogisms, Coding-Decoding, Series, Blood Relations, Direction Sense, Synonyms/Antonyms, Idioms & Phrases, One Word Substitution, Sentence Correction, Cloze Test, Static GK, History, Polity, Economics, Science, Current Affairs',
+            style: 'Speed-based questions testing calculation ability and quick reasoning. Questions should be solvable within 30-60 seconds each. Focus on shortcuts and mental math. English section tests grammar and vocabulary.',
+            duration: 60,
+            marksPerQuestion: 2,
+            negativeMarking: 0.50,
+        },
+        'banking': {
+            fullName: 'IBPS PO / SBI PO Banking Examination',
+            description: 'Bank Probationary Officer exam for public sector banks in India',
+            sections: ['Quantitative Aptitude', 'Reasoning Ability', 'English Language', 'General/Financial Awareness', 'Computer Aptitude'],
+            topics: 'Data Interpretation (Bar/Pie/Line Charts, Tables), Number Series, Simplification, Approximation, Percentage, Ratio, Profit & Loss, SI/CI, Inequality, Syllogism, Puzzles & Seating Arrangement, Coding-Decoding, Blood Relations, Input-Output, Reading Comprehension, Para Jumbles, Fillers, Error Detection, Banking Terms, RBI Policies, Financial Institutions, Monetary Policy, GDP, Inflation, Computer Basics, Networking, MS Office, DBMS',
+            style: 'Data-heavy analytical questions. Quantitative section focuses heavily on data interpretation with tables and charts. Reasoning has complex puzzles (floor-based, circular seating). English tests reading speed and comprehension. Financial awareness questions on banking sector, RBI norms, and recent economic developments.',
+            duration: 60,
+            marksPerQuestion: 1,
+            negativeMarking: 0.25,
+        },
+        'railways': {
+            fullName: 'RRB NTPC (Railway Recruitment Board Non-Technical Popular Categories)',
+            description: 'Indian Railways recruitment exam for non-technical positions',
+            sections: ['Mathematics', 'General Intelligence & Reasoning', 'General Awareness', 'General Science'],
+            topics: 'Number System, Decimals, Fractions, LCM/HCF, Ratio, Percentage, Mensuration, Time & Work, Time & Distance, SI/CI, Profit & Loss, Analogies, Number & Alphabetical Series, Coding-Decoding, Syllogism, Venn Diagrams, Indian History, Geography, Polity, Economy, Railway-specific GK, Physics (Mechanics, Light, Sound), Chemistry (Elements, Reactions), Biology (Human Body, Diseases, Nutrition)',
+            style: 'Straightforward questions testing fundamental knowledge. Mix of calculation-based math and factual general knowledge. Science questions are basic and practical. Include some railway-specific general knowledge questions.',
+            duration: 90,
+            marksPerQuestion: 1,
+            negativeMarking: 0.33,
+        },
+        'state-psc': {
+            fullName: 'State Public Service Commission Examination',
+            description: 'State-level civil services exam for administrative positions',
+            sections: ['General Studies', 'Indian Polity', 'Indian Economy', 'History & Culture', 'Geography', 'Current Affairs'],
+            topics: 'State-specific history and geography, Indian Constitution, Governance, Panchayati Raj, Social Justice, International Relations, Indian Economy, Planning, Agriculture, Industry, Trade, Indian National Movement, World History, Physical/Economic/Social Geography, Environment, Ecology, Current Events, Science & Technology',
+            style: 'Similar to UPSC but with more focus on state-specific knowledge. Questions test both factual recall and analytical understanding. Include questions about national and international current affairs.',
+            duration: 120,
+            marksPerQuestion: 2,
+            negativeMarking: 0.33,
+        },
+        'software': {
+            fullName: 'Software Engineering Technical Assessment',
+            description: 'Technical hiring test for software engineering roles at tech companies',
+            sections: ['Data Structures & Algorithms', 'Object-Oriented Programming', 'Database & SQL', 'Operating Systems & Networking', 'System Design Concepts'],
+            topics: 'Arrays, Linked Lists, Trees, Graphs, Hash Tables, Stacks, Queues, Sorting, Searching, Dynamic Programming, Greedy, Recursion, Time/Space Complexity, OOP Principles (Polymorphism, Inheritance, Encapsulation, Abstraction), Design Patterns, SQL Queries (JOINs, GROUP BY, Subqueries), Normalization, ACID, Indexing, Process Management, Threads, Deadlocks, Memory Management, TCP/IP, HTTP, REST APIs, Caching, Load Balancing, Microservices',
+            style: 'Technical questions testing deep CS fundamentals. Include code output prediction, time complexity analysis, SQL query results, and conceptual system design choices. Questions should be challenging and test real engineering understanding, not just textbook definitions.',
+            duration: 60,
+            marksPerQuestion: 4,
+            negativeMarking: 0,
+        },
+        'product': {
+            fullName: 'Product-Based Company Hiring Assessment (Google, Amazon, Microsoft level)',
+            description: 'Technical assessment for top-tier product companies (FAANG/MAANG)',
+            sections: ['Advanced DSA & Problem Solving', 'System Design & Architecture', 'Computer Science Fundamentals', 'Logical Reasoning & Aptitude'],
+            topics: 'Advanced Graph Algorithms (Dijkstra, Bellman-Ford, Topological Sort), Advanced DP (Bitmask DP, Interval DP), Segment Trees, Tries, Union-Find, Binary Search Variations, Sliding Window, Two Pointers, Distributed Systems (CAP Theorem, Consistency Models), Database Sharding, Message Queues, LRU Cache Design, URL Shortener Design, Compiler Design Basics, OS Internals (Virtual Memory, Page Replacement), Network Protocols, Probability, Combinatorics, Puzzles',
+            style: 'Highly challenging questions that test problem-solving ability and deep CS knowledge. Include tricky edge cases, code tracing with complex logic, system design trade-off analysis, and mathematical reasoning. These should be interview-caliber questions for top tech companies.',
+            duration: 90,
+            marksPerQuestion: 4,
+            negativeMarking: 0,
+        },
+        'startup': {
+            fullName: 'Startup Hiring Technical Assessment',
+            description: 'Fast-paced technical test for startup environments',
+            sections: ['Full-Stack Development', 'Problem Solving & DSA', 'Web Technologies & APIs', 'DevOps & Cloud Basics'],
+            topics: 'React/Next.js, Node.js, REST/GraphQL APIs, MongoDB/PostgreSQL, Authentication (JWT, OAuth), HTML/CSS/JavaScript, TypeScript, Git, CI/CD, Docker basics, AWS/GCP basics, Serverless, Array/String manipulation, Hash Maps, Basic DP, API Design, State Management, Responsive Design, Performance Optimization, Testing (Unit, Integration)',
+            style: 'Practical, real-world questions focused on building things. Questions should test hands-on knowledge of modern web stacks, debugging ability, and quick problem solving. Include questions about choosing the right tool/library for a given scenario.',
+            duration: 45,
+            marksPerQuestion: 2,
+            negativeMarking: 0,
+        },
+        'campus': {
+            fullName: 'Campus Placement Assessment',
+            description: 'College campus recruitment test for freshers/graduates',
+            sections: ['Quantitative Aptitude', 'Logical Reasoning', 'Verbal Ability', 'Technical (CS Fundamentals)'],
+            topics: 'Number System, Probability, Permutation & Combination, Time & Work, Percentage, Profit & Loss, Averages, Ages, Blood Relations, Seating Arrangement, Syllogism, Cubes & Dice, Statement & Assumption, Coding-Decoding, Reading Comprehension, Grammar (Tenses, Articles, Prepositions), Vocabulary, Para Jumbles, Data Types, Loops, Functions, OOPs basics, SQL basics, Complexity Analysis, Basic Data Structures',
+            style: 'Moderate difficulty suitable for fresh graduates. Aptitude questions should be solvable with basic formulas. Reasoning tests logical thinking. Verbal tests English proficiency. Technical section covers CS fundamentals at an undergraduate level.',
+            duration: 90,
+            marksPerQuestion: 1,
+            negativeMarking: 0.25,
+        },
+        'mba': {
+            fullName: 'MBA Entrance Examination (CAT/XAT/GMAT style)',
+            description: 'Management entrance test for top business schools',
+            sections: ['Quantitative Ability', 'Data Interpretation & Logical Reasoning', 'Verbal Ability & Reading Comprehension'],
+            topics: 'Number Theory, Algebra, Geometry, Mensuration, Modern Math (P&C, Probability), Arithmetic (Ratio, Percentage, Profit/Loss, SI/CI, Mixtures, Time-Speed-Distance, Time-Work), Data Interpretation (Tables, Graphs, Caselets), Logical Reasoning (Arrangements, Grouping, Logical Connectives, Binary Logic, Constraint-based), Critical Reasoning, Para Jumbles, Para Completion, Odd Sentence Out, Summary-based questions, Vocabulary-based RC',
+            style: 'High difficulty, time-pressured questions. Quantitative questions require mathematical intuition and shortcut techniques. DI/LR sets are puzzle-like with 3-4 interconnected questions. Verbal section has long reading passages (600-800 words) with inference-based questions. Questions should differentiate between 90th and 99th percentile test-takers.',
+            duration: 120,
+            marksPerQuestion: 3,
+            negativeMarking: 1,
+        },
+    };
 
-Exam Type: ${config.examType || 'General'}
-Category: ${config.category || 'Mixed'}
-Total Questions: ${config.totalQuestions || 20}
-Sections: ${JSON.stringify(config.sections || ['General Knowledge'])}
-Difficulty Distribution: ${config.difficulty || '30% Easy, 50% Medium, 20% Hard'}
-Question Types: ${config.questionTypes || 'MCQ'}
-Negative Marking: ${config.negativeMarking || 'None'}
+    const profile = examProfiles[config.examType] || null;
+    const totalQuestions = config.totalQuestions || 20;
 
-Return a JSON object with this exact structure:
+    if (profile) {
+        const questionsPerSection = Math.max(1, Math.floor(totalQuestions / profile.sections.length));
+        const remainder = totalQuestions - (questionsPerSection * profile.sections.length);
+
+        return `You are an expert exam paper setter for ${profile.fullName}.
+
+${profile.description}.
+
+Generate a realistic, high-quality exam paper with EXACTLY ${totalQuestions} questions total.
+
+EXAM SPECIFICATIONS:
+- Exam: ${profile.fullName}
+- Duration: ${profile.duration} minutes
+- Marks per question: ${profile.marksPerQuestion}
+- Negative marking: ${profile.negativeMarking > 0 ? profile.negativeMarking + ' marks deducted per wrong answer' : 'None'}
+- Difficulty distribution: ${config.difficulty || '30% Easy, 50% Medium, 20% Hard'}
+
+SECTIONS (distribute ${totalQuestions} questions across these):
+${profile.sections.map((s, i) => `${i + 1}. ${s} — ${i === 0 ? questionsPerSection + remainder : questionsPerSection} questions`).join('\n')}
+
+TOPICS TO COVER:
+${profile.topics}
+
+QUESTION STYLE:
+${profile.style}
+
+CRITICAL RULES:
+1. Every question MUST be unique — no repeated or similar questions
+2. Questions must reflect the ACTUAL pattern and difficulty of ${profile.fullName}
+3. Each question must have EXACTLY 4 options labeled as strings
+4. "correct" field is the 0-based index (0, 1, 2, or 3) of the correct option
+5. Include a clear, educational explanation for each answer
+6. Vary the correct answer positions — don't make all answers the same index
+7. Questions should test understanding, not just recall
+8. Use current/recent data and facts where applicable
+9. Question IDs must be sequential starting from 1
+
+Return a JSON object with this EXACT structure:
 {
-  "title": "Exam Title",
-  "totalQuestions": number,
-  "duration": number (in minutes),
-  "totalMarks": number,
-  "negativeMarking": number,
+  "title": "${profile.fullName}",
+  "totalQuestions": ${totalQuestions},
+  "duration": ${profile.duration},
+  "totalMarks": ${totalQuestions * profile.marksPerQuestion},
+  "negativeMarking": ${profile.negativeMarking},
   "sections": [
     {
       "name": "Section Name",
       "questions": [
         {
-          "id": number,
+          "id": 1,
+          "text": "Question text here",
+          "options": ["Option A", "Option B", "Option C", "Option D"],
+          "correct": 0,
+          "difficulty": "easy",
+          "topic": "Specific Topic",
+          "explanation": "Clear explanation of why this is correct",
+          "marks": ${profile.marksPerQuestion}
+        }
+      ]
+    }
+  ]
+}`;
+    }
+
+    // Fallback for custom or unknown exam types
+    return `Generate a structured exam in JSON format based on these specifications:
+
+Exam Type: ${config.examType || 'General Knowledge Assessment'}
+Total Questions: ${totalQuestions}
+Sections: ${JSON.stringify(config.sections || ['General Knowledge', 'Reasoning', 'Quantitative Aptitude'])}
+Difficulty Distribution: ${config.difficulty || '30% Easy, 50% Medium, 20% Hard'}
+Question Types: ${config.questionTypes || 'MCQ'}
+Negative Marking: ${config.negativeMarking || 'None'}
+
+CRITICAL RULES:
+1. Every question MUST be unique — no repeated or similar questions
+2. Each question must have EXACTLY 4 options
+3. "correct" is the 0-based index (0-3) of the correct option
+4. Vary the correct answer positions randomly
+5. Include clear explanations for each answer
+6. Questions should be challenging and exam-quality
+7. Question IDs must be sequential starting from 1
+
+Return a JSON object with this EXACT structure:
+{
+  "title": "Exam Title",
+  "totalQuestions": ${totalQuestions},
+  "duration": 60,
+  "totalMarks": ${totalQuestions * 2},
+  "negativeMarking": ${config.negativeMarking || 0},
+  "sections": [
+    {
+      "name": "Section Name",
+      "questions": [
+        {
+          "id": 1,
           "text": "Question text",
           "options": ["A", "B", "C", "D"],
           "correct": 0,
           "difficulty": "easy|medium|hard",
           "topic": "topic name",
           "explanation": "Brief explanation of correct answer",
-          "marks": number
+          "marks": 2
         }
       ]
     }
   ]
-}
-
-Requirements:
-- Questions must be realistic and exam-quality
-- Follow the official pattern of ${config.examType || 'competitive'} exams
-- Include proper difficulty distribution
-- Each question must have exactly 4 options
-- "correct" is the 0-based index of the correct option
-- Include clear explanations for each answer`;
+}`;
 }
 
 function buildInterviewPrompt(config) {
@@ -340,9 +578,9 @@ function getMockResponse(type, config) {
         }
 
         // For other languages: check if code is just the starter template
-        const isStarter = !code || code.includes('// Write your solution here') || 
-                          code.includes('# Write your solution here') || 
-                          code.includes('pass') && code.split('\n').length < 5;
+        const isStarter = !code || code.includes('// Write your solution here') ||
+            code.includes('# Write your solution here') ||
+            code.includes('pass') && code.split('\n').length < 5;
 
         if (isStarter) {
             return {
@@ -380,10 +618,10 @@ function getMockResponse(type, config) {
             passed: passedCount === testResults.length && testResults.length > 0,
             score,
             testResults,
-            feedback: score === 0 
+            feedback: score === 0
                 ? 'No tests passed. Check your logic and make sure you return the correct value.'
-                : score === 100 
-                    ? 'All tests passed! Great solution.' 
+                : score === 100
+                    ? 'All tests passed! Great solution.'
                     : `${passedCount}/${testResults.length} tests passed. Check the failing cases.`,
             timeComplexity: hasLoop ? 'O(n)' : 'O(1)',
             spaceComplexity: 'O(1)',
@@ -397,7 +635,7 @@ function getMockResponse(type, config) {
 // Actually execute JavaScript code against test cases
 function evaluateJavaScript(code, testCases, problem) {
     const testResults = [];
-    
+
     // Extract the function name from the code
     const fnMatch = code.match(/function\s+(\w+)/);
     const fnName = fnMatch ? fnMatch[1] : null;
@@ -423,17 +661,17 @@ function evaluateJavaScript(code, testCases, problem) {
         try {
             // Parse input arguments from the test case input string
             const args = parseTestInput(tc.input);
-            
+
             // Create a sandboxed function execution
             const wrappedCode = `
                 ${code}
                 return JSON.stringify(${fnName}(${args.join(', ')}));
             `;
-            
+
             const fn = new Function(wrappedCode);
             const actual = fn();
             const expected = tc.output?.trim();
-            
+
             // Compare results (normalize both to strings for comparison)
             const normalizedActual = normalizeOutput(actual);
             const normalizedExpected = normalizeOutput(expected);
@@ -483,11 +721,11 @@ function evaluateJavaScript(code, testCases, problem) {
 
 function parseTestInput(inputStr) {
     if (!inputStr) return [];
-    
+
     // Parse format like "nums = [2,7,11,15], target = 9"
     const parts = [];
     const assignments = inputStr.split(/,\s*(?=\w+\s*=)/);
-    
+
     for (const assignment of assignments) {
         const valueMatch = assignment.match(/=\s*(.+)$/);
         if (valueMatch) {
@@ -496,7 +734,7 @@ function parseTestInput(inputStr) {
             parts.push(assignment.trim());
         }
     }
-    
+
     return parts;
 }
 

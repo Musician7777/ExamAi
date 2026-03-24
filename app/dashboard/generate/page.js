@@ -57,11 +57,26 @@ export default function GeneratePage() {
             });
             const exam = await res.json();
 
+            // Check for API errors
+            if (exam.error) {
+                alert(exam.error);
+                setLoading(false);
+                return;
+            }
+
+            // Validate exam has sections
+            if (!exam.sections || exam.sections.length === 0) {
+                alert('Failed to generate exam. The AI returned an invalid response. Please try again.');
+                setLoading(false);
+                return;
+            }
+
             // Store in sessionStorage and navigate
             sessionStorage.setItem('currentExam', JSON.stringify(exam));
             router.push('/dashboard/exam/live');
         } catch (error) {
             console.error('Error generating exam:', error);
+            alert('Network error while generating exam. Please check your connection and try again.');
         }
         setLoading(false);
     };
@@ -195,10 +210,55 @@ export default function GeneratePage() {
                                     <span>🟡 Medium: {custom.medium}%</span>
                                     <span>🔴 Hard: {custom.hard}%</span>
                                 </div>
-                                <div className={styles.difficultyBars}>
+                                <div className={styles.difficultyBars} style={{ marginBottom: '1rem' }}>
                                     <div className={styles.diffBar} style={{ width: `${custom.easy}%`, background: '#4ade80' }} />
                                     <div className={styles.diffBar} style={{ width: `${custom.medium}%`, background: '#fbbf24' }} />
                                     <div className={styles.diffBar} style={{ width: `${custom.hard}%`, background: '#f87171' }} />
+                                </div>
+                                
+                                <div style={{ display: 'flex', gap: '1rem' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Easy</label>
+                                        <input type="range" min="0" max="100" value={custom.easy} className={styles.slider}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value);
+                                                const rem = 100 - val;
+                                                const othersTotal = custom.medium + custom.hard || 1; // prevent divide by 0
+                                                const mRatio = custom.medium / othersTotal;
+                                                const newMedium = Math.round(rem * mRatio);
+                                                const newHard = rem - newMedium;
+                                                setCustom({...custom, easy: val, medium: newMedium, hard: newHard});
+                                            }} 
+                                        />
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Medium</label>
+                                        <input type="range" min="0" max="100" value={custom.medium} className={styles.slider}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value);
+                                                const rem = 100 - val;
+                                                const othersTotal = custom.easy + custom.hard || 1;
+                                                const eRatio = custom.easy / othersTotal;
+                                                const newEasy = Math.round(rem * eRatio);
+                                                const newHard = rem - newEasy;
+                                                setCustom({...custom, medium: val, easy: newEasy, hard: newHard});
+                                            }} 
+                                        />
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Hard</label>
+                                        <input type="range" min="0" max="100" value={custom.hard} className={styles.slider}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value);
+                                                const rem = 100 - val;
+                                                const othersTotal = custom.easy + custom.medium || 1;
+                                                const eRatio = custom.easy / othersTotal;
+                                                const newEasy = Math.round(rem * eRatio);
+                                                const newMedium = rem - newEasy;
+                                                setCustom({...custom, hard: val, easy: newEasy, medium: newMedium});
+                                            }} 
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
