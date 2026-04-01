@@ -1,6 +1,7 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { HiOutlineChatAlt2, HiOutlinePlay, HiOutlineMicrophone, HiOutlineVolumeUp, HiOutlineVolumeOff, HiOutlineRefresh, HiOutlineLogout, HiOutlineLightBulb, HiOutlineChevronDown, HiOutlineChevronUp } from 'react-icons/hi';
+import { FetchExamModal, FetchExamCard, AddPresetCard, SavedPresetCard, SavedPresetsSection, useSavedPresets } from '../../components/PresetManager/PresetManager';
 import styles from './interview.module.css';
 
 /* ─────────────────────────────────────────────
@@ -311,6 +312,41 @@ export default function InterviewPage() {
     const [voiceEnabled, setVoiceEnabled] = useState(true);
     const [micEnabled, setMicEnabled] = useState(true);
 
+    // Smart Presets
+    const [showFetchModal, setShowFetchModal] = useState(false);
+    const [fetchedConfig, setFetchedConfig] = useState(null);
+    const { presets: savedPresets, savePreset, deletePreset } = useSavedPresets('examai_interview_presets');
+
+    /* ─── Handle AI-fetched interview config ─── */
+    function handleUseFetchedConfig(config) {
+        setFetchedConfig(config);
+        setSelectedTemplate(config.interviewType || 'technical');
+        setShowCustom(false);
+    }
+
+    /* ─── Handle saved preset selection ─── */
+    function handleSelectSavedPreset(preset) {
+        setFetchedConfig(preset);
+        setSelectedTemplate(preset.interviewType || preset.id || 'technical');
+        setShowCustom(false);
+    }
+
+    /* ─── Save preset to localStorage ─── */
+    function handleSavePreset(config) {
+        savePreset({
+            name: config.title || 'Custom Interview',
+            emoji: config.emoji || '🎤',
+            desc: config.description || '',
+            interviewType: config.interviewType,
+            role: config.role,
+            company: config.company,
+            topics: config.topics,
+            difficulty: config.difficulty,
+            questionCount: config.questionCount,
+            tone: config.tone,
+        });
+    }
+
     // Interview
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
@@ -417,6 +453,17 @@ export default function InterviewPage() {
 
     /* ─── Config ─── */
     function getConfig() {
+        if (fetchedConfig) {
+            return {
+                interviewType: fetchedConfig.interviewType || 'technical',
+                role: fetchedConfig.role || 'Candidate',
+                company: fetchedConfig.company || '',
+                topics: fetchedConfig.topics || ['General'],
+                difficulty: fetchedConfig.difficulty || 'Medium',
+                questionCount: fetchedConfig.questionCount || 10,
+                tone: fetchedConfig.tone || 'Professional',
+            };
+        }
         if (showCustom) {
             return {
                 interviewType: 'technical',
@@ -794,6 +841,7 @@ export default function InterviewPage() {
     }
 
     function canStart() {
+        if (fetchedConfig) return true;
         if (showCustom) return customConfig.role.trim().length > 0;
         return selectedTemplate !== null;
     }
@@ -822,8 +870,8 @@ export default function InterviewPage() {
                     {interviewTemplates.map(t => (
                         <div
                             key={t.id}
-                            className={`${styles.templateCard} ${selectedTemplate === t.id && !showCustom ? styles.selected : ''}`}
-                            onClick={() => { setSelectedTemplate(t.id); setShowCustom(false); }}
+                            className={`${styles.templateCard} ${selectedTemplate === t.id && !showCustom && !fetchedConfig ? styles.selected : ''}`}
+                            onClick={() => { setSelectedTemplate(t.id); setShowCustom(false); setFetchedConfig(null); }}
                         >
                             <div className={styles.templateEmoji}>{t.emoji}</div>
                             <h3>{t.title}</h3>
@@ -838,7 +886,7 @@ export default function InterviewPage() {
                     ))}
                     <div
                         className={`${styles.templateCard} ${styles.customCard} ${showCustom ? styles.selected : ''}`}
-                        onClick={() => { setShowCustom(true); setSelectedTemplate(null); }}
+                        onClick={() => { setShowCustom(true); setSelectedTemplate(null); setFetchedConfig(null); }}
                     >
                         <div className={styles.templateEmoji}>✨</div>
                         <h3>Custom Interview</h3>
@@ -846,7 +894,41 @@ export default function InterviewPage() {
                     </div>
                 </div>
 
-                {showCustom && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-8)' }}>
+                    <FetchExamCard onClick={() => setShowFetchModal(true)} />
+                    <AddPresetCard
+                        onFetchClick={() => setShowFetchModal(true)}
+                        onCustomClick={() => { setShowCustom(true); setSelectedTemplate(null); setFetchedConfig(null); }}
+                    />
+                </div>
+
+                {/* Saved Presets */}
+                <SavedPresetsSection count={savedPresets.length}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
+                        {savedPresets.map((p) => (
+                            <SavedPresetCard
+                                key={p.id}
+                                preset={p}
+                                isSelected={fetchedConfig?.id === p.id}
+                                onSelect={() => handleSelectSavedPreset(p)}
+                                onDelete={deletePreset}
+                            />
+                        ))}
+                    </div>
+                </SavedPresetsSection>
+
+                {/* Fetched config banner */}
+                {fetchedConfig && (
+                    <div className={styles.fetchedBanner}>
+                        <span>{fetchedConfig.emoji || '🎤'}</span>
+                        <strong>{fetchedConfig.title || fetchedConfig.name || 'Fetched Interview'}</strong>
+                        <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
+                            — {fetchedConfig.role || fetchedConfig.interviewType} • {fetchedConfig.difficulty || 'Medium'} • {fetchedConfig.questionCount || 10} Qs
+                        </span>
+                    </div>
+                )}
+
+                {showCustom && !fetchedConfig && (
                     <div className={styles.customBuilder}>
                         <h2>✨ Build Your Interview</h2>
                         <div className={styles.builderGrid}>
@@ -915,6 +997,15 @@ export default function InterviewPage() {
                         <HiOutlinePlay /> Start Interview
                     </button>
                 </div>
+
+                {/* Fetch Modal */}
+                <FetchExamModal
+                    isOpen={showFetchModal}
+                    onClose={() => setShowFetchModal(false)}
+                    onUseConfig={handleUseFetchedConfig}
+                    onSavePreset={handleSavePreset}
+                    mode="interview"
+                />
             </div>
         );
     }

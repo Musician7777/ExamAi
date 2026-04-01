@@ -203,6 +203,22 @@
     color: var(--primary-300);
 }
 
+.fetchedBanner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: rgba(99, 102, 241, 0.04);
+    border: 1px solid rgba(99, 102, 241, 0.12);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-5);
+    font-size: 0.9rem;
+}
+
+.fetchedBanner span:first-child {
+    font-size: 1.2rem;
+}
+
 /* ── Start Controls ── */
 .startControls {
     display: flex;
