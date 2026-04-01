@@ -77,8 +77,14 @@ export async function POST(request) {
             case 'interview-question':
                 prompt = buildInterviewPrompt(config);
                 break;
+            case 'interview-respond':
+                prompt = buildInterviewRespondPrompt(config);
+                break;
             case 'evaluate-answer':
                 prompt = buildEvaluationPrompt(config);
+                break;
+            case 'interview-analysis':
+                prompt = buildInterviewAnalysisPrompt(config);
                 break;
             case 'evaluate-code':
                 prompt = buildCodeEvaluationPrompt(config);
@@ -344,25 +350,95 @@ Return a JSON object with this EXACT structure:
 }
 
 function buildInterviewPrompt(config) {
-    return `You are an AI interviewer conducting a ${config.interviewType || 'technical'} interview.
+    const role = config.role || config.interviewType || 'Software Engineer';
+    const company = config.company ? `at ${config.company}` : '';
+    const topics = config.topics && config.topics.length > 0 ? config.topics.join(', ') : 'General';
+    const difficulty = config.difficulty || 'Medium';
+    const tone = config.tone || 'Professional';
+    const questionNumber = (config.history?.length || 0) + 1;
+    const totalQuestions = config.questionCount || 10;
 
-Context:
-- Interview Type: ${config.interviewType}
-- Topic: ${config.topic || 'General'}
-- Difficulty: ${config.difficulty || 'Medium'}
-- Previous Q&A: ${JSON.stringify(config.history || [])}
+    return `You are a senior interviewer conducting a realistic ${config.interviewType || 'technical'} interview for the role of ${role} ${company}.
 
-Generate the next interview question as a JSON object:
+INTERVIEW CONTEXT:
+- Role: ${role} ${company}
+- Interview Type: ${config.interviewType || 'technical'}
+- Topics to Cover: ${topics}
+- Difficulty Level: ${difficulty}
+- Tone: ${tone}
+- This is Question ${questionNumber} of ${totalQuestions}
+
+PREVIOUS QUESTIONS ASKED (do NOT repeat or ask similar questions):
+${config.history && config.history.length > 0 ? config.history.map((q, i) => `Q${i+1}: ${q}`).join('\n') : 'None — this is the first question.'}
+
+RULES:
+1. Ask ONE clear, specific question appropriate for the role and difficulty level
+2. Do NOT repeat or rephrase any previous question
+3. The question should be realistic — something an actual interviewer would ask
+4. For technical interviews: ask about real concepts, not made-up scenarios
+5. For HR interviews: focus on behavioral situations and career goals
+6. Keep the question concise — 1-3 sentences maximum
+7. Start easy and progressively increase difficulty as question number increases
+8. If this is a follow-up to a topic, reference the previous context naturally
+
+Return ONLY a JSON object:
 {
-  "question": "The interview question",
-  "expectedPoints": ["Key point 1", "Key point 2"],
+  "question": "The interview question (1-3 sentences, natural speaking tone)",
+  "expectedPoints": ["Key point 1 a good answer should cover", "Key point 2", "Key point 3"],
   "difficulty": "easy|medium|hard",
-  "topic": "${config.topic}",
-  "followUp": true/false,
-  "hint": "Optional hint for the candidate"
+  "topic": "The specific topic this question covers"
+}`;
 }
 
-Make it realistic, professional, and progressively challenging based on the conversation history.`;
+function buildInterviewRespondPrompt(config) {
+    const role = config.role || 'Software Engineer';
+    const company = config.company ? `at ${config.company}` : '';
+    const topics = config.topics && config.topics.length > 0 ? config.topics.join(', ') : 'General';
+    const questionNumber = (config.questionNumber || 1) + 1;
+    const totalQuestions = config.questionCount || 10;
+
+    return `You are a senior interviewer conducting a ${config.interviewType || 'technical'} interview for ${role} ${company}.
+
+You just asked: "${config.question}"
+Expected key points: ${JSON.stringify(config.expectedPoints || [])}
+
+The candidate answered: "${config.answer}"
+
+Do TWO things:
+
+1. EVALUATE the answer:
+   - Score 0-10 based on accuracy, depth, and clarity
+   - Give brief, constructive feedback (2-3 sentences max, in a natural interviewer tone)
+   - Identify strengths and areas for improvement
+
+2. ASK THE NEXT QUESTION (Question ${questionNumber} of ${totalQuestions}):
+   - Topics to cover: ${topics}
+   - Difficulty: ${config.difficulty || 'Medium'}
+   - Do NOT repeat any previous question
+   - Previous questions: ${config.history?.map((q, i) => `Q${i+1}: ${q}`).join('; ') || 'None'}
+   - Keep it natural — you can briefly acknowledge their answer before asking
+
+RULES:
+- Be realistic — sound like a real interviewer, not an AI
+- Feedback should be honest but encouraging
+- The transition to the next question should feel natural
+- Do NOT hallucinate facts — only evaluate based on what the candidate said
+- Keep feedback concise, not a lecture
+
+Return ONLY a JSON object:
+{
+  "score": 7,
+  "feedback": "Brief evaluation of their answer in a natural interviewer tone",
+  "strengths": ["strength 1"],
+  "improvements": ["area to improve 1"],
+  "knowledgeScore": 7,
+  "communicationScore": 8,
+  "confidenceScore": 7,
+  "nextQuestion": "The next interview question (natural, conversational)",
+  "nextExpectedPoints": ["Key point 1", "Key point 2"],
+  "nextDifficulty": "medium",
+  "nextTopic": "Topic name"
+}`;
 }
 
 function buildEvaluationPrompt(config) {
@@ -381,6 +457,77 @@ Return a JSON evaluation:
   "knowledgeScore": number (0-10),
   "communicationScore": number (0-10),
   "confidenceScore": number (0-10)
+}`;
+}
+
+function buildInterviewAnalysisPrompt(config) {
+    const reviewData = config.reviewData || [];
+    const interviewConfig = config.interviewConfig || {};
+    const scores = config.scores || {};
+
+    const questionsDetail = reviewData.map((item, i) => 
+        `Q${i + 1}: "${item.question}"
+Answer: "${item.answer}"
+Score: ${item.score}/10
+Feedback: ${item.feedback}`
+    ).join('\n\n');
+
+    return `You are a senior career coach and interview expert. Analyze this complete interview session and provide a comprehensive, actionable report.
+
+INTERVIEW DETAILS:
+- Role: ${interviewConfig.role || 'General'}
+- Type: ${interviewConfig.interviewType || 'technical'}
+- Difficulty: ${interviewConfig.difficulty || 'Medium'}
+- Topics: ${(interviewConfig.topics || []).join(', ')}
+- Total Questions Attempted: ${reviewData.length} / ${interviewConfig.questionCount || 10}
+- Average Knowledge Score: ${scores.knowledge || 0}%
+- Average Communication Score: ${scores.communication || 0}%
+- Average Confidence Score: ${scores.confidence || 0}%
+
+COMPLETE Q&A LOG:
+${questionsDetail}
+
+Provide a comprehensive analysis report. Be specific, honest, and constructive. Reference actual answers given.
+
+Return ONLY a JSON object:
+{
+  "overallVerdict": "One sentence summary of performance (e.g., 'Strong technical foundation with room for depth in system design')",
+  "overallGrade": "A+ / A / B+ / B / C+ / C / D / F",
+  "readinessLevel": "Ready / Almost Ready / Needs Improvement / Significant Gaps",
+  "strengthAreas": [
+    {
+      "area": "Topic/skill name",
+      "detail": "Specific explanation citing their actual answers"
+    }
+  ],
+  "improvementAreas": [
+    {
+      "area": "Topic/skill name",
+      "detail": "What was lacking and why it matters",
+      "actionItem": "Specific action to improve (e.g., 'Practice 5 system design problems on Educative.io')"
+    }
+  ],
+  "topicBreakdown": [
+    {
+      "topic": "Topic name",
+      "score": 8,
+      "maxScore": 10,
+      "comment": "Brief assessment of this topic"
+    }
+  ],
+  "communicationFeedback": {
+    "clarity": "Assessment of answer clarity and structure",
+    "depth": "Assessment of answer depth",
+    "examples": "Did they use real examples? Assessment.",
+    "tips": ["Specific communication tip 1", "Specific communication tip 2"]
+  },
+  "nextSteps": [
+    "Prioritized action item 1 (most important)",
+    "Action item 2",
+    "Action item 3",
+    "Action item 4"
+  ],
+  "mockInterviewTip": "One motivational/strategic tip for their next interview"
 }`;
 }
 
@@ -561,9 +708,26 @@ function getMockResponse(type, config) {
                 { question: 'Discuss the impact of digital governance on rural India.', expectedPoints: ['Digital India initiative', 'Challenges', 'Benefits', 'Examples'], difficulty: 'hard', topic: 'Current Affairs' },
             ],
         };
-        const type_questions = questions[config?.interviewType] || questions.technical;
+        const interviewType = config?.interviewType || 'technical';
+        const type_questions = questions[interviewType] || questions.technical;
         const idx = (config?.history?.length || 0) % type_questions.length;
         return { ...type_questions[idx], followUp: (config?.history?.length || 0) > 0, hint: 'Take your time to structure your answer.' };
+    }
+
+    if (type === 'interview-respond') {
+        return {
+            score: 7,
+            feedback: 'Good answer with solid understanding. You covered the key concepts well.',
+            strengths: ['Clear communication', 'Core concepts understood'],
+            improvements: ['Add specific examples', 'Discuss edge cases'],
+            knowledgeScore: 7,
+            communicationScore: 8,
+            confidenceScore: 7,
+            nextQuestion: 'Can you walk me through how you would design a URL shortening service?',
+            nextExpectedPoints: ['Database design', 'Hash generation', 'Scalability', 'Caching'],
+            nextDifficulty: 'medium',
+            nextTopic: 'System Design',
+        };
     }
 
     if (type === 'evaluate-answer') {

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import styles from '../results.module.css';
@@ -7,11 +7,35 @@ import styles from '../results.module.css';
 export default function ResultsPage() {
     const router = useRouter();
     const [data, setData] = useState(null);
+    const savedRef = useRef(false);
 
     useEffect(() => {
         const stored = sessionStorage.getItem('examResults');
         if (stored) {
-            setData(JSON.parse(stored));
+            const parsed = JSON.parse(stored);
+            setData(parsed);
+            // Save to database (once)
+            if (!savedRef.current) {
+                savedRef.current = true;
+                const correct = parsed.results?.filter(r => r.isCorrect).length || 0;
+                fetch('/api/activities', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'exam',
+                        title: parsed.exam?.title || 'Untitled Exam',
+                        score: parsed.score || 0,
+                        totalMarks: parsed.totalMarks || 100,
+                        details: {
+                            correct: parsed.correct,
+                            wrong: parsed.wrong,
+                            unanswered: parsed.unanswered,
+                            timeTaken: parsed.timeTaken,
+                            sectionCount: parsed.exam?.sections?.length || 0,
+                        },
+                    }),
+                }).catch(err => console.error('Failed to save exam activity:', err));
+            }
         } else {
             router.push('/dashboard/generate');
         }
