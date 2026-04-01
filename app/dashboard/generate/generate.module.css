@@ -1,32 +1,35 @@
 .genPage {
-    max-width: 1200px;
+    max-width: 1100px;
 }
 
 .genPage>h1 {
-    font-size: 1.8rem;
-    font-weight: 800;
+    font-size: 1.6rem;
+    font-weight: 700;
     margin-bottom: var(--space-2);
+    letter-spacing: -0.02em;
 }
 
 .genPage>p {
     color: var(--text-secondary);
-    margin-bottom: var(--space-8);
+    margin-bottom: var(--space-6);
+    font-size: 0.9rem;
 }
 
 .tabs {
     display: flex;
-    gap: var(--space-2);
-    margin-bottom: var(--space-8);
+    gap: 0;
+    margin-bottom: var(--space-6);
     border-bottom: 1px solid var(--border-color);
 }
 
 .tab {
-    padding: var(--space-3) var(--space-6);
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--text-secondary);
+    padding: var(--space-3) var(--space-5);
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: var(--text-tertiary);
     border-bottom: 2px solid transparent;
     transition: all var(--transition-fast);
+    margin-bottom: -1px;
 }
 
 .tab:hover {
@@ -34,19 +37,20 @@
 }
 
 .tab.active {
-    color: var(--primary-400);
-    border-bottom-color: var(--primary-500);
+    color: var(--text-primary);
+    border-bottom-color: var(--text-primary);
+    font-weight: 600;
 }
 
 /* Preset */
 .categoryTitle {
-    font-size: 1rem;
-    font-weight: 700;
+    font-size: 0.75rem;
+    font-weight: 600;
     color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 1px;
-    margin-bottom: var(--space-4);
-    margin-top: var(--space-6);
+    margin-bottom: var(--space-3);
+    margin-top: var(--space-5);
 }
 
 .categoryTitle:first-child {
@@ -55,44 +59,44 @@
 
 .presetGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: var(--space-4);
-    margin-bottom: var(--space-6);
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
 }
 
 .presetCard {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    padding: var(--space-5);
+    padding: var(--space-4) var(--space-3);
     cursor: pointer;
     transition: all var(--transition-fast);
     text-align: center;
 }
 
 .presetCard:hover {
-    border-color: var(--primary-400);
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-glow);
+    border-color: var(--border-color-hover);
+    box-shadow: var(--shadow-sm);
 }
 
 .presetCard.selected {
     border-color: var(--primary-500);
-    background: rgba(99, 102, 241, 0.08);
+    background: rgba(99, 102, 241, 0.05);
+    box-shadow: var(--shadow-glow);
 }
 
 .presetEmoji {
-    font-size: 2rem;
+    font-size: 1.8rem;
     margin-bottom: var(--space-2);
 }
 
 .presetCard h4 {
-    font-size: 0.95rem;
+    font-size: 0.875rem;
     font-weight: 600;
 }
 
 .presetCard p {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     color: var(--text-tertiary);
     margin-top: 2px;
 }
@@ -102,17 +106,17 @@
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    padding: var(--space-8);
+    padding: var(--space-6);
 }
 
 .formGrid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: var(--space-5);
+    gap: var(--space-4);
 }
 
 .formGroup {
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--space-3);
 }
 
 .formGroup.full {
@@ -121,8 +125,8 @@
 
 .formGroup label {
     display: block;
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-size: 0.82rem;
+    font-weight: 500;
     color: var(--text-secondary);
     margin-bottom: var(--space-2);
 }
@@ -134,23 +138,24 @@
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     color: var(--text-primary);
-    font-size: 0.9rem;
+    font-size: 0.875rem;
     outline: none;
     transition: border-color var(--transition-fast);
 }
 
 .formInput:focus {
     border-color: var(--primary-500);
+    box-shadow: var(--shadow-glow);
 }
 
 .sliderGroup {
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--space-3);
 }
 
 .sliderLabel {
     display: flex;
     justify-content: space-between;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     color: var(--text-secondary);
     margin-bottom: var(--space-2);
 }
@@ -162,8 +167,8 @@
 
 .difficultyBars {
     display: flex;
-    gap: var(--space-2);
-    height: 8px;
+    gap: var(--space-1);
+    height: 6px;
     border-radius: var(--radius-full);
     overflow: hidden;
     margin-top: var(--space-2);
@@ -178,27 +183,26 @@
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    padding: var(--space-4) var(--space-5);
-    background: rgba(99, 102, 241, 0.06);
-    border: 1px solid rgba(99, 102, 241, 0.15);
+    padding: var(--space-3) var(--space-4);
+    background: rgba(99, 102, 241, 0.04);
+    border: 1px solid rgba(99, 102, 241, 0.12);
     border-radius: var(--radius-md);
-    margin-bottom: var(--space-6);
-    font-size: 0.95rem;
+    margin-bottom: var(--space-5);
+    font-size: 0.9rem;
 }
 
 .fetchedBanner span:first-child {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
 }
 
 .generateBtn {
-    margin-top: var(--space-6);
-    padding: var(--space-4) var(--space-10);
-    background: var(--gradient-primary);
-    color: white;
-    font-weight: 700;
-    font-size: 1rem;
+    margin-top: var(--space-5);
+    padding: var(--space-3) var(--space-8);
+    background: var(--text-primary);
+    color: var(--text-inverse);
+    font-weight: 600;
+    font-size: 0.9rem;
     border-radius: var(--radius-full);
-    box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
     transition: all var(--transition-base);
     display: inline-flex;
     align-items: center;
@@ -206,14 +210,16 @@
 }
 
 .generateBtn:hover {
-    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.5);
+    opacity: 0.85;
     transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
 }
 
 .generateBtn:disabled {
-    opacity: 0.6;
+    opacity: 0.35;
     cursor: not-allowed;
     transform: none;
+    box-shadow: none;
 }
 
 .loading {
@@ -226,12 +232,12 @@
 }
 
 .spinner {
-    width: 48px;
-    height: 48px;
-    border: 3px solid var(--border-color);
+    width: 40px;
+    height: 40px;
+    border: 2.5px solid var(--border-color);
     border-top-color: var(--primary-500);
     border-radius: 50%;
-    animation: spin 0.8s linear infinite;
+    animation: spin 0.7s linear infinite;
     margin-bottom: var(--space-4);
 }
 
@@ -242,7 +248,7 @@
 
 .loading p {
     color: var(--text-secondary);
-    font-size: 1rem;
+    font-size: 0.95rem;
 }
 
 @media (max-width: 768px) {

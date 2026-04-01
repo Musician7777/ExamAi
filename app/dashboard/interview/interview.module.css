@@ -3,84 +3,102 @@
 }
 
 .interviewPage>h1 {
-    font-size: 1.8rem;
-    font-weight: 800;
+    font-size: 1.6rem;
+    font-weight: 700;
     margin-bottom: var(--space-2);
+    letter-spacing: -0.02em;
 }
 
 .interviewPage>p {
     color: var(--text-secondary);
-    margin-bottom: var(--space-8);
+    margin-bottom: var(--space-6);
+    font-size: 0.9rem;
 }
 
 .typeGrid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: var(--space-5);
-    margin-bottom: var(--space-8);
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
 }
 
 .typeCard {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-xl);
-    padding: var(--space-8);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
     text-align: center;
     cursor: pointer;
-    transition: all var(--transition-base);
+    transition: all var(--transition-fast);
 }
 
 .typeCard:hover {
-    border-color: var(--primary-400);
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-glow);
+    border-color: var(--border-color-hover);
+    box-shadow: var(--shadow-sm);
 }
 
 .typeCard.selected {
     border-color: var(--primary-500);
-    background: rgba(99, 102, 241, 0.05);
+    background: rgba(99, 102, 241, 0.04);
+    box-shadow: var(--shadow-glow);
 }
 
 .typeEmoji {
-    font-size: 3rem;
-    margin-bottom: var(--space-4);
+    font-size: 2.5rem;
+    margin-bottom: var(--space-3);
 }
 
 .typeCard h3 {
-    font-size: 1.1rem;
-    font-weight: 700;
-    margin-bottom: var(--space-2);
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: var(--space-1);
 }
 
 .typeCard p {
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     color: var(--text-secondary);
 }
 
 .typeTopics {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-2);
+    gap: var(--space-1);
     justify-content: center;
     margin-top: var(--space-3);
 }
 
 .typeTopic {
-    padding: 2px 10px;
+    padding: 2px 8px;
     background: var(--bg-tertiary);
     border-radius: var(--radius-full);
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     color: var(--text-tertiary);
     font-weight: 500;
 }
 
+.fetchedBanner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: rgba(99, 102, 241, 0.04);
+    border: 1px solid rgba(99, 102, 241, 0.12);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-5);
+    font-size: 0.9rem;
+}
+
+.fetchedBanner span:first-child {
+    font-size: 1.2rem;
+}
+
 .startBtn {
-    padding: var(--space-4) var(--space-10);
-    background: var(--gradient-primary);
-    color: white;
-    font-weight: 700;
+    padding: var(--space-3) var(--space-8);
+    background: var(--text-primary);
+    color: var(--text-inverse);
+    font-weight: 600;
+    font-size: 0.9rem;
     border-radius: var(--radius-full);
-    box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
     transition: all var(--transition-base);
     display: inline-flex;
     align-items: center;
@@ -88,37 +106,22 @@
 }
 
 .startBtn:hover {
-    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.5);
+    opacity: 0.85;
     transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
 }
 
 .startBtn:disabled {
-    opacity: 0.5;
+    opacity: 0.35;
     cursor: not-allowed;
     transform: none;
-}
-
-.fetchedBanner {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-4) var(--space-5);
-    background: rgba(99, 102, 241, 0.06);
-    border: 1px solid rgba(99, 102, 241, 0.15);
-    border-radius: var(--radius-md);
-    margin-bottom: var(--space-6);
-    font-size: 0.95rem;
-}
-
-.fetchedBanner span:first-child {
-    font-size: 1.3rem;
 }
 
 /* Chat interface */
 .chatLayout {
     display: grid;
-    grid-template-columns: 1fr 280px;
-    gap: var(--space-6);
+    grid-template-columns: 1fr 260px;
+    gap: var(--space-5);
     max-width: 1100px;
     min-height: calc(100vh - 64px);
 }
@@ -132,30 +135,30 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--space-4) var(--space-5);
+    padding: var(--space-3) var(--space-4);
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--space-3);
 }
 
 .chatHeader h3 {
-    font-size: 1rem;
-    font-weight: 700;
+    font-size: 0.95rem;
+    font-weight: 600;
 }
 
 .endBtn {
     padding: var(--space-2) var(--space-4);
-    background: rgba(239, 68, 68, 0.12);
-    color: var(--danger-400);
-    font-weight: 600;
+    background: rgba(239, 68, 68, 0.08);
+    color: var(--danger-500);
+    font-weight: 550;
     font-size: 0.8rem;
     border-radius: var(--radius-md);
     transition: all var(--transition-fast);
 }
 
 .endBtn:hover {
-    background: rgba(239, 68, 68, 0.2);
+    background: rgba(239, 68, 68, 0.15);
 }
 
 .chatMessages {
@@ -164,20 +167,20 @@
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    padding: var(--space-6);
+    padding: var(--space-5);
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
-    margin-bottom: var(--space-4);
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
 }
 
 .message {
     max-width: 80%;
-    padding: var(--space-4) var(--space-5);
+    padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-lg);
-    font-size: 0.9rem;
+    font-size: 0.875rem;
     line-height: 1.7;
-    animation: fadeInUp 0.3s ease;
+    animation: fadeInUp 0.25s ease;
 }
 
 .aiMsg {
@@ -187,7 +190,7 @@
 }
 
 .userMsg {
-    background: rgba(99, 102, 241, 0.12);
+    background: rgba(99, 102, 241, 0.08);
     color: var(--text-primary);
     align-self: flex-end;
     border-bottom-right-radius: var(--radius-sm);
@@ -196,24 +199,24 @@
 .typing {
     display: flex;
     gap: 4px;
-    padding: var(--space-4) var(--space-5);
+    padding: var(--space-3) var(--space-4);
     align-self: flex-start;
 }
 
 .typingDot {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     background: var(--text-tertiary);
-    animation: float 1.5s ease-in-out infinite;
+    animation: float 1.4s ease-in-out infinite;
 }
 
 .typingDot:nth-child(2) {
-    animation-delay: 0.3s;
+    animation-delay: 0.25s;
 }
 
 .typingDot:nth-child(3) {
-    animation-delay: 0.6s;
+    animation-delay: 0.5s;
 }
 
 .chatInput {
@@ -233,8 +236,9 @@
     border-radius: var(--radius-md);
     color: var(--text-primary);
     resize: none;
-    min-height: 50px;
+    min-height: 48px;
     outline: none;
+    font-size: 0.875rem;
 }
 
 .chatInput textarea:focus {
@@ -243,27 +247,28 @@
 
 .sendBtn {
     padding: var(--space-3) var(--space-5);
-    background: var(--gradient-primary);
-    color: white;
+    background: var(--text-primary);
+    color: var(--text-inverse);
     font-weight: 600;
+    font-size: 0.85rem;
     border-radius: var(--radius-md);
     align-self: flex-end;
     transition: all var(--transition-fast);
 }
 
 .sendBtn:hover {
-    box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
+    opacity: 0.85;
 }
 
 .sendBtn:disabled {
-    opacity: 0.5;
+    opacity: 0.35;
 }
 
 /* Score sidebar */
 .scoreSidebar {
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
+    gap: var(--space-3);
     height: fit-content;
     position: sticky;
     top: var(--space-4);
@@ -273,13 +278,13 @@
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    padding: var(--space-5);
+    padding: var(--space-4);
 }
 
 .scoreCard h4 {
-    font-size: 0.85rem;
-    font-weight: 700;
-    margin-bottom: var(--space-4);
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: var(--space-3);
     color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -289,45 +294,46 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--space-3);
+    margin-bottom: var(--space-2);
 }
 
 .scoreLabel {
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     color: var(--text-secondary);
 }
 
 .scoreVal {
-    font-weight: 700;
-    font-size: 0.9rem;
+    font-weight: 600;
+    font-size: 0.85rem;
 }
 
 .scoreMeter {
-    height: 6px;
+    height: 5px;
     background: var(--bg-tertiary);
     border-radius: var(--radius-full);
     overflow: hidden;
-    margin-top: 4px;
+    margin-top: 3px;
 }
 
 .scoreFill {
     height: 100%;
     border-radius: var(--radius-full);
     background: var(--gradient-primary);
-    transition: width 0.5s ease;
+    transition: width 0.4s ease;
 }
 
 .questionCount {
     text-align: center;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     color: var(--text-secondary);
 }
 
 .questionCount span {
-    font-size: 1.8rem;
-    font-weight: 800;
+    font-size: 1.6rem;
+    font-weight: 700;
     display: block;
-    color: var(--primary-400);
+    color: var(--primary-500);
+    letter-spacing: -0.02em;
 }
 
 @media (max-width: 768px) {
