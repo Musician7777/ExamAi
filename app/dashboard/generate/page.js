@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { HiOutlineLightningBolt, HiOutlinePlay } from 'react-icons/hi';
+import { FetchExamModal, FetchExamCard, AddPresetCard, SavedPresetCard, SavedPresetsSection, useSavedPresets } from '../../components/PresetManager/PresetManager';
 import styles from './generate.module.css';
 
 const governmentPresets = [
@@ -25,6 +26,10 @@ export default function GeneratePage() {
     const [activeTab, setActiveTab] = useState('preset');
     const [selectedPreset, setSelectedPreset] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [showFetchModal, setShowFetchModal] = useState(false);
+    const [fetchedConfig, setFetchedConfig] = useState(null);
+    const { presets: savedPresets, savePreset, deletePreset } = useSavedPresets('examai_exam_presets');
+
     const [custom, setCustom] = useState({
         totalQuestions: 50,
         sections: 'Quant, Reasoning, English, GK',
@@ -36,13 +41,63 @@ export default function GeneratePage() {
         questionType: 'MCQ',
     });
 
+    /* ─── Handle AI-fetched config ─── */
+    function handleUseFetchedConfig(config) {
+        setFetchedConfig(config);
+        setCustom({
+            totalQuestions: config.totalQuestions || 50,
+            sections: Array.isArray(config.sections) ? config.sections.join(', ') : (config.sections || 'General'),
+            negativeMarking: config.negativeMarking || 0,
+            timeLimit: config.timeLimit || 60,
+            easy: 30,
+            medium: 50,
+            hard: 20,
+            questionType: config.questionType || 'MCQ',
+        });
+        setActiveTab('custom');
+        setSelectedPreset(null);
+    }
+
+    /* ─── Handle saved preset selection ─── */
+    function handleSelectSavedPreset(preset) {
+        setFetchedConfig(preset);
+        setCustom({
+            totalQuestions: preset.totalQuestions || 50,
+            sections: Array.isArray(preset.sections) ? preset.sections.join(', ') : (preset.sections || 'General'),
+            negativeMarking: preset.negativeMarking || 0,
+            timeLimit: preset.timeLimit || 60,
+            easy: 30,
+            medium: 50,
+            hard: 20,
+            questionType: preset.questionType || 'MCQ',
+        });
+        setActiveTab('custom');
+        setSelectedPreset(preset.id);
+    }
+
+    /* ─── Save preset to localStorage ─── */
+    function handleSavePreset(config) {
+        savePreset({
+            name: config.examName || config.title || 'Custom Exam',
+            emoji: config.emoji || '📄',
+            desc: config.description || '',
+            totalQuestions: config.totalQuestions,
+            sections: config.sections,
+            negativeMarking: config.negativeMarking,
+            timeLimit: config.timeLimit,
+            marksPerQuestion: config.marksPerQuestion,
+            questionType: config.questionType,
+            topics: config.topics,
+        });
+    }
+
     const handleGenerate = async (examType) => {
         setLoading(true);
         try {
             const config = activeTab === 'preset'
                 ? { examType: examType || selectedPreset, totalQuestions: 20, difficulty: '30% Easy, 50% Medium, 20% Hard' }
                 : {
-                    examType: 'Custom',
+                    examType: fetchedConfig?.examName || 'Custom',
                     totalQuestions: custom.totalQuestions,
                     sections: custom.sections.split(',').map(s => s.trim()),
                     negativeMarking: custom.negativeMarking,
@@ -57,21 +112,18 @@ export default function GeneratePage() {
             });
             const exam = await res.json();
 
-            // Check for API errors
             if (exam.error) {
                 alert(exam.error);
                 setLoading(false);
                 return;
             }
 
-            // Validate exam has sections
             if (!exam.sections || exam.sections.length === 0) {
                 alert('Failed to generate exam. The AI returned an invalid response. Please try again.');
                 setLoading(false);
                 return;
             }
 
-            // Store in sessionStorage and navigate
             sessionStorage.setItem('currentExam', JSON.stringify(exam));
             router.push('/dashboard/exam/live');
         } catch (error) {
@@ -117,7 +169,7 @@ export default function GeneratePage() {
                             <div
                                 key={p.id}
                                 className={`${styles.presetCard} ${selectedPreset === p.id ? styles.selected : ''}`}
-                                onClick={() => setSelectedPreset(p.id)}
+                                onClick={() => { setSelectedPreset(p.id); setFetchedConfig(null); }}
                             >
                                 <div className={styles.presetEmoji}>{p.emoji}</div>
                                 <h4>{p.name}</h4>
@@ -132,14 +184,34 @@ export default function GeneratePage() {
                             <div
                                 key={p.id}
                                 className={`${styles.presetCard} ${selectedPreset === p.id ? styles.selected : ''}`}
-                                onClick={() => setSelectedPreset(p.id)}
+                                onClick={() => { setSelectedPreset(p.id); setFetchedConfig(null); }}
                             >
                                 <div className={styles.presetEmoji}>{p.emoji}</div>
                                 <h4>{p.name}</h4>
                                 <p>{p.desc}</p>
                             </div>
                         ))}
+                        <FetchExamCard onClick={() => setShowFetchModal(true)} />
+                        <AddPresetCard
+                            onFetchClick={() => setShowFetchModal(true)}
+                            onCustomClick={() => setActiveTab('custom')}
+                        />
                     </div>
+
+                    {/* Saved Presets */}
+                    <SavedPresetsSection count={savedPresets.length}>
+                        <div className={styles.presetGrid}>
+                            {savedPresets.map((p) => (
+                                <SavedPresetCard
+                                    key={p.id}
+                                    preset={p}
+                                    isSelected={selectedPreset === p.id}
+                                    onSelect={() => handleSelectSavedPreset(p)}
+                                    onDelete={deletePreset}
+                                />
+                            ))}
+                        </div>
+                    </SavedPresetsSection>
 
                     <button
                         className={styles.generateBtn}
@@ -151,6 +223,13 @@ export default function GeneratePage() {
                 </div>
             ) : (
                 <div className={styles.customForm}>
+                    {fetchedConfig && (
+                        <div className={styles.fetchedBanner}>
+                            <span>{fetchedConfig.emoji || '📄'}</span>
+                            <strong>{fetchedConfig.examName || fetchedConfig.name || 'Fetched Config'}</strong>
+                            <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>— Modify as needed</span>
+                        </div>
+                    )}
                     <div className={styles.formGrid}>
                         <div className={styles.formGroup}>
                             <label>Total Questions</label>
@@ -223,7 +302,7 @@ export default function GeneratePage() {
                                             onChange={(e) => {
                                                 const val = parseInt(e.target.value);
                                                 const rem = 100 - val;
-                                                const othersTotal = custom.medium + custom.hard || 1; // prevent divide by 0
+                                                const othersTotal = custom.medium + custom.hard || 1;
                                                 const mRatio = custom.medium / othersTotal;
                                                 const newMedium = Math.round(rem * mRatio);
                                                 const newHard = rem - newMedium;
@@ -264,11 +343,20 @@ export default function GeneratePage() {
                         </div>
                     </div>
 
-                    <button className={styles.generateBtn} onClick={() => handleGenerate('Custom')}>
+                    <button className={styles.generateBtn} onClick={() => handleGenerate(fetchedConfig?.examName || 'Custom')}>
                         <HiOutlinePlay /> Generate Custom Exam
                     </button>
                 </div>
             )}
+
+            {/* Fetch Modal */}
+            <FetchExamModal
+                isOpen={showFetchModal}
+                onClose={() => setShowFetchModal(false)}
+                onUseConfig={handleUseFetchedConfig}
+                onSavePreset={handleSavePreset}
+                mode="exam"
+            />
         </div>
     );
 }

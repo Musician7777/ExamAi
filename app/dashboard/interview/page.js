@@ -1,6 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { HiOutlineChatAlt2, HiOutlinePlay } from 'react-icons/hi';
+import { FetchExamModal, FetchExamCard, AddPresetCard, SavedPresetCard, SavedPresetsSection, useSavedPresets } from '../../components/PresetManager/PresetManager';
 import styles from './interview.module.css';
 
 const interviewTypes = [
@@ -17,6 +18,9 @@ export default function InterviewPage() {
     const [isTyping, setIsTyping] = useState(false);
     const [scores, setScores] = useState({ knowledge: 0, communication: 0, confidence: 0 });
     const [questionCount, setQuestionCount] = useState(0);
+    const [showFetchModal, setShowFetchModal] = useState(false);
+    const [fetchedConfig, setFetchedConfig] = useState(null);
+    const { presets: savedPresets, savePreset, deletePreset } = useSavedPresets('examai_interview_presets');
     const chatRef = useRef(null);
 
     useEffect(() => {
@@ -25,20 +29,62 @@ export default function InterviewPage() {
         }
     }, [messages, isTyping]);
 
+    /* ─── Handle AI-fetched interview config ─── */
+    function handleUseFetchedConfig(config) {
+        setFetchedConfig(config);
+        setSelectedType(config.interviewType || 'technical');
+    }
+
+    /* ─── Handle saved preset selection ─── */
+    function handleSelectSavedPreset(preset) {
+        setFetchedConfig(preset);
+        setSelectedType(preset.interviewType || preset.id || 'technical');
+    }
+
+    /* ─── Save preset to localStorage ─── */
+    function handleSavePreset(config) {
+        savePreset({
+            name: config.title || 'Custom Interview',
+            emoji: config.emoji || '🎤',
+            desc: config.description || '',
+            interviewType: config.interviewType,
+            role: config.role,
+            company: config.company,
+            topics: config.topics,
+            difficulty: config.difficulty,
+            questionCount: config.questionCount,
+            tone: config.tone,
+        });
+    }
+
     const startInterview = async () => {
         setStarted(true);
         setIsTyping(true);
 
+        const interviewConfig = fetchedConfig ? {
+            interviewType: fetchedConfig.interviewType || selectedType,
+            role: fetchedConfig.role,
+            company: fetchedConfig.company,
+            topics: fetchedConfig.topics,
+            difficulty: fetchedConfig.difficulty,
+            questionCount: fetchedConfig.questionCount,
+            tone: fetchedConfig.tone,
+            history: [],
+        } : {
+            interviewType: selectedType,
+            history: [],
+        };
+
         const res = await fetch('/api/gemini', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'interview-question', config: { interviewType: selectedType, history: [] } }),
+            body: JSON.stringify({ type: 'interview-question', config: interviewConfig }),
         });
         const data = await res.json();
 
         setTimeout(() => {
             setIsTyping(false);
-            setMessages([{ role: 'ai', text: `Welcome! I'll be conducting your ${selectedType} interview today. Let's begin.\n\n${data.question}`, data }]);
+            setMessages([{ role: 'ai', text: `Welcome! I'll be conducting your ${fetchedConfig?.title || selectedType} interview today. Let's begin.\n\n${data.question}`, data }]);
             setQuestionCount(1);
         }, 1500);
     };
@@ -50,7 +96,6 @@ export default function InterviewPage() {
         setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
         setIsTyping(true);
 
-        // Evaluate answer
         const lastAI = messages.filter(m => m.role === 'ai').pop();
         const evalRes = await fetch('/api/gemini', {
             method: 'POST',
@@ -62,14 +107,12 @@ export default function InterviewPage() {
         });
         const evaluation = await evalRes.json();
 
-        // Update scores
         setScores({
             knowledge: Math.round((scores.knowledge * questionCount + evaluation.knowledgeScore) / (questionCount + 1) * 10),
             communication: Math.round((scores.communication * questionCount + evaluation.communicationScore) / (questionCount + 1) * 10),
             confidence: Math.round((scores.confidence * questionCount + evaluation.confidenceScore) / (questionCount + 1) * 10),
         });
 
-        // Get next question
         const history = messages.filter(m => m.role === 'ai').map(m => m.data?.question).filter(Boolean);
         const nextRes = await fetch('/api/gemini', {
             method: 'POST',
@@ -97,8 +140,8 @@ export default function InterviewPage() {
                     {interviewTypes.map(t => (
                         <div
                             key={t.id}
-                            className={`${styles.typeCard} ${selectedType === t.id ? styles.selected : ''}`}
-                            onClick={() => setSelectedType(t.id)}
+                            className={`${styles.typeCard} ${selectedType === t.id && !fetchedConfig ? styles.selected : ''}`}
+                            onClick={() => { setSelectedType(t.id); setFetchedConfig(null); }}
                         >
                             <div className={styles.typeEmoji}>{t.emoji}</div>
                             <h3>{t.title}</h3>
@@ -108,11 +151,51 @@ export default function InterviewPage() {
                             </div>
                         </div>
                     ))}
+                    <FetchExamCard onClick={() => setShowFetchModal(true)} />
+                    <AddPresetCard
+                        onFetchClick={() => setShowFetchModal(true)}
+                        onCustomClick={() => { setSelectedType('technical'); setFetchedConfig(null); }}
+                    />
                 </div>
 
-                <button className={styles.startBtn} disabled={!selectedType} onClick={startInterview}>
+                {/* Saved Presets */}
+                <SavedPresetsSection count={savedPresets.length}>
+                    <div className={styles.typeGrid}>
+                        {savedPresets.map((p) => (
+                            <SavedPresetCard
+                                key={p.id}
+                                preset={p}
+                                isSelected={fetchedConfig?.id === p.id}
+                                onSelect={() => handleSelectSavedPreset(p)}
+                                onDelete={deletePreset}
+                            />
+                        ))}
+                    </div>
+                </SavedPresetsSection>
+
+                {/* Fetched config banner */}
+                {fetchedConfig && (
+                    <div className={styles.fetchedBanner}>
+                        <span>{fetchedConfig.emoji || '🎤'}</span>
+                        <strong>{fetchedConfig.title || fetchedConfig.name || 'Fetched Interview'}</strong>
+                        <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
+                            — {fetchedConfig.role || fetchedConfig.interviewType} • {fetchedConfig.difficulty || 'Medium'} • {fetchedConfig.questionCount || 10} Qs
+                        </span>
+                    </div>
+                )}
+
+                <button className={styles.startBtn} disabled={!selectedType && !fetchedConfig} onClick={startInterview}>
                     <HiOutlinePlay /> Start Interview
                 </button>
+
+                {/* Fetch Modal */}
+                <FetchExamModal
+                    isOpen={showFetchModal}
+                    onClose={() => setShowFetchModal(false)}
+                    onUseConfig={handleUseFetchedConfig}
+                    onSavePreset={handleSavePreset}
+                    mode="interview"
+                />
             </div>
         );
     }
@@ -121,8 +204,8 @@ export default function InterviewPage() {
         <div className={styles.chatLayout}>
             <div className={styles.chatMain}>
                 <div className={styles.chatHeader}>
-                    <h3>🎤 {selectedType.charAt(0).toUpperCase() + selectedType.slice(1)} Interview</h3>
-                    <button className={styles.endBtn} onClick={() => { setStarted(false); setMessages([]); setQuestionCount(0); }}>
+                    <h3>🎤 {fetchedConfig?.title || (selectedType ? selectedType.charAt(0).toUpperCase() + selectedType.slice(1) : '')} Interview</h3>
+                    <button className={styles.endBtn} onClick={() => { setStarted(false); setMessages([]); setQuestionCount(0); setFetchedConfig(null); }}>
                         End Interview
                     </button>
                 </div>

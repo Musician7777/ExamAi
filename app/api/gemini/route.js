@@ -83,6 +83,15 @@ export async function POST(request) {
             case 'evaluate-code':
                 prompt = buildCodeEvaluationPrompt(config);
                 break;
+            case 'fetch-exam-config':
+                prompt = buildFetchExamConfigPrompt(config);
+                break;
+            case 'fetch-interview-config':
+                prompt = buildFetchInterviewConfigPrompt(config);
+                break;
+            case 'fetch-coding-config':
+                prompt = buildFetchCodingConfigPrompt(config);
+                break;
             default:
                 return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
         }
@@ -744,4 +753,73 @@ function normalizeOutput(output) {
     // Normalize array formatting
     str = str.replace(/\s+/g, '');
     return str;
+}
+
+/* ─── FETCH CONFIG PROMPTS ─── */
+
+function buildFetchExamConfigPrompt(config) {
+    return `You are an expert on competitive exams worldwide. The user wants to generate a mock exam for: "${config.examName}"
+
+Research this exam and return its real configuration. If you recognize the exam, provide accurate details. If you don't recognize it, make a reasonable guess based on the name.
+
+Return ONLY a JSON object:
+{
+  "examName": "Full official name of the exam",
+  "emoji": "A single relevant emoji",
+  "description": "One-line description (max 60 chars)",
+  "totalQuestions": number (typical question count for this exam),
+  "timeLimit": number (in minutes),
+  "sections": ["Section 1", "Section 2", ...],
+  "difficulty": "30% Easy, 50% Medium, 20% Hard",
+  "negativeMarking": number (marks deducted per wrong answer, 0 if none),
+  "marksPerQuestion": number,
+  "questionType": "MCQ" or "Descriptive" or "Mixed",
+  "topics": "Comma-separated list of key topics covered",
+  "recognized": true/false (whether you recognize this as a real exam)
+}`;
+}
+
+function buildFetchInterviewConfigPrompt(config) {
+    return `You are a career and interview expert. The user wants to practice for a job interview at or for: "${config.examName}"
+
+This could be a company name (e.g., "Google"), a role (e.g., "Frontend Developer"), or a specific interview type (e.g., "UPSC Personality Test").
+
+Return ONLY a JSON object:
+{
+  "title": "Interview title (e.g., 'Google SWE Interview')",
+  "emoji": "A single relevant emoji",
+  "description": "One-line description (max 60 chars)",
+  "interviewType": "technical" or "hr" or "government",
+  "role": "The role being interviewed for",
+  "company": "Company name if applicable, empty string otherwise",
+  "topics": ["Topic 1", "Topic 2", "Topic 3", "Topic 4", "Topic 5"],
+  "difficulty": "Easy" or "Medium" or "Hard" or "Expert",
+  "questionCount": 10,
+  "tone": "Professional" or "Friendly" or "Challenging" or "Formal",
+  "recognized": true/false
+}`;
+}
+
+function buildFetchCodingConfigPrompt(config) {
+    return `You are a coding interview and competitive programming expert. The user wants coding practice for: "${config.examName}"
+
+This could be a company (e.g., "Google"), a contest (e.g., "LeetCode Weekly"), or a topic (e.g., "Dynamic Programming").
+
+Generate a set of 6-10 coding problems appropriate for this context. Mix difficulties.
+
+Return ONLY a JSON object:
+{
+  "title": "Practice set title",
+  "emoji": "A single relevant emoji",
+  "description": "One-line description (max 60 chars)",
+  "problems": [
+    {
+      "id": 1,
+      "title": "Problem Title",
+      "tags": ["Array", "Hash Map"],
+      "difficulty": "easy" or "medium" or "hard"
+    }
+  ],
+  "recognized": true/false
+}`;
 }

@@ -10,7 +10,97 @@
 
 .codingPage>p {
     color: var(--text-secondary);
+    margin-bottom: var(--space-6);
+}
+
+/* Preset section */
+.presetSection {
     margin-bottom: var(--space-8);
+}
+
+.presetGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+.presetCard {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: center;
+}
+
+.presetCard:hover {
+    border-color: var(--primary-400);
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-glow);
+}
+
+.presetCard.selected {
+    border-color: var(--primary-500);
+    background: rgba(99, 102, 241, 0.08);
+}
+
+.presetEmoji {
+    font-size: 2rem;
+    margin-bottom: var(--space-2);
+}
+
+.presetCard h4 {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.presetCard p {
+    font-size: 0.72rem;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+}
+
+.fetchedBanner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    background: rgba(99, 102, 241, 0.06);
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-6);
+    font-size: 0.95rem;
+    flex-wrap: wrap;
+}
+
+.fetchedBanner span:first-child {
+    font-size: 1.3rem;
+}
+
+.resetBtn {
+    margin-left: auto;
+    padding: var(--space-2) var(--space-4);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all var(--transition-fast);
+}
+
+.resetBtn:hover {
+    border-color: var(--danger-400);
+    color: var(--danger-400);
+}
+
+.problemListTitle {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: var(--space-4);
+    color: var(--text-primary);
 }
 
 .problemList {

@@ -15,8 +15,8 @@
 
 .typeGrid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--space-6);
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--space-5);
     margin-bottom: var(--space-8);
 }
 
@@ -96,6 +96,22 @@
     opacity: 0.5;
     cursor: not-allowed;
     transform: none;
+}
+
+.fetchedBanner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    background: rgba(99, 102, 241, 0.06);
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-6);
+    font-size: 0.95rem;
+}
+
+.fetchedBanner span:first-child {
+    font-size: 1.3rem;
 }
 
 /* Chat interface */
