@@ -240,6 +240,7 @@ export default function CodingEditorPage() {
     const [running, setRunning] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
+    const [executionOutput, setExecutionOutput] = useState(null);
 
     if (!problem) {
         return (
@@ -270,9 +271,23 @@ export default function CodingEditorPage() {
     const handleRun = async () => {
         setRunning(true);
         setSubmitted(false);
+        setExecutionOutput(null);
         try {
-            const result = await evaluateCode();
-            setOutput(result);
+            // Use real code execution via Piston API
+            const res = await fetch('/api/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code, language, testCases: problem.testCases }),
+            });
+            const result = await res.json();
+            
+            if (result.testResults) {
+                // Got test case results
+                setOutput(result);
+            } else {
+                // Got raw execution output
+                setExecutionOutput(result);
+            }
         } catch {
             setOutput({ passed: false, score: 0, testResults: [], feedback: 'Error running code. Check your syntax.' });
         }
@@ -314,8 +329,9 @@ export default function CodingEditorPage() {
 
     const handleLangChange = (lang) => {
         setLanguage(lang);
-        setCode(problem.starterCode[lang] || '');
+        setCode(problem.starterCode[lang] || problem.starterCode.javascript || '');
         setOutput(null);
+        setExecutionOutput(null);
         setSubmitted(false);
     };
 
@@ -351,6 +367,10 @@ export default function CodingEditorPage() {
                         <option value="python">Python</option>
                         <option value="java">Java</option>
                         <option value="cpp">C++</option>
+                        <option value="go">Go</option>
+                        <option value="ruby">Ruby</option>
+                        <option value="rust">Rust</option>
+                        <option value="typescript">TypeScript</option>
                     </select>
                     <div className={styles.editorBtns}>
                         <button className={styles.runBtn} onClick={handleRun} disabled={running || submitting}>

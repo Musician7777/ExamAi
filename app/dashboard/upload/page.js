@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { HiOutlineUpload, HiOutlineDocumentText, HiOutlinePhotograph, HiOutlineCheck } from 'react-icons/hi';
+import { HiOutlineUpload, HiOutlineDocumentText, HiOutlineCheck, HiOutlineExclamation } from 'react-icons/hi';
 import styles from './upload.module.css';
 
 const steps = ['Upload File', 'Extract Text', 'Detect Sections', 'Analyze Pattern', 'Generate Exam'];
@@ -12,29 +12,66 @@ export default function UploadPage() {
     const [processing, setProcessing] = useState(false);
     const [currentStep, setCurrentStep] = useState(-1);
     const [dragOver, setDragOver] = useState(false);
+    const [error, setError] = useState(null);
+    const [analysis, setAnalysis] = useState(null);
+    const [totalQuestions, setTotalQuestions] = useState(20);
 
     const handleFile = (f) => {
         if (f) {
             setFile(f);
+            setError(null);
+            setAnalysis(null);
         }
     };
 
     const handleProcess = async () => {
+        if (!file) return;
         setProcessing(true);
-        for (let i = 0; i < steps.length; i++) {
-            setCurrentStep(i);
-            await new Promise(r => setTimeout(r, 1500));
-        }
+        setError(null);
+        setCurrentStep(0);
 
-        // Generate mock exam from "pattern"
-        const res = await fetch('/api/gemini', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'generate-exam', config: { examType: 'Uploaded Pattern', totalQuestions: 20 } }),
-        });
-        const exam = await res.json();
-        sessionStorage.setItem('currentExam', JSON.stringify(exam));
-        router.push('/dashboard/exam/live');
+        try {
+            // Step 1: Upload
+            await new Promise(r => setTimeout(r, 500));
+            setCurrentStep(1);
+
+            // Steps 2-4: Send to server for real parsing
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('totalQuestions', totalQuestions.toString());
+
+            setCurrentStep(2);
+            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Upload failed');
+            }
+
+            setCurrentStep(3);
+            await new Promise(r => setTimeout(r, 800));
+
+            if (data.analysis) {
+                setAnalysis(data.analysis);
+            }
+
+            setCurrentStep(4);
+            await new Promise(r => setTimeout(r, 500));
+
+            if (data.exam) {
+                // Got a generated exam — go to live
+                sessionStorage.setItem('currentExam', JSON.stringify(data.exam));
+                router.push('/dashboard/exam/live');
+            } else {
+                // Only got analysis (no API key or generation failed)
+                setProcessing(false);
+                setError('PDF parsed successfully but exam generation requires a Gemini API key. You can configure one in .env.local');
+            }
+        } catch (err) {
+            console.error('Upload error:', err);
+            setError(err.message || 'Failed to process file');
+            setProcessing(false);
+        }
     };
 
     return (
@@ -51,7 +88,7 @@ export default function UploadPage() {
                         onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]); }}
                         onClick={() => document.getElementById('fileInput').click()}
                     >
-                        <input id="fileInput" type="file" hidden accept=".pdf,.docx,.doc,.png,.jpg,.jpeg" onChange={(e) => handleFile(e.target.files[0])} />
+                        <input id="fileInput" type="file" hidden accept=".pdf" onChange={(e) => handleFile(e.target.files[0])} />
                         {file ? (
                             <div className={styles.fileInfo}>
                                 <HiOutlineDocumentText className={styles.fileIcon} />
@@ -63,22 +100,53 @@ export default function UploadPage() {
                         ) : (
                             <div className={styles.dropContent}>
                                 <div className={styles.dropIcon}>📄</div>
-                                <h3>Drop your file here</h3>
+                                <h3>Drop your PDF here</h3>
                                 <p>or click to browse</p>
                                 <div className={styles.formats}>
                                     <span>PDF</span>
-                                    <span>DOCX</span>
-                                    <span>PNG</span>
-                                    <span>JPG</span>
                                 </div>
                             </div>
                         )}
                     </div>
 
                     {file && (
-                        <button className={styles.processBtn} onClick={handleProcess}>
-                            Analyze & Generate Exam
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', marginTop: 'var(--space-4)', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                                <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Questions to generate:</label>
+                                <select
+                                    value={totalQuestions}
+                                    onChange={(e) => setTotalQuestions(parseInt(e.target.value))}
+                                    style={{ padding: '6px 12px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)' }}
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={30}>30</option>
+                                    <option value={50}>50</option>
+                                </select>
+                            </div>
+                            <button className={styles.processBtn} onClick={handleProcess}>
+                                Analyze & Generate Exam
+                            </button>
+                        </div>
+                    )}
+
+                    {error && (
+                        <div className={styles.errorBanner}>
+                            <HiOutlineExclamation /> {error}
+                        </div>
+                    )}
+
+                    {analysis && (
+                        <div className={styles.analysisCard}>
+                            <h3>📊 Document Analysis</h3>
+                            <div className={styles.analysisGrid}>
+                                <div><strong>Pages:</strong> {analysis.pageCount}</div>
+                                <div><strong>Detected Questions:</strong> {analysis.detectedQuestions || 'N/A'}</div>
+                                <div><strong>Sections:</strong> {analysis.detectedSections?.join(', ') || 'None detected'}</div>
+                                <div><strong>Multiple Choice:</strong> {analysis.patterns?.hasMultipleChoice ? 'Yes' : 'No'}</div>
+                                <div><strong>Negative Marking:</strong> {analysis.patterns?.hasNegativeMarking ? 'Yes' : 'No'}</div>
+                            </div>
+                        </div>
                     )}
                 </>
             ) : (

@@ -27,6 +27,19 @@ const activitySchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: {},
   },
+  difficulty: {
+    type: String,
+    enum: ['easy', 'medium', 'hard', 'mixed', null],
+    default: null,
+  },
+  duration: {
+    type: Number, // seconds taken
+    default: null,
+  },
+  tags: {
+    type: [String],
+    default: [],
+  },
 }, {
   timestamps: true,
 });

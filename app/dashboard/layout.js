@@ -7,9 +7,10 @@ import { useTheme } from '../providers/ThemeProvider';
 import {
     HiOutlineHome, HiOutlineLightningBolt, HiOutlineUpload,
     HiOutlineCode, HiOutlineChatAlt2, HiOutlineChartBar,
-    HiOutlineMenu,
+    HiOutlineMenu, HiOutlineClipboardList, HiOutlineStar,
     HiOutlineSun, HiOutlineMoon, HiOutlineLogout,
 } from 'react-icons/hi';
+import StudyAssistant from '../components/StudyAssistant/StudyAssistant';
 import styles from './dashboard.module.css';
 
 const navItems = [
@@ -25,6 +26,12 @@ const navItems = [
             { href: '/dashboard/coding', icon: HiOutlineCode, label: 'Coding Test' },
             { href: '/dashboard/interview', icon: HiOutlineChatAlt2, label: 'Interview Sim' },
             { href: '/dashboard/analytics', icon: HiOutlineChartBar, label: 'Analytics' },
+        ]
+    },
+    {
+        section: 'Progress', items: [
+            { href: '/dashboard/activity', icon: HiOutlineClipboardList, label: 'Activity History' },
+            { href: '/dashboard/leaderboard', icon: HiOutlineStar, label: 'Leaderboard' },
         ]
     },
 ];
@@ -116,6 +123,8 @@ export default function DashboardLayout({ children }) {
             <main className={styles.mainContent}>
                 {children}
             </main>
+
+            <StudyAssistant />
         </div>
     );
 }
