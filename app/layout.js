@@ -1,6 +1,9 @@
 import './globals.css';
+import { Inter } from 'next/font/google';
 import { ThemeProvider } from './providers/ThemeProvider';
 import AuthProvider from './providers/AuthProvider';
+
+const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata = {
   title: 'ExamAI – AI-Powered Exam & Interview Generation',
@@ -10,8 +13,8 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" data-theme="dark" suppressHydrationWarning>
-      <body>
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.variable}>
         <AuthProvider>
           <ThemeProvider>
             {children}

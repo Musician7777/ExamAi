@@ -2,7 +2,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import styles from '../results.module.css';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
+import { HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineMinusCircle, HiOutlineLightBulb, HiOutlineClock } from 'react-icons/hi';
+import { BarChart3 } from 'lucide-react';
 
 export default function ResultsPage() {
     const router = useRouter();
@@ -44,7 +51,7 @@ export default function ResultsPage() {
     if (!data) return null;
 
     const { exam, results, score, totalMarks, correct, wrong, unanswered, timeTaken } = data;
-    const percent = Math.round((score / totalMarks) * 100);
+    const percent = totalMarks > 0 ? Math.round((score / totalMarks) * 100) : 0;
     const grade = percent >= 90 ? 'Excellent!' : percent >= 75 ? 'Great Job!' : percent >= 50 ? 'Good Effort!' : 'Keep Practicing!';
     const minsUsed = Math.floor(timeTaken / 60);
 
@@ -52,76 +59,101 @@ export default function ResultsPage() {
     const sectionResults = exam.sections.map(section => {
         const sectionQs = results.filter(r => section.questions.some(q => q.id === r.id));
         const sectionCorrect = sectionQs.filter(r => r.isCorrect).length;
-        return { name: section.name, correct: sectionCorrect, total: sectionQs.length, percent: Math.round((sectionCorrect / sectionQs.length) * 100) || 0 };
+        return { name: section.name, correct: sectionCorrect, total: sectionQs.length, percent: sectionQs.length > 0 ? Math.round((sectionCorrect / sectionQs.length) * 100) : 0 };
     });
 
     return (
-        <div className={styles.resultsPage}>
-            <h1>📊 Exam <span className="gradient-text">Results</span></h1>
+        <div className="max-w-4xl mx-auto space-y-8">
+            <div>
+                <h1 className="text-3xl font-bold">📊 Exam <span className="gradient-text">Results</span></h1>
+                <p className="text-muted-foreground mt-2">Here is a detailed breakdown of your performance.</p>
+            </div>
 
-            <div className={styles.scoreCard}>
-                <div className={styles.scorePercent}>{percent}%</div>
-                <div className={styles.scoreGrade}>{grade}</div>
-                <div className={styles.scoreStats}>
-                    <div className={styles.scoreStat}>
-                        <span className={`${styles.val} ${styles.correct}`}>{correct}</span>
-                        <span className={styles.lbl}>Correct</span>
+            <Card className="p-8 text-center bg-gradient-to-br from-card to-secondary/20">
+                <div className="inline-flex items-center justify-center w-32 h-32 rounded-full border-8 border-primary/20 mb-6 relative">
+                    <div className="absolute inset-0 rounded-full border-8 border-primary transition-all duration-1000" style={{ clipPath: `polygon(0 0, 100% 0, 100% ${percent}%, 0 ${percent}%)`, transform: 'rotate(-90deg)', transformOrigin: 'center' }} />
+                    <span className="text-4xl font-bold">{percent}%</span>
+                </div>
+                <h2 className="text-2xl font-bold text-foreground mb-8">{grade}</h2>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl mx-auto">
+                    <div className="p-4 rounded-xl bg-background border flex flex-col items-center">
+                        <HiOutlineCheckCircle className="h-8 w-8 text-success mb-2" />
+                        <span className="text-2xl font-bold text-success">{correct}</span>
+                        <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mt-1">Correct</span>
                     </div>
-                    <div className={styles.scoreStat}>
-                        <span className={`${styles.val} ${styles.wrong}`}>{wrong}</span>
-                        <span className={styles.lbl}>Wrong</span>
+                    <div className="p-4 rounded-xl bg-background border flex flex-col items-center">
+                        <HiOutlineXCircle className="h-8 w-8 text-destructive mb-2" />
+                        <span className="text-2xl font-bold text-destructive">{wrong}</span>
+                        <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mt-1">Wrong</span>
                     </div>
-                    <div className={styles.scoreStat}>
-                        <span className={`${styles.val} ${styles.skip}`}>{unanswered}</span>
-                        <span className={styles.lbl}>Skipped</span>
+                    <div className="p-4 rounded-xl bg-background border flex flex-col items-center">
+                        <HiOutlineMinusCircle className="h-8 w-8 text-muted-foreground mb-2" />
+                        <span className="text-2xl font-bold text-foreground">{unanswered}</span>
+                        <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mt-1">Skipped</span>
                     </div>
-                    <div className={styles.scoreStat}>
-                        <span className={styles.val}>{minsUsed}m</span>
-                        <span className={styles.lbl}>Time Used</span>
+                    <div className="p-4 rounded-xl bg-background border flex flex-col items-center">
+                        <HiOutlineClock className="h-8 w-8 text-primary mb-2" />
+                        <span className="text-2xl font-bold text-foreground">{minsUsed}m</span>
+                        <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mt-1">Time</span>
                     </div>
+                </div>
+            </Card>
+
+            <div className="space-y-4">
+                <h2 className="text-xl font-semibold flex items-center gap-2"><BarChart3 className="h-5 w-5 text-primary" /> Section-wise Breakdown</h2>
+                <div className="grid gap-3">
+                    {sectionResults.map((s, i) => (
+                        <Card key={i} className="p-4 flex items-center gap-4">
+                            <div className="w-1/3 font-medium truncate">{s.name}</div>
+                            <div className="flex-1">
+                                <Progress value={s.percent} className="h-2" />
+                            </div>
+                            <div className="w-16 text-right font-semibold text-sm">{s.correct}/{s.total}</div>
+                        </Card>
+                    ))}
                 </div>
             </div>
 
-            <div className={styles.sectionBreakdown}>
-                <h2>Section-wise Breakdown</h2>
-                {sectionResults.map((s, i) => (
-                    <div key={i} className={styles.sectionRow}>
-                        <span className={styles.sectionName}>{s.name}</span>
-                        <div className={styles.sectionBar}>
-                            <div className={styles.sectionFill} style={{ width: `${s.percent}%` }} />
-                        </div>
-                        <span className={styles.sectionScore}>{s.correct}/{s.total}</span>
-                    </div>
-                ))}
+            <div className="space-y-6">
+                <h2 className="text-xl font-semibold">Question Review</h2>
+                <div className="space-y-4">
+                    {results.map((r, i) => (
+                        <Card key={i} className={cn("p-6 border-l-4", r.userAnswer === null ? "border-l-muted" : r.isCorrect ? "border-l-success" : "border-l-destructive")}>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                                <span className="font-semibold text-muted-foreground">Q{i + 1} • {r.topic}</span>
+                                <Badge variant={r.userAnswer === null ? "outline" : r.isCorrect ? "success" : "destructive"}>
+                                    {r.userAnswer === null ? 'Skipped' : r.isCorrect ? '✓ Correct' : '✗ Wrong'}
+                                </Badge>
+                            </div>
+                            <p className="text-lg mb-4">{r.text}</p>
+                            
+                            <div className="space-y-2 mb-4 text-sm bg-secondary/30 p-4 rounded-lg">
+                                {r.userAnswer !== null && !r.isCorrect && (
+                                    <p className="text-destructive">Your answer: <span className="font-semibold">{r.options[r.userAnswer]}</span></p>
+                                )}
+                                <p className="text-success">Correct answer: <span className="font-semibold">{r.options[r.correct]}</span></p>
+                            </div>
+
+                            <Alert className="bg-primary/5 text-primary-foreground/90 border-primary/20">
+                                <HiOutlineLightBulb className="h-5 w-5 text-primary" />
+                                <AlertTitle className="text-primary font-semibold">Explanation</AlertTitle>
+                                <AlertDescription className="text-foreground mt-1 leading-relaxed">
+                                    {r.explanation}
+                                </AlertDescription>
+                            </Alert>
+                        </Card>
+                    ))}
+                </div>
             </div>
 
-            <div className={styles.reviewSection}>
-                <h2>Question Review</h2>
-                {results.map((r, i) => (
-                    <div key={i} className={styles.reviewItem}>
-                        <div className={styles.reviewHeader}>
-                            <span className={styles.reviewQ}>Q{i + 1} • {r.topic}</span>
-                            <span className={`${styles.reviewBadge} ${r.userAnswer === null ? styles.skipped : r.isCorrect ? styles.correct : styles.wrong}`}>
-                                {r.userAnswer === null ? 'Skipped' : r.isCorrect ? '✓ Correct' : '✗ Wrong'}
-                            </span>
-                        </div>
-                        <p className={styles.reviewText}>{r.text}</p>
-                        {r.userAnswer !== null && !r.isCorrect && (
-                            <p className={styles.reviewAnswer}>Your answer: <strong>{r.options[r.userAnswer]}</strong></p>
-                        )}
-                        <p className={styles.reviewAnswer}>Correct answer: <strong style={{ color: 'var(--success-400)' }}>{r.options[r.correct]}</strong></p>
-                        <div className={styles.reviewExplanation}>💡 {r.explanation}</div>
-                    </div>
-                ))}
-            </div>
-
-            <div className={styles.resultActions}>
-                <Link href="/dashboard/generate" className={`${styles.resultBtn} ${styles.resultBtnPrimary}`}>
-                    Generate New Exam
-                </Link>
-                <Link href="/dashboard/analytics" className={`${styles.resultBtn} ${styles.resultBtnOutline}`}>
-                    View Analytics
-                </Link>
+            <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-border">
+                <Button asChild size="lg" className="w-full sm:w-auto">
+                    <Link href="/dashboard/generate">Generate New Exam</Link>
+                </Button>
+                <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
+                    <Link href="/dashboard/analytics">View Analytics</Link>
+                </Button>
             </div>
         </div>
     );

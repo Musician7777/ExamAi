@@ -1,101 +1,66 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { HiOutlinePlay, HiOutlineX } from 'react-icons/hi';
-import styles from './ExamConfigModal.module.css';
+import { Play, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
-/* ─────────────────────────────────────────────
-   AI RECOMMENDED DEFAULTS per mode
-   ───────────────────────────────────────────── */
+/* ─── AI RECOMMENDED DEFAULTS ─── */
 const RECOMMENDATIONS = {
-    exam: {
-        difficulty: 'Medium',
-        time: 60,
-        questions: 20,
-        questionType: 'MCQ',
-        negativeMarking: 0.25,
-    },
-    coding: {
-        difficulty: 'Medium',
-        time: 45,
-        questions: 5,
-        language: 'JavaScript',
-    },
-    interview: {
-        difficulty: 'Medium',
-        time: 10, // questions, not minutes
-        questions: 10,
-        tone: 'Professional',
-    },
+    exam: { difficulty: 'Medium', time: 60, questions: 20, questionType: 'MCQ', negativeMarking: 0.25 },
+    coding: { difficulty: 'Medium', time: 45, questions: 5, language: 'JavaScript' },
+    interview: { difficulty: 'Medium', time: 10, questions: 10, tone: 'Professional' },
 };
 
-/* ─────────────────────────────────────────────
-   MODE CONFIGS — defines what each mode shows
-   ───────────────────────────────────────────── */
 const DIFFICULTY_OPTIONS = ['Easy', 'Medium', 'Hard', 'Expert'];
-
 const EXAM_TIME_OPTIONS = [15, 30, 45, 60, 90, 120, 180];
 const EXAM_QUESTION_OPTIONS = [10, 15, 20, 30, 50, 75, 100];
 const EXAM_TYPE_OPTIONS = ['MCQ', 'Descriptive', 'Mixed'];
 const EXAM_NEG_OPTIONS = [0, 0.25, 0.33, 0.5, 1];
-
 const CODING_TIME_OPTIONS = [15, 30, 45, 60, 90];
 const CODING_QUESTION_OPTIONS = [1, 3, 5, 8, 10];
 const CODING_LANG_OPTIONS = ['JavaScript', 'Python', 'Java', 'C++', 'Go'];
-
 const INTERVIEW_Q_OPTIONS = [5, 8, 10, 15, 20];
 const INTERVIEW_TONE_OPTIONS = ['Friendly', 'Professional', 'Challenging', 'Formal'];
 
-/* ─────────────────────────────────────────────
-   RecommendedBadge sub‑component
-   ───────────────────────────────────────────── */
-function AiBadge() {
-    return (
-        <span className={styles.recommendedBadge}>
-            <span className={styles.sparkle}>✨</span> AI Pick
-        </span>
-    );
-}
-
-/* ─────────────────────────────────────────────
-   Pill sub‑component
-   ───────────────────────────────────────────── */
-function Pill({ label, value, active, recommended, onClick }) {
+function Pill({ label, active, recommended, onClick }) {
     return (
         <button
-            className={`${styles.pill} ${active ? styles.active : ''} ${recommended ? styles.recommended : ''}`}
-            onClick={() => onClick(value)}
             type="button"
+            onClick={onClick}
+            className={cn(
+                "relative px-3 py-1.5 rounded-lg text-sm font-medium transition-all border cursor-pointer",
+                active
+                    ? "bg-indigo-500/20 border-indigo-500/50 text-indigo-300 shadow-sm"
+                    : "bg-secondary/50 border-border text-muted-foreground hover:bg-secondary hover:text-foreground"
+            )}
         >
             {label}
-            {recommended && <AiBadge />}
+            {recommended && (
+                <span className="absolute -top-2 -right-2 px-1.5 py-0.5 text-[10px] rounded-full bg-amber-500/20 text-amber-400 font-semibold border border-amber-500/30">
+                    ✨ AI
+                </span>
+            )}
         </button>
     );
 }
 
-/* ─────────────────────────────────────────────
-   MODE HEADER INFO
-   ───────────────────────────────────────────── */
 const MODE_INFO = {
-    exam: { emoji: '📝', title: 'Configure Exam', desc: 'Set your exam preferences. AI-recommended options are highlighted for the best experience.' },
-    coding: { emoji: '💻', title: 'Configure Challenge', desc: 'Customize your coding challenge. AI picks the optimal settings for effective practice.' },
-    interview: { emoji: '🎤', title: 'Configure Interview', desc: 'Tune your mock interview. AI-recommended settings ensure a realistic experience.' },
+    exam: { emoji: '📝', title: 'Configure Exam', desc: 'Set your exam preferences. AI-recommended options are highlighted.' },
+    coding: { emoji: '💻', title: 'Configure Challenge', desc: 'Customize your coding challenge. AI picks optimal settings.' },
+    interview: { emoji: '🎤', title: 'Configure Interview', desc: 'Tune your mock interview for a realistic experience.' },
 };
 
-/* ═════════════════════════════════════════════
-   MAIN COMPONENT
-   ═════════════════════════════════════════════ */
 export default function ExamConfigModal({
-    isOpen,
-    onClose,
-    onGenerate,
-    mode = 'exam',         // 'exam' | 'coding' | 'interview'
-    presetName = '',       // optional preset/template name
-    presetEmoji = '',      // optional emoji
-    initialConfig = {},    // pre-fill values from template
+    isOpen, onClose, onGenerate, mode = 'exam',
+    presetName = '', presetEmoji = '', initialConfig = {},
 }) {
     const rec = RECOMMENDATIONS[mode] || RECOMMENDATIONS.exam;
 
-    // State
     const [difficulty, setDifficulty] = useState(initialConfig.difficulty || rec.difficulty);
     const [time, setTime] = useState(initialConfig.time || initialConfig.timeLimit || rec.time);
     const [questions, setQuestions] = useState(initialConfig.questions || initialConfig.questionCount || initialConfig.totalQuestions || rec.questions);
@@ -106,7 +71,6 @@ export default function ExamConfigModal({
     const [voiceEnabled, setVoiceEnabled] = useState(initialConfig.voiceEnabled !== undefined ? initialConfig.voiceEnabled : true);
     const [micEnabled, setMicEnabled] = useState(initialConfig.micEnabled !== undefined ? initialConfig.micEnabled : true);
 
-    // Reset state when modal opens with new config
     useEffect(() => {
         if (isOpen) {
             setDifficulty(initialConfig.difficulty || rec.difficulty);
@@ -121,27 +85,8 @@ export default function ExamConfigModal({
         }
     }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Close on Escape
-    useEffect(() => {
-        if (!isOpen) return;
-        const handler = (e) => { if (e.key === 'Escape') onClose(); };
-        window.addEventListener('keydown', handler);
-        return () => window.removeEventListener('keydown', handler);
-    }, [isOpen, onClose]);
-
-    // Prevent body scroll when open
-    useEffect(() => {
-        if (isOpen) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = '';
-        }
-        return () => { document.body.style.overflow = ''; };
-    }, [isOpen]);
-
     const handleGenerate = useCallback(() => {
         const config = { difficulty, questions, time };
-
         if (mode === 'exam') {
             config.questionType = questionType;
             config.negativeMarking = negativeMarking;
@@ -156,248 +101,175 @@ export default function ExamConfigModal({
             config.voiceEnabled = voiceEnabled;
             config.micEnabled = micEnabled;
         }
-
         onGenerate(config);
     }, [difficulty, questions, time, questionType, negativeMarking, language, tone, voiceEnabled, micEnabled, mode, onGenerate]);
 
-    if (!isOpen) return null;
-
     const info = MODE_INFO[mode] || MODE_INFO.exam;
     const displayEmoji = presetEmoji || info.emoji;
-    const displayTitle = presetName ? `${presetName}` : info.title;
-    const displayDesc = presetName ? info.desc : info.desc;
+    const displayTitle = presetName || info.title;
 
     return (
-        <div className={styles.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className={styles.modal} role="dialog" aria-modal="true" id="exam-config-modal">
-                {/* ─── Header ─── */}
-                <div className={styles.header}>
-                    <div className={styles.headerTop}>
-                        <div className={styles.headerEmoji}>{displayEmoji}</div>
-                        <div>
-                            <div className={styles.headerTitle}>{displayTitle}</div>
-                        </div>
-                    </div>
-                    <div className={styles.headerDesc}>{displayDesc}</div>
-                    <button className={styles.closeBtn} onClick={onClose} aria-label="Close" id="config-modal-close">
-                        <HiOutlineX />
-                    </button>
-                </div>
+        <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+            <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-3 text-lg">
+                        <span className="text-2xl">{displayEmoji}</span>
+                        {displayTitle}
+                    </DialogTitle>
+                    <DialogDescription>{info.desc}</DialogDescription>
+                </DialogHeader>
 
-                {/* ─── Body ─── */}
-                <div className={styles.body}>
-
-                    {/* ── Difficulty (all modes) ── */}
-                    <div className={styles.optionGroup}>
-                        <div className={styles.optionLabel}>Difficulty</div>
-                        <div className={styles.pillGrid}>
+                <div className="space-y-5 py-2">
+                    {/* Difficulty */}
+                    <div className="space-y-2">
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Difficulty</Label>
+                        <div className="flex flex-wrap gap-2">
                             {DIFFICULTY_OPTIONS.map(opt => (
-                                <Pill
-                                    key={opt}
-                                    label={opt}
-                                    value={opt}
-                                    active={difficulty === opt}
-                                    recommended={opt === rec.difficulty}
-                                    onClick={setDifficulty}
-                                />
+                                <Pill key={opt} label={opt} active={difficulty === opt} recommended={opt === rec.difficulty} onClick={() => setDifficulty(opt)} />
                             ))}
                         </div>
                     </div>
 
-                    {/* ── Time (exam & coding) ── */}
+                    {/* Time */}
                     {(mode === 'exam' || mode === 'coding') && (
-                        <div className={styles.optionGroup}>
-                            <div className={styles.optionLabel}>
+                        <div className="space-y-2">
+                            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
                                 Time Limit {mode === 'exam' ? '(minutes)' : '(mins total)'}
-                            </div>
-                            <div className={styles.pillGrid}>
+                            </Label>
+                            <div className="flex flex-wrap gap-2">
                                 {(mode === 'exam' ? EXAM_TIME_OPTIONS : CODING_TIME_OPTIONS).map(opt => (
-                                    <Pill
-                                        key={opt}
-                                        label={`${opt} min`}
-                                        value={opt}
-                                        active={time === opt}
-                                        recommended={opt === rec.time}
-                                        onClick={setTime}
-                                    />
+                                    <Pill key={opt} label={`${opt} min`} active={time === opt} recommended={opt === rec.time} onClick={() => setTime(opt)} />
                                 ))}
                             </div>
                         </div>
                     )}
 
-                    {/* ── Questions Count ── */}
-                    <div className={styles.optionGroup}>
-                        <div className={styles.optionLabel}>
+                    {/* Questions */}
+                    <div className="space-y-2">
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
                             {mode === 'interview' ? 'Number of Questions' : mode === 'coding' ? 'Problems' : 'Total Questions'}
-                        </div>
-                        <div className={styles.pillGrid}>
+                        </Label>
+                        <div className="flex flex-wrap gap-2">
                             {(mode === 'exam' ? EXAM_QUESTION_OPTIONS : mode === 'coding' ? CODING_QUESTION_OPTIONS : INTERVIEW_Q_OPTIONS).map(opt => (
-                                <Pill
-                                    key={opt}
-                                    label={`${opt}`}
-                                    value={opt}
-                                    active={questions === opt}
-                                    recommended={opt === rec.questions}
-                                    onClick={setQuestions}
-                                />
+                                <Pill key={opt} label={`${opt}`} active={questions === opt} recommended={opt === rec.questions} onClick={() => setQuestions(opt)} />
                             ))}
                         </div>
                     </div>
 
-                    {/* ── Question Type (exam only) ── */}
+                    {/* Question Type (exam) */}
                     {mode === 'exam' && (
-                        <div className={styles.optionGroup}>
-                            <div className={styles.optionLabel}>Question Type</div>
-                            <div className={styles.pillGrid}>
+                        <div className="space-y-2">
+                            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Question Type</Label>
+                            <div className="flex flex-wrap gap-2">
                                 {EXAM_TYPE_OPTIONS.map(opt => (
-                                    <Pill
-                                        key={opt}
-                                        label={opt}
-                                        value={opt}
-                                        active={questionType === opt}
-                                        recommended={opt === rec.questionType}
-                                        onClick={setQuestionType}
-                                    />
+                                    <Pill key={opt} label={opt} active={questionType === opt} recommended={opt === rec.questionType} onClick={() => setQuestionType(opt)} />
                                 ))}
                             </div>
                         </div>
                     )}
 
-                    {/* ── Negative Marking (exam only) ── */}
+                    {/* Negative Marking (exam) */}
                     {mode === 'exam' && (
-                        <div className={styles.optionGroup}>
-                            <div className={styles.optionLabel}>Negative Marking</div>
-                            <div className={styles.pillGrid}>
+                        <div className="space-y-2">
+                            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Negative Marking</Label>
+                            <div className="flex flex-wrap gap-2">
                                 {EXAM_NEG_OPTIONS.map(opt => (
-                                    <Pill
-                                        key={opt}
-                                        label={opt === 0 ? 'None' : `-${opt}`}
-                                        value={opt}
-                                        active={negativeMarking === opt}
-                                        recommended={opt === rec.negativeMarking}
-                                        onClick={setNegativeMarking}
-                                    />
+                                    <Pill key={opt} label={opt === 0 ? 'None' : `-${opt}`} active={negativeMarking === opt} recommended={opt === rec.negativeMarking} onClick={() => setNegativeMarking(opt)} />
                                 ))}
                             </div>
                         </div>
                     )}
 
-                    {/* ── Language (coding only) ── */}
+                    {/* Language (coding) */}
                     {mode === 'coding' && (
-                        <div className={styles.optionGroup}>
-                            <div className={styles.optionLabel}>Preferred Language</div>
-                            <div className={styles.pillGrid}>
+                        <div className="space-y-2">
+                            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Preferred Language</Label>
+                            <div className="flex flex-wrap gap-2">
                                 {CODING_LANG_OPTIONS.map(opt => (
-                                    <Pill
-                                        key={opt}
-                                        label={opt}
-                                        value={opt}
-                                        active={language === opt}
-                                        recommended={opt === rec.language}
-                                        onClick={setLanguage}
-                                    />
+                                    <Pill key={opt} label={opt} active={language === opt} recommended={opt === rec.language} onClick={() => setLanguage(opt)} />
                                 ))}
                             </div>
                         </div>
                     )}
 
-                    {/* ── Tone (interview only) ── */}
+                    {/* Tone (interview) */}
                     {mode === 'interview' && (
-                        <div className={styles.optionGroup}>
-                            <div className={styles.optionLabel}>Interview Tone</div>
-                            <div className={styles.pillGrid}>
+                        <div className="space-y-2">
+                            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Interview Tone</Label>
+                            <div className="flex flex-wrap gap-2">
                                 {INTERVIEW_TONE_OPTIONS.map(opt => (
-                                    <Pill
-                                        key={opt}
-                                        label={opt}
-                                        value={opt}
-                                        active={tone === opt}
-                                        recommended={opt === rec.tone}
-                                        onClick={setTone}
-                                    />
+                                    <Pill key={opt} label={opt} active={tone === opt} recommended={opt === rec.tone} onClick={() => setTone(opt)} />
                                 ))}
                             </div>
                         </div>
                     )}
 
-                    {/* ── Voice / Mic Toggles (interview only) ── */}
+                    {/* Voice/Mic Toggles (interview) */}
                     {mode === 'interview' && (
-                        <>
-                            <div className={styles.toggleRow}>
-                                <div className={styles.toggleLabel}>
-                                    <span className={styles.toggleLabelIcon}>🔊</span>
-                                    AI Voice Response
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                                <div className="flex items-center gap-2">
+                                    <span>🔊</span>
+                                    <Label className="text-sm">AI Voice Response</Label>
                                 </div>
-                                <button
-                                    className={`${styles.toggleSwitch} ${voiceEnabled ? styles.on : ''}`}
-                                    onClick={() => setVoiceEnabled(v => !v)}
-                                    type="button"
-                                    id="toggle-voice"
-                                />
+                                <Switch checked={voiceEnabled} onCheckedChange={setVoiceEnabled} id="toggle-voice" />
                             </div>
-                            <div className={styles.toggleRow}>
-                                <div className={styles.toggleLabel}>
-                                    <span className={styles.toggleLabelIcon}>🎙️</span>
-                                    Microphone Input
+                            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                                <div className="flex items-center gap-2">
+                                    <span>🎙️</span>
+                                    <Label className="text-sm">Microphone Input</Label>
                                 </div>
-                                <button
-                                    className={`${styles.toggleSwitch} ${micEnabled ? styles.on : ''}`}
-                                    onClick={() => setMicEnabled(v => !v)}
-                                    type="button"
-                                    id="toggle-mic"
-                                />
+                                <Switch checked={micEnabled} onCheckedChange={setMicEnabled} id="toggle-mic" />
                             </div>
-                        </>
+                        </div>
                     )}
 
-                    {/* ── Summary Preview ── */}
-                    <div className={styles.summaryPreview}>
-                        <div className={styles.summaryItem}>
-                            <span className={styles.summaryLabel}>Difficulty</span>
-                            <span className={styles.summaryValue}>{difficulty}</span>
+                    {/* Summary */}
+                    <Separator />
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="flex justify-between p-2 rounded-md bg-secondary/50">
+                            <span className="text-muted-foreground">Difficulty</span>
+                            <span className="font-medium">{difficulty}</span>
                         </div>
                         {(mode === 'exam' || mode === 'coding') && (
-                            <div className={styles.summaryItem}>
-                                <span className={styles.summaryLabel}>Time</span>
-                                <span className={styles.summaryValue}>{time} min</span>
+                            <div className="flex justify-between p-2 rounded-md bg-secondary/50">
+                                <span className="text-muted-foreground">Time</span>
+                                <span className="font-medium">{time} min</span>
                             </div>
                         )}
-                        <div className={styles.summaryItem}>
-                            <span className={styles.summaryLabel}>{mode === 'coding' ? 'Problems' : 'Questions'}</span>
-                            <span className={styles.summaryValue}>{questions}</span>
+                        <div className="flex justify-between p-2 rounded-md bg-secondary/50">
+                            <span className="text-muted-foreground">{mode === 'coding' ? 'Problems' : 'Questions'}</span>
+                            <span className="font-medium">{questions}</span>
                         </div>
                         {mode === 'exam' && (
-                            <div className={styles.summaryItem}>
-                                <span className={styles.summaryLabel}>Type</span>
-                                <span className={styles.summaryValue}>{questionType}</span>
+                            <div className="flex justify-between p-2 rounded-md bg-secondary/50">
+                                <span className="text-muted-foreground">Type</span>
+                                <span className="font-medium">{questionType}</span>
                             </div>
                         )}
                         {mode === 'interview' && (
-                            <div className={styles.summaryItem}>
-                                <span className={styles.summaryLabel}>Tone</span>
-                                <span className={styles.summaryValue}>{tone}</span>
+                            <div className="flex justify-between p-2 rounded-md bg-secondary/50">
+                                <span className="text-muted-foreground">Tone</span>
+                                <span className="font-medium">{tone}</span>
                             </div>
                         )}
                         {mode === 'coding' && (
-                            <div className={styles.summaryItem}>
-                                <span className={styles.summaryLabel}>Language</span>
-                                <span className={styles.summaryValue}>{language}</span>
+                            <div className="flex justify-between p-2 rounded-md bg-secondary/50">
+                                <span className="text-muted-foreground">Language</span>
+                                <span className="font-medium">{language}</span>
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* ─── Footer ─── */}
-                <div className={styles.footer}>
-                    <button className={styles.cancelBtn} onClick={onClose} id="config-modal-cancel">
-                        Cancel
-                    </button>
-                    <button className={styles.generateBtn} onClick={handleGenerate} id="config-modal-generate">
-                        <HiOutlinePlay className={styles.btnIcon} />
+                <DialogFooter>
+                    <Button variant="outline" onClick={onClose} id="config-modal-cancel">Cancel</Button>
+                    <Button variant="brand" onClick={handleGenerate} id="config-modal-generate" className="gap-2">
+                        <Play className="h-4 w-4" />
                         {mode === 'interview' ? 'Start Interview' : mode === 'coding' ? 'Start Challenge' : 'Generate Exam'}
-                    </button>
-                </div>
-            </div>
-        </div>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

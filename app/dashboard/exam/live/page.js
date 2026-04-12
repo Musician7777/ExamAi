@@ -2,7 +2,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { HiOutlineClock, HiOutlineFlag, HiOutlineArrowLeft, HiOutlineArrowRight, HiOutlineX } from 'react-icons/hi';
-import styles from '../exam.module.css';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
 
 export default function LiveExamPage() {
     const router = useRouter();
@@ -77,136 +82,163 @@ export default function LiveExamPage() {
     const mins = Math.floor(displayTime / 60);
     const secs = displayTime % 60;
     const isUrgent = timeLeft > 0 && timeLeft < 300;
+    const progress = ((currentQ + 1) / questions.length) * 100;
 
     return (
-        <div className={styles.examPage}>
-            <div className={styles.examHeader}>
-                <div className={styles.examTitle}>{exam.title}</div>
-                <div className={`${styles.timer} ${isUrgent ? styles.urgent : ''}`}>
-                    <HiOutlineClock className={styles.timerIcon} />
+        <div className="max-w-6xl mx-auto space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-card border rounded-xl p-4 sm:p-6 shadow-sm">
+                <div>
+                    <h1 className="text-2xl font-bold truncate">{exam.title}</h1>
+                    <p className="text-muted-foreground text-sm mt-1">Section: {exam.sections.find(s => s.questions.includes(q))?.name || 'General'}</p>
+                </div>
+                <div className={cn("flex items-center gap-2 px-4 py-2 rounded-lg font-mono text-xl font-bold transition-colors", isUrgent ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary")}>
+                    <HiOutlineClock className="h-6 w-6" />
                     {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
                 </div>
             </div>
 
-            <div className={styles.examBody}>
-                <div className={styles.questionArea}>
-                    <div className={styles.qHeader}>
-                        <span className={styles.qNumber}>Question {currentQ + 1} of {questions.length}</span>
-                        <span className={`${styles.qBadge} ${styles[q.difficulty]}`}>{q.difficulty}</span>
-                    </div>
-                    <p className={styles.qText}>{q.text}</p>
-                    <div className={styles.options}>
-                        {q.options.map((opt, i) => (
-                            <div
-                                key={i}
-                                className={`${styles.option} ${answers[currentQ] === i ? styles.selected : ''}`}
-                                onClick={() => setAnswers({ ...answers, [currentQ]: i })}
-                            >
-                                <div className={styles.optionLabel}>{String.fromCharCode(65 + i)}</div>
-                                <span>{opt}</span>
-                            </div>
-                        ))}
-                    </div>
-                    <div className={styles.qActions}>
-                        <button
-                            className={`${styles.qBtn} ${styles.qBtnOutline}`}
-                            onClick={() => setCurrentQ(Math.max(0, currentQ - 1))}
-                            disabled={currentQ === 0}
-                        >
-                            <HiOutlineArrowLeft /> Previous
-                        </button>
-                        <button
-                            className={`${styles.qBtn} ${styles.qBtnOutline}`}
-                            onClick={() => {
+            <div className="grid lg:grid-cols-4 gap-6">
+                <div className="lg:col-span-3 space-y-4">
+                    <Card className="p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <span className="font-semibold text-lg">Question {currentQ + 1} <span className="text-muted-foreground text-sm font-normal">of {questions.length}</span></span>
+                            <Badge variant={q.difficulty === 'easy' ? 'success' : q.difficulty === 'hard' ? 'destructive' : 'warning'}>{q.difficulty}</Badge>
+                        </div>
+                        
+                        <Progress value={progress} className="h-1 mb-6" />
+
+                        <p className="text-lg mb-8 leading-relaxed whitespace-pre-wrap">{q.text}</p>
+                        
+                        <div className="space-y-3">
+                            {q.options.map((opt, i) => (
+                                <div
+                                    key={i}
+                                    className={cn(
+                                        "flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all",
+                                        answers[currentQ] === i 
+                                            ? "border-primary bg-primary/5 shadow-sm" 
+                                            : "border-transparent bg-secondary/50 hover:bg-secondary"
+                                    )}
+                                    onClick={() => setAnswers({ ...answers, [currentQ]: i })}
+                                >
+                                    <div className={cn(
+                                        "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 transition-colors",
+                                        answers[currentQ] === i ? "bg-primary text-primary-foreground" : "bg-background border text-muted-foreground"
+                                    )}>
+                                        {String.fromCharCode(65 + i)}
+                                    </div>
+                                    <span className={cn("text-base font-medium", answers[currentQ] === i ? "text-foreground" : "text-muted-foreground")}>{opt}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </Card>
+
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="lg" onClick={() => setCurrentQ(Math.max(0, currentQ - 1))} disabled={currentQ === 0} className="gap-2 shrink-0">
+                                <HiOutlineArrowLeft /> <span className="hidden sm:inline">Previous</span>
+                            </Button>
+                            <Button variant="outline" size="lg" onClick={() => {
                                 const next = new Set(marked);
                                 if (next.has(currentQ)) next.delete(currentQ);
                                 else next.add(currentQ);
                                 setMarked(next);
-                            }}
-                        >
-                            <HiOutlineFlag /> {marked.has(currentQ) ? 'Unmark' : 'Mark for Review'}
-                        </button>
-                        <button
-                            className={`${styles.qBtn} ${styles.qBtnOutline}`}
-                            onClick={() => {
+                            }} className="gap-2 shrink-0">
+                                <HiOutlineFlag className={cn(marked.has(currentQ) && "fill-warning text-warning")} /> 
+                                <span className="hidden sm:inline">{marked.has(currentQ) ? 'Unmark' : 'Mark'}</span>
+                            </Button>
+                            <Button variant="outline" size="lg" onClick={() => {
                                 const next = { ...answers };
                                 delete next[currentQ];
                                 setAnswers(next);
-                            }}
-                        >
-                            <HiOutlineX /> Clear
-                        </button>
+                            }} className="gap-2 shrink-0">
+                                <HiOutlineX /> <span className="hidden sm:inline">Clear</span>
+                            </Button>
+                        </div>
                         {currentQ < questions.length - 1 && (
-                            <button
-                                className={`${styles.qBtn} ${styles.qBtnPrimary}`}
-                                onClick={() => setCurrentQ(currentQ + 1)}
-                            >
+                            <Button size="lg" onClick={() => setCurrentQ(currentQ + 1)} className="gap-2 shrink-0">
                                 Next <HiOutlineArrowRight />
-                            </button>
+                            </Button>
                         )}
                     </div>
                 </div>
 
-                <div className={styles.navPanel}>
-                    <h3>Question Navigator</h3>
-                    <div className={styles.navGrid}>
-                        {questions.map((_, i) => (
-                            <button
-                                key={i}
-                                className={`${styles.navBtn} ${i === currentQ ? styles.current : ''} ${answers[i] !== undefined ? styles.answered : ''} ${marked.has(i) ? styles.marked : ''}`}
-                                onClick={() => setCurrentQ(i)}
-                            >
-                                {i + 1}
-                            </button>
-                        ))}
-                    </div>
-                    <div className={styles.legend}>
-                        <div className={styles.legendItem}>
-                            <div className={styles.legendDot} style={{ background: 'var(--success-500)' }} /> Answered
+                <div className="lg:col-span-1 space-y-6">
+                    <Card className="p-5">
+                        <h3 className="font-semibold mb-4 text-center">Question Navigator</h3>
+                        <div className="grid grid-cols-5 gap-2 max-h-[300px] overflow-y-auto pr-1 pb-1">
+                            {questions.map((_, i) => {
+                                const isCurrent = i === currentQ;
+                                const isAnswered = answers[i] !== undefined;
+                                const isMarked = marked.has(i);
+                                
+                                return (
+                                    <button
+                                        key={i}
+                                        onClick={() => setCurrentQ(i)}
+                                        className={cn(
+                                            "h-10 rounded-md font-semibold text-sm transition-all border",
+                                            isCurrent ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : "",
+                                            isAnswered && !isMarked ? "bg-success hover:bg-success/90 text-success-foreground border-success" : 
+                                            isMarked ? "bg-warning hover:bg-warning/90 text-warning-foreground border-warning" : 
+                                            "bg-background hover:bg-secondary border-border text-muted-foreground"
+                                        )}
+                                    >
+                                        {i + 1}
+                                    </button>
+                                );
+                            })}
                         </div>
-                        <div className={styles.legendItem}>
-                            <div className={styles.legendDot} style={{ background: 'var(--warning-500)' }} /> Marked for Review
+                        
+                        <div className="mt-6 space-y-2 text-sm">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                                <div className="w-3 h-3 rounded-full bg-success"></div> Answered
+                            </div>
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                                <div className="w-3 h-3 rounded-full bg-warning"></div> Marked for Review
+                            </div>
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                                <div className="w-3 h-3 rounded-full border border-border bg-background"></div> Not Visited
+                            </div>
                         </div>
-                        <div className={styles.legendItem}>
-                            <div className={styles.legendDot} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)' }} /> Not Visited
-                        </div>
-                    </div>
-                    <button className={styles.submitBtn} onClick={() => setShowSubmit(true)}>
-                        Submit Exam
-                    </button>
+
+                        <Button className="w-full mt-6" size="lg" onClick={() => setShowSubmit(true)}>
+                            Submit Exam
+                        </Button>
+                    </Card>
                 </div>
             </div>
 
-            {showSubmit && (
-                <div className={styles.modalOverlay} onClick={() => setShowSubmit(false)}>
-                    <div className={styles.modal} onClick={e => e.stopPropagation()}>
-                        <h3>Submit Exam?</h3>
-                        <p>Are you sure you want to submit? You cannot change your answers after submission.</p>
-                        <div className={styles.modalStats}>
-                            <div className={styles.modalStat}>
-                                <span style={{ color: 'var(--success-400)' }}>{Object.keys(answers).length}</span>
-                                <small>Answered</small>
-                            </div>
-                            <div className={styles.modalStat}>
-                                <span style={{ color: 'var(--warning-400)' }}>{marked.size}</span>
-                                <small>Marked</small>
-                            </div>
-                            <div className={styles.modalStat}>
-                                <span style={{ color: 'var(--text-tertiary)' }}>{questions.length - Object.keys(answers).length}</span>
-                                <small>Unanswered</small>
-                            </div>
+            <Dialog open={showSubmit} onOpenChange={setShowSubmit}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Submit Exam?</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to submit? You cannot change your answers after submission.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="grid grid-cols-3 gap-4 py-4">
+                        <div className="text-center p-4 bg-secondary/50 rounded-xl">
+                            <div className="text-2xl font-bold text-success">{Object.keys(answers).length}</div>
+                            <div className="text-xs text-muted-foreground mt-1">Answered</div>
                         </div>
-                        <div className={styles.modalBtns}>
-                            <button className={`${styles.qBtn} ${styles.qBtnOutline}`} onClick={() => setShowSubmit(false)}>
-                                Cancel
-                            </button>
-                            <button className={`${styles.qBtn} ${styles.qBtnPrimary}`} onClick={handleSubmit}>
-                                Confirm Submit
-                            </button>
+                        <div className="text-center p-4 bg-secondary/50 rounded-xl">
+                            <div className="text-2xl font-bold text-warning">{marked.size}</div>
+                            <div className="text-xs text-muted-foreground mt-1">Marked</div>
+                        </div>
+                        <div className="text-center p-4 bg-secondary/50 rounded-xl">
+                            <div className="text-2xl font-bold text-muted-foreground">{questions.length - Object.keys(answers).length}</div>
+                            <div className="text-xs text-muted-foreground mt-1">Unanswered</div>
                         </div>
                     </div>
-                </div>
-            )}
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowSubmit(false)}>Cancel</Button>
+                        <Button onClick={handleSubmit}>Confirm Submit</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

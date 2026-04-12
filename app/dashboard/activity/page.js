@@ -1,7 +1,13 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { HiOutlineCalendar, HiOutlineFilter, HiOutlineChevronDown, HiOutlineChevronUp, HiOutlineSearch } from 'react-icons/hi';
-import styles from './activity.module.css';
+import { Calendar, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 export default function ActivityPage() {
     const [activities, setActivities] = useState([]);
@@ -20,14 +26,11 @@ export default function ActivityPage() {
             if (filters.dateTo) params.set('dateTo', filters.dateTo);
             if (filters.minScore) params.set('minScore', filters.minScore);
             if (filters.difficulty) params.set('difficulty', filters.difficulty);
-
             const res = await fetch(`/api/activities?${params}`);
             const data = await res.json();
             setActivities(data.activities || []);
             setPagination(data.pagination || { page: 1, totalPages: 1, total: 0 });
-        } catch (err) {
-            console.error('Failed to fetch activities:', err);
-        }
+        } catch (err) { console.error('Failed to fetch activities:', err); }
         setLoading(false);
     }, [filters]);
 
@@ -36,49 +39,48 @@ export default function ActivityPage() {
     const typeIcon = (type) => ({ exam: '📝', coding: '💻', interview: '🎤' }[type] || '📄');
     const scoreColor = (score, total) => {
         const pct = total > 0 ? (score / total) * 100 : 0;
-        return pct >= 70 ? '#4ade80' : pct >= 40 ? '#fbbf24' : '#f87171';
+        return pct >= 70 ? 'text-emerald-400' : pct >= 40 ? 'text-amber-400' : 'text-red-400';
     };
 
     return (
-        <div className={styles.activityPage}>
-            <div className={styles.header}>
+        <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <h1>📊 Activity <span className="gradient-text">History</span></h1>
-                    <p>Track your progress across exams, coding challenges, and interviews</p>
+                    <h1 className="text-2xl font-bold">📊 Activity <span className="gradient-text">History</span></h1>
+                    <p className="text-muted-foreground mt-1">Track your progress across exams, coding challenges, and interviews</p>
                 </div>
-                <button className={styles.filterToggle} onClick={() => setShowFilters(v => !v)}>
-                    <HiOutlineFilter /> Filters {showFilters ? <HiOutlineChevronUp /> : <HiOutlineChevronDown />}
-                </button>
+                <Button variant="outline" onClick={() => setShowFilters(v => !v)} className="gap-2">
+                    <Filter className="h-4 w-4" /> Filters {showFilters ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                </Button>
             </div>
 
-            {/* Filters Panel */}
             {showFilters && (
-                <div className={styles.filtersPanel}>
-                    <div className={styles.filterGrid}>
-                        <div className={styles.filterGroup}>
-                            <label>Type</label>
-                            <select value={filters.type} onChange={e => setFilters(p => ({ ...p, type: e.target.value }))}>
+                <Card className="p-5">
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Type</label>
+                            <select className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={filters.type} onChange={e => setFilters(p => ({ ...p, type: e.target.value }))}>
                                 <option value="">All Types</option>
                                 <option value="exam">📝 Exams</option>
                                 <option value="coding">💻 Coding</option>
                                 <option value="interview">🎤 Interviews</option>
                             </select>
                         </div>
-                        <div className={styles.filterGroup}>
-                            <label>From Date</label>
-                            <input type="date" value={filters.dateFrom} onChange={e => setFilters(p => ({ ...p, dateFrom: e.target.value }))} />
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">From Date</label>
+                            <Input type="date" value={filters.dateFrom} onChange={e => setFilters(p => ({ ...p, dateFrom: e.target.value }))} />
                         </div>
-                        <div className={styles.filterGroup}>
-                            <label>To Date</label>
-                            <input type="date" value={filters.dateTo} onChange={e => setFilters(p => ({ ...p, dateTo: e.target.value }))} />
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">To Date</label>
+                            <Input type="date" value={filters.dateTo} onChange={e => setFilters(p => ({ ...p, dateTo: e.target.value }))} />
                         </div>
-                        <div className={styles.filterGroup}>
-                            <label>Min Score</label>
-                            <input type="number" placeholder="0" value={filters.minScore} onChange={e => setFilters(p => ({ ...p, minScore: e.target.value }))} />
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Min Score</label>
+                            <Input type="number" placeholder="0" value={filters.minScore} onChange={e => setFilters(p => ({ ...p, minScore: e.target.value }))} />
                         </div>
-                        <div className={styles.filterGroup}>
-                            <label>Difficulty</label>
-                            <select value={filters.difficulty} onChange={e => setFilters(p => ({ ...p, difficulty: e.target.value }))}>
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Difficulty</label>
+                            <select className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={filters.difficulty} onChange={e => setFilters(p => ({ ...p, difficulty: e.target.value }))}>
                                 <option value="">All</option>
                                 <option value="easy">Easy</option>
                                 <option value="medium">Medium</option>
@@ -86,95 +88,88 @@ export default function ActivityPage() {
                             </select>
                         </div>
                     </div>
-                    <button className={styles.clearFilters} onClick={() => setFilters({ type: '', dateFrom: '', dateTo: '', minScore: '', difficulty: '' })}>
+                    <Button variant="ghost" size="sm" className="mt-3" onClick={() => setFilters({ type: '', dateFrom: '', dateTo: '', minScore: '', difficulty: '' })}>
                         Clear All
-                    </button>
-                </div>
+                    </Button>
+                </Card>
             )}
 
-            {/* Stats Summary */}
-            <div className={styles.statsRow}>
-                <div className={styles.statCard}>
-                    <span className={styles.statValue}>{pagination.total}</span>
-                    <span className={styles.statLabel}>Total Activities</span>
-                </div>
-                <div className={styles.statCard}>
-                    <span className={styles.statValue}>{activities.filter(a => a.type === 'exam').length}</span>
-                    <span className={styles.statLabel}>Exams</span>
-                </div>
-                <div className={styles.statCard}>
-                    <span className={styles.statValue}>{activities.filter(a => a.type === 'coding').length}</span>
-                    <span className={styles.statLabel}>Coding</span>
-                </div>
-                <div className={styles.statCard}>
-                    <span className={styles.statValue}>{activities.filter(a => a.type === 'interview').length}</span>
-                    <span className={styles.statLabel}>Interviews</span>
-                </div>
+            {/* Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                    { value: pagination.total, label: 'Total Activities' },
+                    { value: activities.filter(a => a.type === 'exam').length, label: 'Exams' },
+                    { value: activities.filter(a => a.type === 'coding').length, label: 'Coding' },
+                    { value: activities.filter(a => a.type === 'interview').length, label: 'Interviews' },
+                ].map((s, i) => (
+                    <Card key={i} className="p-4 text-center">
+                        <div className="text-2xl font-bold">{s.value}</div>
+                        <div className="text-sm text-muted-foreground">{s.label}</div>
+                    </Card>
+                ))}
             </div>
 
             {/* Activity List */}
-            <div className={styles.activityList}>
+            <div className="space-y-3">
                 {loading ? (
-                    <div className={styles.loadingState}>
-                        {[...Array(5)].map((_, i) => <div key={i} className={styles.skeleton} />)}
-                    </div>
+                    Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)
                 ) : activities.length === 0 ? (
-                    <div className={styles.emptyState}>
-                        <span style={{ fontSize: '3rem' }}>🔍</span>
-                        <h3>No activities found</h3>
-                        <p>Try adjusting your filters or start a new exam!</p>
-                    </div>
+                    <Card className="p-12 text-center">
+                        <span className="text-4xl">🔍</span>
+                        <h3 className="text-lg font-semibold mt-4">No activities found</h3>
+                        <p className="text-muted-foreground mt-1">Try adjusting your filters or start a new exam!</p>
+                    </Card>
                 ) : (
                     activities.map((activity) => (
-                        <div
+                        <Card
                             key={activity._id}
-                            className={`${styles.activityCard} ${expandedId === activity._id ? styles.expanded : ''}`}
+                            className="p-4 cursor-pointer hover:shadow-md transition-all"
                             onClick={() => setExpandedId(expandedId === activity._id ? null : activity._id)}
                         >
-                            <div className={styles.activityMain}>
-                                <div className={styles.activityLeft}>
-                                    <span className={styles.activityIcon}>{typeIcon(activity.type)}</span>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xl">{typeIcon(activity.type)}</span>
                                     <div>
-                                        <h4>{activity.title}</h4>
-                                        <div className={styles.activityMeta}>
-                                            <span><HiOutlineCalendar /> {new Date(activity.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                            <span className={styles.typeBadge}>{activity.type}</span>
-                                            {activity.difficulty && <span className={`${styles.diffBadge} ${styles[activity.difficulty]}`}>{activity.difficulty}</span>}
+                                        <h4 className="text-sm font-medium">{activity.title}</h4>
+                                        <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                                            <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(activity.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                            <Badge variant="secondary" className="text-[10px]">{activity.type}</Badge>
+                                            {activity.difficulty && <Badge variant={activity.difficulty === 'easy' ? 'success' : activity.difficulty === 'hard' ? 'destructive' : 'warning'} className="text-[10px]">{activity.difficulty}</Badge>}
                                         </div>
                                     </div>
                                 </div>
-                                <div className={styles.activityRight}>
-                                    <span className={styles.scoreValue} style={{ color: scoreColor(activity.score, activity.totalMarks) }}>
-                                        {activity.score}/{activity.totalMarks}
-                                    </span>
-                                    <span className={styles.scorePct}>
-                                        {activity.totalMarks > 0 ? Math.round((activity.score / activity.totalMarks) * 100) : 0}%
-                                    </span>
-                                    {expandedId === activity._id ? <HiOutlineChevronUp /> : <HiOutlineChevronDown />}
+                                <div className="flex items-center gap-3">
+                                    <div className="text-right">
+                                        <span className={cn("text-lg font-bold", scoreColor(activity.score, activity.totalMarks))}>{activity.score}/{activity.totalMarks}</span>
+                                        <div className="text-xs text-muted-foreground">{activity.totalMarks > 0 ? Math.round((activity.score / activity.totalMarks) * 100) : 0}%</div>
+                                    </div>
+                                    {expandedId === activity._id ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                                 </div>
                             </div>
 
                             {expandedId === activity._id && activity.details && (
-                                <div className={styles.activityDetails}>
-                                    {Object.entries(activity.details).map(([key, value]) => (
-                                        <div key={key} className={styles.detailItem}>
-                                            <span className={styles.detailKey}>{key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}</span>
-                                            <span className={styles.detailValue}>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
-                                        </div>
-                                    ))}
-                                </div>
+                                <>
+                                    <Separator className="my-3" />
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
+                                        {Object.entries(activity.details).map(([key, value]) => (
+                                            <div key={key} className="flex justify-between p-2 rounded-md bg-secondary/50">
+                                                <span className="text-muted-foreground">{key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}</span>
+                                                <span className="font-medium">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
                             )}
-                        </div>
+                        </Card>
                     ))
                 )}
             </div>
 
-            {/* Pagination */}
             {pagination.totalPages > 1 && (
-                <div className={styles.pagination}>
-                    <button disabled={pagination.page <= 1} onClick={() => fetchActivities(pagination.page - 1)}>← Previous</button>
-                    <span>Page {pagination.page} of {pagination.totalPages}</span>
-                    <button disabled={pagination.page >= pagination.totalPages} onClick={() => fetchActivities(pagination.page + 1)}>Next →</button>
+                <div className="flex items-center justify-center gap-4 pt-4">
+                    <Button variant="outline" size="sm" disabled={pagination.page <= 1} onClick={() => fetchActivities(pagination.page - 1)}>← Previous</Button>
+                    <span className="text-sm text-muted-foreground">Page {pagination.page} of {pagination.totalPages}</span>
+                    <Button variant="outline" size="sm" disabled={pagination.page >= pagination.totalPages} onClick={() => fetchActivities(pagination.page + 1)}>Next →</Button>
                 </div>
             )}
         </div>

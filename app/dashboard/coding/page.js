@@ -2,10 +2,12 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { HiOutlinePlay } from 'react-icons/hi';
 import { FetchExamModal, FetchExamCard, AddPresetCard, SavedPresetCard, SavedPresetsSection, useSavedPresets } from '../../components/PresetManager/PresetManager';
 import ExamConfigModal from '../../components/ExamConfigModal/ExamConfigModal';
-import styles from './coding.module.css';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const defaultProblems = [
     { id: 1, title: 'Two Sum', tags: ['Array', 'Hash Map'], difficulty: 'easy' },
@@ -27,18 +29,17 @@ const codingPresets = [
     { id: 'competitive', emoji: '🏆', name: 'Competitive', desc: 'Contest-style Problems' },
 ];
 
+const diffBadgeVariant = { easy: 'success', medium: 'warning', hard: 'destructive' };
+
 export default function CodingPage() {
     const router = useRouter();
     const [showFetchModal, setShowFetchModal] = useState(false);
     const [fetchedProblems, setFetchedProblems] = useState(null);
     const [activePreset, setActivePreset] = useState(null);
     const { presets: savedPresets, savePreset, deletePreset } = useSavedPresets('examai_coding_presets');
-
-    // Config modal state
     const [configModalOpen, setConfigModalOpen] = useState(false);
     const [configModalPreset, setConfigModalPreset] = useState({ name: '', emoji: '' });
 
-    // Check for config passed from dashboard quick action
     useEffect(() => {
         try {
             const stored = sessionStorage.getItem('examConfigModalResult');
@@ -46,7 +47,6 @@ export default function CodingPage() {
                 const { mode, config } = JSON.parse(stored);
                 sessionStorage.removeItem('examConfigModalResult');
                 if (mode === 'coding' && config) {
-                    // Store coding config and navigate to first problem
                     sessionStorage.setItem('codingConfig', JSON.stringify(config));
                     router.push('/dashboard/coding/1');
                 }
@@ -54,150 +54,96 @@ export default function CodingPage() {
         } catch (e) { /* ignore */ }
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    /* ─── Open config modal for a preset ─── */
     function openConfigForPreset(preset) {
-        setActivePreset(preset.id);
-        setFetchedProblems(null);
+        setActivePreset(preset.id); setFetchedProblems(null);
         setConfigModalPreset({ name: preset.name, emoji: preset.emoji });
         setConfigModalOpen(true);
     }
 
-    /* ─── Generate from config modal ─── */
     function handleConfigGenerate(config) {
         setConfigModalOpen(false);
         sessionStorage.setItem('codingConfig', JSON.stringify(config));
         router.push('/dashboard/coding/1');
     }
+
     const displayProblems = fetchedProblems?.problems || defaultProblems;
     const displayTitle = fetchedProblems?.title || null;
 
-    /* ─── Handle AI-fetched coding config ─── */
-    function handleUseFetchedConfig(config) {
-        setFetchedProblems(config);
-        setActivePreset(null);
-    }
-
-    /* ─── Handle saved preset selection ─── */
-    function handleSelectSavedPreset(preset) {
-        if (preset.problems) {
-            setFetchedProblems(preset);
-        }
-        setActivePreset(preset.id);
-    }
-
-    /* ─── Save preset to localStorage ─── */
-    function handleSavePreset(config) {
-        savePreset({
-            name: config.title || 'Custom Practice',
-            emoji: config.emoji || '💻',
-            desc: config.description || '',
-            problems: config.problems,
-        });
-    }
-
-    /* ─── Reset to defaults ─── */
-    function resetToDefault() {
-        setFetchedProblems(null);
-        setActivePreset(null);
-    }
+    function handleUseFetchedConfig(config) { setFetchedProblems(config); setActivePreset(null); }
+    function handleSelectSavedPreset(preset) { if (preset.problems) setFetchedProblems(preset); setActivePreset(preset.id); }
+    function handleSavePreset(config) { savePreset({ name: config.title || 'Custom Practice', emoji: config.emoji || '💻', desc: config.description || '', problems: config.problems }); }
+    function resetToDefault() { setFetchedProblems(null); setActivePreset(null); }
 
     return (
-        <div className={styles.codingPage}>
-            <h1>💻 Coding <span className="gradient-text">Challenges</span></h1>
-            <p>Practice DSA, debugging, and system design problems with an integrated code editor.</p>
-
-            {/* Preset Grid */}
-            <div className={styles.presetSection}>
-                <div className={styles.presetGrid}>
-                    {codingPresets.map((p) => (
-                        <div
-                            key={p.id}
-                            className={`${styles.presetCard} ${activePreset === p.id ? styles.selected : ''}`}
-                            onClick={() => openConfigForPreset(p)}
-                        >
-                            <div className={styles.presetEmoji}>{p.emoji}</div>
-                            <h4>{p.name}</h4>
-                            <p>{p.desc}</p>
-                        </div>
-                    ))}
-                    <FetchExamCard onClick={() => setShowFetchModal(true)} />
-                    <AddPresetCard
-                        onFetchClick={() => setShowFetchModal(true)}
-                        onCustomClick={() => {}}
-                    />
-                </div>
-
-                {/* Saved Presets */}
-                <SavedPresetsSection count={savedPresets.length}>
-                    <div className={styles.presetGrid}>
-                        {savedPresets.map((p) => (
-                            <SavedPresetCard
-                                key={p.id}
-                                preset={p}
-                                isSelected={activePreset === p.id}
-                                onSelect={() => handleSelectSavedPreset(p)}
-                                onDelete={deletePreset}
-                            />
-                        ))}
-                    </div>
-                </SavedPresetsSection>
+        <div className="space-y-6">
+            <div>
+                <h1 className="text-2xl font-bold">💻 Coding <span className="gradient-text">Challenges</span></h1>
+                <p className="text-muted-foreground mt-1">Practice DSA, debugging, and system design problems with an integrated code editor.</p>
             </div>
 
-            {/* Fetched config banner */}
+            {/* Presets */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                {codingPresets.map((p) => (
+                    <Card
+                        key={p.id}
+                        className={cn("p-5 flex flex-col items-center gap-2 text-center cursor-pointer transition-all hover:shadow-md",
+                            activePreset === p.id ? "border-indigo-500/50 bg-indigo-500/5 ring-1 ring-indigo-500/30" : "hover:border-indigo-500/20"
+                        )}
+                        onClick={() => openConfigForPreset(p)}
+                    >
+                        <span className="text-2xl">{p.emoji}</span>
+                        <h4 className="text-sm font-semibold">{p.name}</h4>
+                        <p className="text-xs text-muted-foreground">{p.desc}</p>
+                    </Card>
+                ))}
+                <FetchExamCard onClick={() => setShowFetchModal(true)} />
+                <AddPresetCard onFetchClick={() => setShowFetchModal(true)} onCustomClick={() => {}} />
+            </div>
+
+            <SavedPresetsSection count={savedPresets.length}>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    {savedPresets.map((p) => (
+                        <SavedPresetCard key={p.id} preset={p} isSelected={activePreset === p.id} onSelect={() => handleSelectSavedPreset(p)} onDelete={deletePreset} />
+                    ))}
+                </div>
+            </SavedPresetsSection>
+
             {fetchedProblems && (
-                <div className={styles.fetchedBanner}>
-                    <span>{fetchedProblems.emoji || '💻'}</span>
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                    <span className="text-xl">{fetchedProblems.emoji || '💻'}</span>
                     <strong>{fetchedProblems.title || 'AI-Generated Problems'}</strong>
-                    <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
-                        — {fetchedProblems.problems?.length || 0} problems
-                    </span>
-                    <button className={styles.resetBtn} onClick={resetToDefault}>
-                        Reset to defaults
-                    </button>
+                    <span className="text-sm text-muted-foreground">— {fetchedProblems.problems?.length || 0} problems</span>
+                    <Button variant="ghost" size="sm" onClick={resetToDefault}>Reset to defaults</Button>
                 </div>
             )}
 
-            {/* Problem List */}
-            {displayTitle && (
-                <div className={styles.problemListTitle}>{displayTitle}</div>
-            )}
-            <div className={styles.problemList}>
+            {displayTitle && <h3 className="text-lg font-semibold">{displayTitle}</h3>}
+
+            <div className="space-y-2">
                 {displayProblems.map((p, idx) => (
-                    <Link key={p.id || idx} href={`/dashboard/coding/${p.id || idx + 1}`} className={styles.problemCard}>
-                        <div className={styles.problemLeft}>
-                            <div className={styles.problemNum}>{p.id || idx + 1}</div>
-                            <div className={styles.problemInfo}>
-                                <h4>{p.title}</h4>
-                                <div className={styles.problemTags}>
-                                    {(p.tags || []).map((t, i) => <span key={i} className={styles.problemTag}>{t}</span>)}
+                    <Link key={p.id || idx} href={`/dashboard/coding/${p.id || idx + 1}`}>
+                        <Card className="p-4 flex items-center justify-between hover:shadow-md hover:border-indigo-500/20 transition-all cursor-pointer">
+                            <div className="flex items-center gap-4">
+                                <div className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center text-sm font-medium text-muted-foreground">
+                                    {p.id || idx + 1}
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-semibold">{p.title}</h4>
+                                    <div className="flex gap-1.5 mt-1">
+                                        {(p.tags || []).map((t, i) => (
+                                            <Badge key={i} variant="secondary" className="text-[10px]">{t}</Badge>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div className={styles.problemRight}>
-                            <span className={`${styles.diffBadge} ${styles[p.difficulty]}`}>{p.difficulty}</span>
-                        </div>
+                            <Badge variant={diffBadgeVariant[p.difficulty] || 'secondary'}>{p.difficulty}</Badge>
+                        </Card>
                     </Link>
                 ))}
             </div>
 
-            {/* Fetch Modal */}
-            <FetchExamModal
-                isOpen={showFetchModal}
-                onClose={() => setShowFetchModal(false)}
-                onUseConfig={handleUseFetchedConfig}
-                onSavePreset={handleSavePreset}
-                mode="coding"
-            />
-
-            {/* Config Modal */}
-            <ExamConfigModal
-                isOpen={configModalOpen}
-                onClose={() => setConfigModalOpen(false)}
-                onGenerate={handleConfigGenerate}
-                mode="coding"
-                presetName={configModalPreset.name}
-                presetEmoji={configModalPreset.emoji}
-            />
+            <FetchExamModal isOpen={showFetchModal} onClose={() => setShowFetchModal(false)} onUseConfig={handleUseFetchedConfig} onSavePreset={handleSavePreset} mode="coding" />
+            <ExamConfigModal isOpen={configModalOpen} onClose={() => setConfigModalOpen(false)} onGenerate={handleConfigGenerate} mode="coding" presetName={configModalPreset.name} presetEmoji={configModalPreset.emoji} />
         </div>
     );
 }

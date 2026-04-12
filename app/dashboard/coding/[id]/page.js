@@ -4,7 +4,12 @@ import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { HiOutlineArrowLeft } from 'react-icons/hi';
-import styles from '../coding.module.css';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
 const Editor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
@@ -244,14 +249,13 @@ export default function CodingEditorPage() {
 
     if (!problem) {
         return (
-            <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
-                <h2>Problem not found</h2>
-                <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-3)' }}>
-                    This problem doesn&apos;t exist yet.
-                </p>
-                <Link href="/dashboard/coding" style={{ color: 'var(--primary-400)', marginTop: 'var(--space-4)', display: 'inline-block' }}>
-                    ← Back to Problems
-                </Link>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+                <span className="text-5xl">🔍</span>
+                <h2 className="text-2xl font-bold text-foreground">Problem not found</h2>
+                <p className="text-muted-foreground mb-4">This problem doesn&apos;t exist yet.</p>
+                <Button asChild variant="outline">
+                    <Link href="/dashboard/coding">← Back to Problems</Link>
+                </Button>
             </div>
         );
     }
@@ -336,83 +340,155 @@ export default function CodingEditorPage() {
     };
 
     return (
-        <div className={styles.editorLayout}>
-            <div className={styles.problemPanel}>
-                <Link href="/dashboard/coding" className={styles.backBtn}>
-                    <HiOutlineArrowLeft /> Back to Problems
-                </Link>
-                <h2>{problem.title}</h2>
-                <div className={styles.problemMeta}>
-                    <span className={`${styles.diffBadge} ${styles[problem.difficulty]}`}>{problem.difficulty}</span>
+        <div className="h-[calc(100vh-theme(spacing.16))] flex flex-col lg:flex-row p-4 gap-4 bg-background">
+            <Card className="flex-1 flex flex-col overflow-hidden border-border bg-card/50">
+                <div className="p-4 border-b flex items-center justify-between shadow-sm">
+                    <Button variant="ghost" asChild size="sm" className="gap-2">
+                        <Link href="/dashboard/coding">
+                            <HiOutlineArrowLeft className="h-4 w-4" /> Back
+                        </Link>
+                    </Button>
+                    <Badge variant={problem.difficulty === 'easy' ? 'success' : problem.difficulty === 'hard' ? 'destructive' : 'warning'} className="capitalize">{problem.difficulty}</Badge>
                 </div>
-                <p className={styles.problemDesc}>{problem.description}</p>
-                <h3>Examples</h3>
-                {problem.examples.map((ex, i) => (
-                    <div key={i} className={styles.example}>
-                        <strong>Input: </strong>{ex.input}<br />
-                        <strong>Output: </strong>{ex.output}<br />
-                        {ex.explanation && <><strong>Explanation: </strong>{ex.explanation}</>}
+                
+                <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                    <div>
+                        <h2 className="text-2xl font-bold mb-4">{problem.title}</h2>
+                        <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground leading-relaxed">
+                            {problem.description}
+                        </div>
                     </div>
-                ))}
-                <h3>Constraints</h3>
-                <ul className={styles.constraints}>
-                    {problem.constraints.map((c, i) => <li key={i}>{c}</li>)}
-                </ul>
-            </div>
 
-            <div className={styles.editorPanel}>
-                <div className={styles.editorHeader}>
-                    <select className={styles.langSelect} value={language} onChange={e => handleLangChange(e.target.value)}>
-                        <option value="javascript">JavaScript</option>
-                        <option value="python">Python</option>
-                        <option value="java">Java</option>
-                        <option value="cpp">C++</option>
-                        <option value="go">Go</option>
-                        <option value="ruby">Ruby</option>
-                        <option value="rust">Rust</option>
-                        <option value="typescript">TypeScript</option>
-                    </select>
-                    <div className={styles.editorBtns}>
-                        <button className={styles.runBtn} onClick={handleRun} disabled={running || submitting}>
-                            {running ? '⏳ Running...' : '▶ Run'}
-                        </button>
-                        <button className={styles.submitCodeBtn} onClick={handleSubmit} disabled={running || submitting}>
-                            {submitting ? '⏳ Submitting...' : submitted ? '✅ Submitted' : '📤 Submit'}
-                        </button>
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold flex items-center gap-2">Examples</h3>
+                        <div className="grid gap-4">
+                            {problem.examples.map((ex, i) => (
+                                <div key={i} className="bg-secondary/30 p-4 rounded-xl border border-secondary/50 space-y-2 text-sm font-mono leading-relaxed">
+                                    <div><span className="text-muted-foreground font-semibold">Input:</span> <span className="text-foreground">{ex.input}</span></div>
+                                    <div><span className="text-muted-foreground font-semibold">Output:</span> <span className="text-foreground">{ex.output}</span></div>
+                                    {ex.explanation && <div className="pt-2 border-t border-border/50 text-muted-foreground mt-2"><span className="font-semibold text-foreground">Explanation:</span> {ex.explanation}</div>}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold flex items-center gap-2">Constraints</h3>
+                        <ul className="list-disc list-inside space-y-2">
+                            {problem.constraints.map((c, i) => <li key={i} className="text-sm font-mono text-muted-foreground bg-secondary/20 inline-block px-3 py-1 rounded-md">{c}</li>)}
+                        </ul>
                     </div>
                 </div>
-                <div className={styles.editorWrap}>
-                    <Editor
-                        height="100%"
-                        language={language === 'cpp' ? 'cpp' : language}
-                        theme="vs-dark"
-                        value={code}
-                        onChange={(val) => setCode(val || '')}
-                        options={{
-                            fontSize: 14,
-                            minimap: { enabled: false },
-                            padding: { top: 16 },
-                            scrollBeyondLastLine: false,
-                        }}
-                    />
-                </div>
+            </Card>
+
+            <div className="flex-1 lg:flex-[1.5] xl:flex-[2] flex flex-col gap-4">
+                <Card className="flex-[2] flex flex-col overflow-hidden border-border shadow-sm bg-card">
+                    <div className="flex items-center justify-between p-2 border-b bg-muted/20">
+                        <Select value={language} onValueChange={handleLangChange}>
+                            <SelectTrigger className="w-[180px] border-none bg-secondary/50 font-medium h-9">
+                                <SelectValue placeholder="Select Language" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="javascript">JavaScript</SelectItem>
+                                <SelectItem value="python">Python</SelectItem>
+                                <SelectItem value="java">Java</SelectItem>
+                                <SelectItem value="cpp">C++</SelectItem>
+                                <SelectItem value="go">Go</SelectItem>
+                                <SelectItem value="ruby">Ruby</SelectItem>
+                                <SelectItem value="rust">Rust</SelectItem>
+                                <SelectItem value="typescript">TypeScript</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <div className="flex gap-2">
+                            <Button variant="secondary" size="sm" onClick={handleRun} disabled={running || submitting} className="gap-2 font-semibold">
+                                {running ? <><span className="animate-spin text-lg">⏳</span></> : '▶ '} Run Code
+                            </Button>
+                            <Button size="sm" onClick={handleSubmit} disabled={running || submitting} className={cn("gap-2 font-semibold transition-colors", submitted && "bg-success text-success-foreground hover:bg-success/90")}>
+                                {submitting ? <><span className="animate-spin text-lg">⏳</span></> : submitted ? '✅ ' : '📤 '} Submit Code
+                            </Button>
+                        </div>
+                    </div>
+                    
+                    <div className="flex-1 relative bg-[#1e1e1e]">
+                        <Editor
+                            height="100%"
+                            language={language === 'cpp' ? 'cpp' : language}
+                            theme="vs-dark"
+                            value={code}
+                            onChange={(val) => setCode(val || '')}
+                            options={{
+                                fontSize: 14,
+                                minimap: { enabled: false },
+                                padding: { top: 16 },
+                                scrollBeyondLastLine: false,
+                                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                smoothScrolling: true,
+                                cursorBlinking: "smooth",
+                            }}
+                        />
+                    </div>
+                </Card>
+
                 {output && (
-                    <div className={styles.outputPanel}>
-                        <h4>
-                            Test Results — {output.passed ? '✅ All Passed' : '❌ Some Failed'} • Score: {output.score}/100
-                            {submitted && <span className={styles.savedBadge}>💾 Saved</span>}
-                        </h4>
-                        {output.testResults?.map((t, i) => (
-                            <div key={i} className={styles.testResult}>
-                                <span className={t.passed ? styles.testPass : styles.testFail}>
-                                    {t.passed ? '✓' : '✗'}
-                                </span>
-                                <span>Input: {t.input} → Expected: {t.expected}, Got: {t.actual}</span>
+                    <Card className="flex-1 max-h-[350px] flex flex-col overflow-hidden animate-in slide-in-from-bottom-2 fade-in-0 shadow-sm border-border">
+                        <div className={cn(
+                            "px-4 py-3 flex flex-wrap items-center justify-between font-semibold border-b gap-3",
+                            output.passed ? "bg-success/10 text-success border-success/20" : "bg-destructive/10 text-destructive border-destructive/20"
+                        )}>
+                            <div className="flex items-center gap-2 text-base">
+                                {output.passed ? '✅ All Tests Passed!' : '❌ Some Tests Failed'}
                             </div>
-                        ))}
-                        {output.feedback && <p style={{ marginTop: 'var(--space-3)', color: 'var(--text-secondary)' }}>{output.feedback}</p>}
-                        {output.timeComplexity && <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>Time: {output.timeComplexity} | Space: {output.spaceComplexity}</p>}
-                    </div>
+                            <div className="flex items-center gap-3">
+                                <Badge variant="outline" className={cn("bg-background py-1 text-sm font-bold min-w-[90px] justify-center", output.passed ? "text-success border-success/50" : "text-destructive border-destructive/50")}>Score: {output.score}/100</Badge>
+                                {submitted && <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30 py-1 text-sm px-3">💾 Saved</Badge>}
+                            </div>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-secondary/5">
+                            {output.testResults?.length > 0 && (
+                                <div className="space-y-3">
+                                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1">Test Cases</h4>
+                                    <div className="grid gap-3">
+                                        {output.testResults?.map((t, i) => (
+                                            <div key={i} className="flex flex-col sm:flex-row gap-3 p-3 rounded-lg border bg-background shadow-sm text-sm font-mono">
+                                                <div className="flex items-center gap-2 shrink-0 sm:w-20">
+                                                    <span className={cn("flex items-center justify-center w-6 h-6 rounded-full text-white", t.passed ? "bg-success" : "bg-destructive")}>
+                                                        {t.passed ? '✓' : '✗'}
+                                                    </span>
+                                                    <span className="font-semibold text-xs text-muted-foreground">Test {i + 1}</span>
+                                                </div>
+                                                <div className="grid grid-cols-1 gap-2 flex-1 w-full overflow-hidden text-xs sm:text-sm">
+                                                    <div className="truncate"><span className="text-muted-foreground w-10 inline-block font-sans">In:</span> {t.input}</div>
+                                                    <div className="truncate"><span className="text-muted-foreground w-10 inline-block font-sans">Exp:</span> {t.expected}</div>
+                                                    <div className={cn("truncate font-semibold", t.passed ? "text-success" : "text-destructive")}><span className="text-muted-foreground w-10 inline-block font-sans">Got:</span> {t.actual}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {(output.feedback || output.timeComplexity) && (
+                                <div className="space-y-3 pt-4 border-t border-border/60">
+                                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1">AI Analysis</h4>
+                                    
+                                    {output.timeComplexity && (
+                                        <div className="flex gap-3 mt-2">
+                                            <Badge variant="outline" className="text-xs bg-secondary/50 font-mono py-1 px-3">⏱️ Time: {output.timeComplexity}</Badge>
+                                            <Badge variant="outline" className="text-xs bg-secondary/50 font-mono py-1 px-3">💾 Space: {output.spaceComplexity}</Badge>
+                                        </div>
+                                    )}
+                                    
+                                    {output.feedback && (
+                                        <div className="mt-3 p-4 rounded-xl bg-primary/5 border border-primary/20 text-sm text-foreground/90 leading-relaxed shadow-inner">
+                                            {output.feedback}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </Card>
                 )}
             </div>
         </div>

@@ -1,29 +1,28 @@
 'use client';
-import { createContext, useContext, useState, useEffect } from 'react';
+import { ThemeProvider as NextThemesProvider } from 'next-themes';
+import { createContext, useContext } from 'react';
 
-const ThemeContext = createContext();
+const ThemeToggleContext = createContext();
 
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState('dark');
-
-  useEffect(() => {
-    const saved = localStorage.getItem('examai-theme') || 'dark';
-    setTheme(saved);
-    document.documentElement.setAttribute('data-theme', saved);
-  }, []);
-
-  const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    localStorage.setItem('examai-theme', next);
-    document.documentElement.setAttribute('data-theme', next);
-  };
-
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <NextThemesProvider
+      attribute="class"
+      defaultTheme="dark"
+      themes={['light', 'dark', 'gradient', 'punchy', 'simple-white']}
+      enableSystem={false}
+      disableTransitionOnChange
+    >
       {children}
-    </ThemeContext.Provider>
+    </NextThemesProvider>
   );
 }
 
-export const useTheme = () => useContext(ThemeContext);
+export function useTheme() {
+  const { theme, setTheme, resolvedTheme } = require('next-themes').useTheme();
+  return {
+    theme: resolvedTheme || theme || 'dark',
+    setTheme,
+    toggleTheme: () => setTheme(theme === 'dark' ? 'light' : 'dark'), // Keep for backward compat
+  };
+}

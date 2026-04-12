@@ -2,7 +2,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import styles from './preset.module.css';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Loader2 } from 'lucide-react';
 
 export default function PresetImportPage() {
     const params = useParams();
@@ -47,63 +50,61 @@ export default function PresetImportPage() {
     }
 
     if (loading) return (
-        <div className={styles.presetPage}>
-            <div className={styles.loadingState}>
-                <div className={styles.spinner} />
-                <p>Loading preset...</p>
-            </div>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-muted-foreground font-medium">Loading preset...</p>
         </div>
     );
 
     if (error) return (
-        <div className={styles.presetPage}>
-            <div className={styles.errorState}>
-                <span style={{ fontSize: '3rem' }}>😔</span>
-                <h2>Preset Not Found</h2>
-                <p>{error}</p>
-                <Link href="/dashboard" className={styles.backLink}>← Back to Dashboard</Link>
-            </div>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
+            <span className="text-5xl">😔</span>
+            <h2 className="text-2xl font-bold text-foreground">Preset Not Found</h2>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button asChild variant="outline">
+                <Link href="/dashboard">← Back to Dashboard</Link>
+            </Button>
         </div>
     );
 
     return (
-        <div className={styles.presetPage}>
-            <div className={styles.presetCard}>
-                <div className={styles.presetHeader}>
-                    <span className={styles.emoji}>{preset.emoji || '📄'}</span>
-                    <div>
-                        <h1>{preset.title}</h1>
-                        <p>{preset.description}</p>
+        <div className="max-w-3xl mx-auto py-8 px-4">
+            <Card className="p-8 sm:p-10 border-border bg-card shadow-sm space-y-8">
+                <div className="flex items-start gap-4 sm:gap-6">
+                    <span className="text-5xl sm:text-6xl bg-secondary/50 p-4 rounded-2xl">{preset.emoji || '📄'}</span>
+                    <div className="space-y-2">
+                        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">{preset.title}</h1>
+                        <p className="text-lg text-muted-foreground leading-relaxed">{preset.description}</p>
                     </div>
                 </div>
 
-                <div className={styles.meta}>
-                    <span className={styles.typeBadge}>{preset.presetType}</span>
-                    <span>Used {preset.useCount} times</span>
-                    <span>Created {new Date(preset.createdAt).toLocaleDateString()}</span>
+                <div className="flex flex-wrap items-center gap-3">
+                    <Badge variant="secondary" className="px-3 py-1 font-medium text-sm capitalize">{preset.presetType}</Badge>
+                    <Badge variant="outline" className="px-3 py-1 font-medium text-sm text-muted-foreground border-muted">Used {preset.useCount} times</Badge>
+                    <Badge variant="outline" className="px-3 py-1 font-medium text-sm text-muted-foreground border-muted">Created {new Date(preset.createdAt).toLocaleDateString()}</Badge>
                 </div>
 
-                <div className={styles.configPreview}>
-                    <h3>Configuration</h3>
-                    <div className={styles.configGrid}>
+                <div className="space-y-4 pt-4 border-t">
+                    <h3 className="text-xl font-semibold tracking-tight">Configuration</h3>
+                    <div className="grid sm:grid-cols-2 gap-3">
                         {Object.entries(preset.config || {}).map(([key, value]) => (
-                            <div key={key} className={styles.configItem}>
-                                <span className={styles.configKey}>{key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}</span>
-                                <span className={styles.configValue}>{Array.isArray(value) ? value.join(', ') : String(value)}</span>
+                            <div key={key} className="flex justify-between items-center p-4 bg-secondary/30 rounded-xl border border-secondary/50">
+                                <span className="font-medium text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                                <span className="font-semibold text-foreground text-right max-w-[150px] truncate">{Array.isArray(value) ? value.join(', ') : String(value)}</span>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                <div className={styles.actions}>
-                    <button className={styles.useBtn} onClick={handleUseNow}>
+                <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t mt-8">
+                    <Button size="lg" className="flex-1 text-base font-semibold h-14" onClick={handleUseNow}>
                         🚀 Use Now
-                    </button>
-                    <button className={styles.saveBtn} onClick={handleSave} disabled={saved}>
-                        {saved ? '✅ Saved' : '💾 Save to Library'}
-                    </button>
+                    </Button>
+                    <Button variant={saved ? "secondary" : "outline"} size="lg" className="flex-1 text-base font-semibold h-14" onClick={handleSave} disabled={saved}>
+                        {saved ? '✅ Saved to Library' : '💾 Save to Library'}
+                    </Button>
                 </div>
-            </div>
+            </Card>
         </div>
     );
 }

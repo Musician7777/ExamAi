@@ -4,7 +4,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { FaGoogle } from 'react-icons/fa';
-import styles from '../auth.module.css';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -15,179 +20,94 @@ export default function RegisterPage() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-
-        if (form.password !== form.confirmPassword) {
-            setError('Passwords do not match');
-            return;
-        }
-
+        if (form.password !== form.confirmPassword) { setError('Passwords do not match'); return; }
         setLoading(true);
-
         try {
-            // Register the user
             const res = await fetch('/api/auth/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: form.name,
-                    email: form.email,
-                    password: form.password,
-                }),
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: form.name, email: form.email, password: form.password }),
             });
-
             const data = await res.json();
-
-            if (!res.ok) {
-                setError(data.error || 'Registration failed');
-                setLoading(false);
-                return;
-            }
-
-            // Auto-login after successful registration
-            const result = await signIn('credentials', {
-                email: form.email,
-                password: form.password,
-                redirect: false,
-            });
-
-            if (result?.error) {
-                setError('Account created! But auto-login failed. Please sign in manually.');
-                router.push('/login');
-            } else {
-                router.push('/dashboard');
-                router.refresh();
-            }
-        } catch {
-            setError('Something went wrong. Please try again.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleGoogleSignIn = () => {
-        signIn('google', { callbackUrl: '/dashboard' });
+            if (!res.ok) { setError(data.error || 'Registration failed'); setLoading(false); return; }
+            const result = await signIn('credentials', { email: form.email, password: form.password, redirect: false });
+            if (result?.error) { setError('Account created! But auto-login failed. Please sign in manually.'); router.push('/login'); }
+            else { router.push('/dashboard'); router.refresh(); }
+        } catch { setError('Something went wrong. Please try again.'); }
+        finally { setLoading(false); }
     };
 
     return (
-        <div className={styles.authPage}>
-            <div className={styles.authOrbs}>
-                <div className={`${styles.authOrb} ${styles.authOrb1}`} />
-                <div className={`${styles.authOrb} ${styles.authOrb2}`} />
+        <div className="min-h-screen flex relative overflow-hidden">
+            <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute top-1/4 left-1/4 w-72 h-72 rounded-full bg-indigo-500/10 blur-[100px]" />
+                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-sky-500/8 blur-[120px]" />
             </div>
 
-            <div className={styles.authLeft}>
-                <div className={styles.authBrand}>
-                    <h1>Join <span className="gradient-text">ExamAI</span><br />Today</h1>
-                    <p>Start your journey with AI-powered exam preparation. Free forever for basic features.</p>
-                </div>
-                <div className={styles.authFeatures}>
-                    <div className={styles.authFeature}>
-                        <div className={styles.authFeatureIcon}>🚀</div>
-                        <div>
-                            <h4>Get Started Instantly</h4>
-                            <p>Generate your first exam in seconds</p>
+            <div className="hidden lg:flex flex-col justify-center flex-1 px-16 relative z-10">
+                <h1 className="text-4xl font-bold mb-4">Join <span className="gradient-text">ExamAI</span><br />Today</h1>
+                <p className="text-muted-foreground mb-10 max-w-md">Start your journey with AI-powered exam preparation. Free forever for basic features.</p>
+                <div className="space-y-5">
+                    {[
+                        { icon: '🚀', title: 'Get Started Instantly', desc: 'Generate your first exam in seconds' },
+                        { icon: '🎓', title: '15+ Exam Categories', desc: 'Government, private, coding & more' },
+                        { icon: '💡', title: 'Powered by Gemini AI', desc: 'State-of-the-art AI question generation' },
+                    ].map((f, i) => (
+                        <div key={i} className="flex items-start gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-lg shrink-0">{f.icon}</div>
+                            <div>
+                                <h4 className="text-sm font-semibold">{f.title}</h4>
+                                <p className="text-sm text-muted-foreground">{f.desc}</p>
+                            </div>
                         </div>
-                    </div>
-                    <div className={styles.authFeature}>
-                        <div className={styles.authFeatureIcon}>🎓</div>
-                        <div>
-                            <h4>15+ Exam Categories</h4>
-                            <p>Government, private, coding & more</p>
-                        </div>
-                    </div>
-                    <div className={styles.authFeature}>
-                        <div className={styles.authFeatureIcon}>💡</div>
-                        <div>
-                            <h4>Powered by Gemini AI</h4>
-                            <p>State-of-the-art AI question generation</p>
-                        </div>
-                    </div>
+                    ))}
                 </div>
             </div>
 
-            <div className={styles.authRight}>
-                <div className={styles.authCard}>
-                    <h2>Create Account</h2>
-                    <p className={styles.subtitle}>Start your free account today</p>
+            <div className="flex-1 flex items-center justify-center p-8 relative z-10">
+                <Card className="w-full max-w-md">
+                    <CardHeader className="space-y-1">
+                        <CardTitle className="text-2xl">Create Account</CardTitle>
+                        <CardDescription>Start your free account today</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
 
-                    {error && <div className={styles.errorMsg}>{error}</div>}
+                        <Button variant="outline" className="w-full gap-2" onClick={() => signIn('google', { callbackUrl: '/dashboard' })} type="button">
+                            <FaGoogle className="h-4 w-4" /> Continue with Google
+                        </Button>
 
-                    <div className={styles.socialBtns}>
-                        <button
-                            className={styles.socialBtn}
-                            onClick={handleGoogleSignIn}
-                            type="button"
-                            style={{ gridColumn: '1 / -1' }}
-                        >
-                            <FaGoogle /> Continue with Google
-                        </button>
-                    </div>
-
-                    <div className={styles.divider}>or register with email</div>
-
-                    <form onSubmit={handleSubmit}>
-                        <div className={styles.formGroup}>
-                            <label>Full Name</label>
-                            <input
-                                type="text"
-                                className={styles.formInput}
-                                placeholder="John Doe"
-                                value={form.name}
-                                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                                required
-                                disabled={loading}
-                            />
+                        <div className="relative">
+                            <Separator />
+                            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">or register with email</span>
                         </div>
-                        <div className={styles.formGroup}>
-                            <label>Email Address</label>
-                            <input
-                                type="email"
-                                className={styles.formInput}
-                                placeholder="you@example.com"
-                                value={form.email}
-                                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                                required
-                                disabled={loading}
-                            />
-                        </div>
-                        <div className={styles.formGroup}>
-                            <label>Password</label>
-                            <input
-                                type="password"
-                                className={styles.formInput}
-                                placeholder="Min 8 characters"
-                                value={form.password}
-                                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                                required
-                                minLength={8}
-                                disabled={loading}
-                            />
-                        </div>
-                        <div className={styles.formGroup}>
-                            <label>Confirm Password</label>
-                            <input
-                                type="password"
-                                className={styles.formInput}
-                                placeholder="Re-enter password"
-                                value={form.confirmPassword}
-                                onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-                                required
-                                disabled={loading}
-                            />
-                        </div>
-                        <button
-                            type="submit"
-                            className={styles.submitBtn}
-                            disabled={loading}
-                        >
-                            {loading ? 'Creating Account...' : 'Create Account'}
-                        </button>
-                    </form>
 
-                    <p className={styles.authSwitch}>
-                        Already have an account? <Link href="/login">Sign in</Link>
-                    </p>
-                </div>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="name">Full Name</Label>
+                                <Input id="name" placeholder="John Doe" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required disabled={loading} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="email">Email Address</Label>
+                                <Input id="email" type="email" placeholder="you@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required disabled={loading} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="password">Password</Label>
+                                <Input id="password" type="password" placeholder="Min 8 characters" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} disabled={loading} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                                <Input id="confirmPassword" type="password" placeholder="Re-enter password" value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} required disabled={loading} />
+                            </div>
+                            <Button type="submit" variant="brand" className="w-full" disabled={loading}>
+                                {loading ? 'Creating Account...' : 'Create Account'}
+                            </Button>
+                        </form>
+
+                        <p className="text-center text-sm text-muted-foreground">
+                            Already have an account? <Link href="/login" className="text-indigo-400 hover:text-indigo-300 font-medium">Sign in</Link>
+                        </p>
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );
