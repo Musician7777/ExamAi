@@ -4,7 +4,7 @@ import { Send, X, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { cn } from '@/lib/utils';
 
 export default function StudyAssistant() {
@@ -64,7 +64,7 @@ export default function StudyAssistant() {
 
             {/* Chat Panel */}
             {isOpen && (
-                <Card className="fixed bottom-24 right-6 z-50 w-[380px] max-h-[520px] flex flex-col shadow-2xl border animate-in slide-in-from-bottom-5 fade-in duration-300">
+                <Card className="fixed bottom-24 right-6 z-50 w-[380px] h-[520px] flex flex-col shadow-2xl border animate-in slide-in-from-bottom-5 fade-in duration-300">
                     {/* Header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b">
                         <div className="flex items-center gap-2">
@@ -77,7 +77,7 @@ export default function StudyAssistant() {
                     </div>
 
                     {/* Messages */}
-                    <ScrollArea className="flex-1 p-4 min-h-0">
+                    <div className="flex-1 p-4 overflow-y-auto scroll-smooth">
                         <div className="space-y-4">
                             {messages.map((msg, i) => (
                                 <div key={i} className={cn("flex", msg.role === 'user' ? "justify-end" : "justify-start")}>
@@ -121,7 +121,7 @@ export default function StudyAssistant() {
                             )}
                             <div ref={chatEndRef} />
                         </div>
-                    </ScrollArea>
+                    </div>
 
                     {/* Input */}
                     <div className="flex items-center gap-2 p-3 border-t">
