@@ -1,8 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { HiOutlineLightningBolt, HiOutlinePlay } from 'react-icons/hi';
 import { FetchExamModal, FetchExamCard, AddPresetCard, SavedPresetCard, SavedPresetsSection, useSavedPresets } from '../../components/PresetManager/PresetManager';
+import ExamConfigModal from '../../components/ExamConfigModal/ExamConfigModal';
 import styles from './generate.module.css';
 
 const governmentPresets = [
@@ -29,6 +30,68 @@ export default function GeneratePage() {
     const [showFetchModal, setShowFetchModal] = useState(false);
     const [fetchedConfig, setFetchedConfig] = useState(null);
     const { presets: savedPresets, savePreset, deletePreset } = useSavedPresets('examai_exam_presets');
+
+    // Config modal state
+    const [configModalOpen, setConfigModalOpen] = useState(false);
+    const [configModalPreset, setConfigModalPreset] = useState({ name: '', emoji: '' });
+
+    // Check for config passed from dashboard quick action
+    useEffect(() => {
+        try {
+            const stored = sessionStorage.getItem('examConfigModalResult');
+            if (stored) {
+                const { mode, config } = JSON.parse(stored);
+                sessionStorage.removeItem('examConfigModalResult');
+                if (mode === 'exam' && config) {
+                    handleGenerateFromModal(config);
+                }
+            }
+        } catch (e) { /* ignore */ }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    /* ─── Open config modal for a preset ─── */
+    function openConfigForPreset(preset) {
+        setSelectedPreset(preset.id);
+        setFetchedConfig(null);
+        setConfigModalPreset({ name: preset.name, emoji: preset.emoji });
+        setConfigModalOpen(true);
+    }
+
+    /* ─── Generate from config modal ─── */
+    async function handleGenerateFromModal(modalConfig) {
+        setConfigModalOpen(false);
+        setLoading(true);
+        try {
+            const config = {
+                examType: selectedPreset || 'Custom',
+                totalQuestions: modalConfig.totalQuestions || modalConfig.questions || 20,
+                difficulty: modalConfig.difficulty || 'Medium',
+                questionTypes: modalConfig.questionType || 'MCQ',
+                negativeMarking: modalConfig.negativeMarking ?? 0.25,
+                timeLimit: modalConfig.timeLimit || modalConfig.time || 60,
+            };
+
+            const res = await fetch('/api/gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'generate-exam', config }),
+            });
+            const exam = await res.json();
+
+            if (exam.error) { alert(exam.error); setLoading(false); return; }
+            if (!exam.sections || exam.sections.length === 0) {
+                alert('Failed to generate exam. The AI returned an invalid response. Please try again.');
+                setLoading(false); return;
+            }
+
+            sessionStorage.setItem('currentExam', JSON.stringify(exam));
+            router.push('/dashboard/exam/live');
+        } catch (error) {
+            console.error('Error generating exam:', error);
+            alert('Network error while generating exam. Please check your connection and try again.');
+        }
+        setLoading(false);
+    }
 
     const [custom, setCustom] = useState({
         totalQuestions: 50,
@@ -169,7 +232,7 @@ export default function GeneratePage() {
                             <div
                                 key={p.id}
                                 className={`${styles.presetCard} ${selectedPreset === p.id ? styles.selected : ''}`}
-                                onClick={() => { setSelectedPreset(p.id); setFetchedConfig(null); }}
+                                onClick={() => openConfigForPreset(p)}
                             >
                                 <div className={styles.presetEmoji}>{p.emoji}</div>
                                 <h4>{p.name}</h4>
@@ -184,7 +247,7 @@ export default function GeneratePage() {
                             <div
                                 key={p.id}
                                 className={`${styles.presetCard} ${selectedPreset === p.id ? styles.selected : ''}`}
-                                onClick={() => { setSelectedPreset(p.id); setFetchedConfig(null); }}
+                                onClick={() => openConfigForPreset(p)}
                             >
                                 <div className={styles.presetEmoji}>{p.emoji}</div>
                                 <h4>{p.name}</h4>
@@ -356,6 +419,16 @@ export default function GeneratePage() {
                 onUseConfig={handleUseFetchedConfig}
                 onSavePreset={handleSavePreset}
                 mode="exam"
+            />
+
+            {/* Config Modal */}
+            <ExamConfigModal
+                isOpen={configModalOpen}
+                onClose={() => setConfigModalOpen(false)}
+                onGenerate={handleGenerateFromModal}
+                mode="exam"
+                presetName={configModalPreset.name}
+                presetEmoji={configModalPreset.emoji}
             />
         </div>
     );

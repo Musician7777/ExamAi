@@ -1,22 +1,29 @@
 'use client';
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { HiOutlineLightningBolt, HiOutlineCode, HiOutlineChatAlt2, HiOutlineChartBar } from 'react-icons/hi';
+import ExamConfigModal from '../components/ExamConfigModal/ExamConfigModal';
 import styles from './dashHome.module.css';
 
 const quickActions = [
-    { icon: <HiOutlineLightningBolt />, bg: 'rgba(99,102,241,0.12)', color: '#818cf8', href: '/dashboard/generate', title: 'Generate Exam', desc: 'Create AI-powered test' },
-    { icon: <HiOutlineCode />, bg: 'rgba(34,197,94,0.12)', color: '#4ade80', href: '/dashboard/coding', title: 'Coding Challenge', desc: 'Practice DSA problems' },
-    { icon: <HiOutlineChatAlt2 />, bg: 'rgba(236,72,153,0.12)', color: '#f472b6', href: '/dashboard/interview', title: 'Mock Interview', desc: 'AI interview simulation' },
-    { icon: <HiOutlineChartBar />, bg: 'rgba(14,165,233,0.12)', color: '#38bdf8', href: '/dashboard/analytics', title: 'View Analytics', desc: 'Performance insights' },
+    { icon: <HiOutlineLightningBolt />, bg: 'rgba(99,102,241,0.12)', color: '#818cf8', href: '/dashboard/generate', title: 'Generate Exam', desc: 'Create AI-powered test', mode: 'exam', emoji: '📝' },
+    { icon: <HiOutlineCode />, bg: 'rgba(34,197,94,0.12)', color: '#4ade80', href: '/dashboard/coding', title: 'Coding Challenge', desc: 'Practice DSA problems', mode: 'coding', emoji: '💻' },
+    { icon: <HiOutlineChatAlt2 />, bg: 'rgba(236,72,153,0.12)', color: '#f472b6', href: '/dashboard/interview', title: 'Mock Interview', desc: 'AI interview simulation', mode: 'interview', emoji: '🎤' },
+    { icon: <HiOutlineChartBar />, bg: 'rgba(14,165,233,0.12)', color: '#38bdf8', href: '/dashboard/analytics', title: 'View Analytics', desc: 'Performance insights', mode: null, emoji: '📊' },
 ];
 
 export default function DashboardPage() {
     const { data: session } = useSession();
+    const router = useRouter();
     const firstName = session?.user?.name?.split(' ')[0] || 'there';
     const [dashData, setDashData] = useState(null);
     const [loading, setLoading] = useState(true);
+
+    // Config modal state
+    const [configModalOpen, setConfigModalOpen] = useState(false);
+    const [configModalMode, setConfigModalMode] = useState('exam');
+    const [configModalPreset, setConfigModalPreset] = useState({ name: '', emoji: '' });
 
     useEffect(() => {
         async function fetchDashboard() {
@@ -33,6 +40,25 @@ export default function DashboardPage() {
         }
         fetchDashboard();
     }, []);
+
+    function handleQuickAction(action) {
+        // Analytics has no config modal — navigate directly
+        if (!action.mode) {
+            router.push(action.href);
+            return;
+        }
+        setConfigModalMode(action.mode);
+        setConfigModalPreset({ name: action.title, emoji: action.emoji });
+        setConfigModalOpen(true);
+    }
+
+    function handleConfigGenerate(config) {
+        setConfigModalOpen(false);
+        // Store config in sessionStorage so the target page can pick it up
+        sessionStorage.setItem('examConfigModalResult', JSON.stringify({ mode: configModalMode, config }));
+        const targetHref = quickActions.find(a => a.mode === configModalMode)?.href;
+        if (targetHref) router.push(targetHref);
+    }
 
     const stats = dashData ? [
         { icon: '📝', bg: 'rgba(99,102,241,0.12)', value: String(dashData.stats.totalActivities), label: 'Activities', change: `${dashData.stats.examCount} exams` },
@@ -100,7 +126,7 @@ export default function DashboardPage() {
 
                 <div className={styles.quickActions}>
                     {quickActions.map((action, i) => (
-                        <Link key={i} href={action.href} className={styles.actionCard}>
+                        <div key={i} className={styles.actionCard} onClick={() => handleQuickAction(action)} style={{ cursor: 'pointer' }}>
                             <div className={styles.actionIcon} style={{ background: action.bg, color: action.color }}>
                                 {action.icon}
                             </div>
@@ -108,10 +134,20 @@ export default function DashboardPage() {
                                 <h4>{action.title}</h4>
                                 <p>{action.desc}</p>
                             </div>
-                        </Link>
+                        </div>
                     ))}
                 </div>
             </div>
+
+            {/* Config Modal */}
+            <ExamConfigModal
+                isOpen={configModalOpen}
+                onClose={() => setConfigModalOpen(false)}
+                onGenerate={handleConfigGenerate}
+                mode={configModalMode}
+                presetName={configModalPreset.name}
+                presetEmoji={configModalPreset.emoji}
+            />
         </div>
     );
 }

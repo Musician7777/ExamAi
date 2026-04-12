@@ -1,8 +1,10 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { HiOutlinePlay } from 'react-icons/hi';
 import { FetchExamModal, FetchExamCard, AddPresetCard, SavedPresetCard, SavedPresetsSection, useSavedPresets } from '../../components/PresetManager/PresetManager';
+import ExamConfigModal from '../../components/ExamConfigModal/ExamConfigModal';
 import styles from './coding.module.css';
 
 const defaultProblems = [
@@ -26,11 +28,46 @@ const codingPresets = [
 ];
 
 export default function CodingPage() {
+    const router = useRouter();
     const [showFetchModal, setShowFetchModal] = useState(false);
     const [fetchedProblems, setFetchedProblems] = useState(null);
     const [activePreset, setActivePreset] = useState(null);
     const { presets: savedPresets, savePreset, deletePreset } = useSavedPresets('examai_coding_presets');
 
+    // Config modal state
+    const [configModalOpen, setConfigModalOpen] = useState(false);
+    const [configModalPreset, setConfigModalPreset] = useState({ name: '', emoji: '' });
+
+    // Check for config passed from dashboard quick action
+    useEffect(() => {
+        try {
+            const stored = sessionStorage.getItem('examConfigModalResult');
+            if (stored) {
+                const { mode, config } = JSON.parse(stored);
+                sessionStorage.removeItem('examConfigModalResult');
+                if (mode === 'coding' && config) {
+                    // Store coding config and navigate to first problem
+                    sessionStorage.setItem('codingConfig', JSON.stringify(config));
+                    router.push('/dashboard/coding/1');
+                }
+            }
+        } catch (e) { /* ignore */ }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    /* ─── Open config modal for a preset ─── */
+    function openConfigForPreset(preset) {
+        setActivePreset(preset.id);
+        setFetchedProblems(null);
+        setConfigModalPreset({ name: preset.name, emoji: preset.emoji });
+        setConfigModalOpen(true);
+    }
+
+    /* ─── Generate from config modal ─── */
+    function handleConfigGenerate(config) {
+        setConfigModalOpen(false);
+        sessionStorage.setItem('codingConfig', JSON.stringify(config));
+        router.push('/dashboard/coding/1');
+    }
     const displayProblems = fetchedProblems?.problems || defaultProblems;
     const displayTitle = fetchedProblems?.title || null;
 
@@ -76,7 +113,7 @@ export default function CodingPage() {
                         <div
                             key={p.id}
                             className={`${styles.presetCard} ${activePreset === p.id ? styles.selected : ''}`}
-                            onClick={() => { setActivePreset(p.id); setFetchedProblems(null); }}
+                            onClick={() => openConfigForPreset(p)}
                         >
                             <div className={styles.presetEmoji}>{p.emoji}</div>
                             <h4>{p.name}</h4>
@@ -150,6 +187,16 @@ export default function CodingPage() {
                 onUseConfig={handleUseFetchedConfig}
                 onSavePreset={handleSavePreset}
                 mode="coding"
+            />
+
+            {/* Config Modal */}
+            <ExamConfigModal
+                isOpen={configModalOpen}
+                onClose={() => setConfigModalOpen(false)}
+                onGenerate={handleConfigGenerate}
+                mode="coding"
+                presetName={configModalPreset.name}
+                presetEmoji={configModalPreset.emoji}
             />
         </div>
     );

@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { HiOutlineChatAlt2, HiOutlinePlay, HiOutlineMicrophone, HiOutlineVolumeUp, HiOutlineVolumeOff, HiOutlineRefresh, HiOutlineLogout, HiOutlineLightBulb, HiOutlineChevronDown, HiOutlineChevronUp } from 'react-icons/hi';
 import { FetchExamModal, FetchExamCard, AddPresetCard, SavedPresetCard, SavedPresetsSection, useSavedPresets } from '../../components/PresetManager/PresetManager';
+import ExamConfigModal from '../../components/ExamConfigModal/ExamConfigModal';
 import styles from './interview.module.css';
 
 /* ─────────────────────────────────────────────
@@ -317,6 +318,65 @@ export default function InterviewPage() {
     const [fetchedConfig, setFetchedConfig] = useState(null);
     const { presets: savedPresets, savePreset, deletePreset } = useSavedPresets('examai_interview_presets');
 
+    // Config modal state
+    const [configModalOpen, setConfigModalOpen] = useState(false);
+    const [configModalPreset, setConfigModalPreset] = useState({ name: '', emoji: '', initialConfig: {} });
+
+    // Check for config passed from dashboard quick action
+    useEffect(() => {
+        try {
+            const stored = sessionStorage.getItem('examConfigModalResult');
+            if (stored) {
+                const { mode, config } = JSON.parse(stored);
+                sessionStorage.removeItem('examConfigModalResult');
+                if (mode === 'interview' && config) {
+                    handleConfigGenerate(config);
+                }
+            }
+        } catch (e) { /* ignore */ }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    /* ─── Open config modal for a template ─── */
+    function openConfigForTemplate(tmpl) {
+        setSelectedTemplate(tmpl.id);
+        setShowCustom(false);
+        setFetchedConfig(null);
+        setConfigModalPreset({
+            name: tmpl.title,
+            emoji: tmpl.emoji,
+            initialConfig: {
+                difficulty: tmpl.difficulty,
+                questionCount: tmpl.questionCount,
+                tone: tmpl.tone,
+            },
+        });
+        setConfigModalOpen(true);
+    }
+
+    /* ─── Handle config modal generate ─── */
+    function handleConfigGenerate(modalConfig) {
+        setConfigModalOpen(false);
+        // Apply modal config to interview settings
+        const tmpl = interviewTemplates.find(t => t.id === selectedTemplate);
+        const baseConfig = tmpl || { interviewType: 'technical', role: 'Candidate', topics: ['General'] };
+        
+        setVoiceEnabled(modalConfig.voiceEnabled !== undefined ? modalConfig.voiceEnabled : true);
+        setMicEnabled(modalConfig.micEnabled !== undefined ? modalConfig.micEnabled : true);
+        
+        // Build final config and start interview directly
+        const finalConfig = {
+            interviewType: baseConfig.interviewType || 'technical',
+            role: baseConfig.role || 'Candidate',
+            company: '',
+            topics: baseConfig.topics || ['General'],
+            difficulty: modalConfig.difficulty || 'Medium',
+            questionCount: modalConfig.questionCount || modalConfig.questions || 10,
+            tone: modalConfig.tone || 'Professional',
+        };
+        
+        startInterviewWithConfig(finalConfig, modalConfig.voiceEnabled !== false, modalConfig.micEnabled !== false);
+    }
+
     /* ─── Handle AI-fetched interview config ─── */
     function handleUseFetchedConfig(config) {
         setFetchedConfig(config);
@@ -502,9 +562,13 @@ export default function InterviewPage() {
     async function startInterview() {
         const config = getConfig();
         if (!config) return;
+        await startInterviewWithConfig(config, voiceEnabled, micEnabled);
+    }
 
+    /* ─── Start Interview with explicit config ─── */
+    async function startInterviewWithConfig(config, useVoice, useMic) {
         // Request mic permission NOW (user gesture context)
-        if (micEnabled && sttSupported) {
+        if (useMic && sttSupported) {
             await requestMicPermission();
         }
 
@@ -537,13 +601,13 @@ export default function InterviewPage() {
             setMessages([{ role: 'ai', text: greeting }]);
             setIsThinking(false);
 
-            if (voiceEnabled) {
+            if (useVoice) {
                 speak(greeting, () => {
                     // After AI finishes speaking, auto-start mic
                     console.log('[Interview] TTS ended, queuing mic');
-                    if (micEnabled) setAwaitingMic(true);
+                    if (useMic) setAwaitingMic(true);
                 });
-            } else if (micEnabled) {
+            } else if (useMic) {
                 setAwaitingMic(true);
             }
         } catch (err) {
@@ -871,7 +935,7 @@ export default function InterviewPage() {
                         <div
                             key={t.id}
                             className={`${styles.templateCard} ${selectedTemplate === t.id && !showCustom && !fetchedConfig ? styles.selected : ''}`}
-                            onClick={() => { setSelectedTemplate(t.id); setShowCustom(false); setFetchedConfig(null); }}
+                            onClick={() => openConfigForTemplate(t)}
                         >
                             <div className={styles.templateEmoji}>{t.emoji}</div>
                             <h3>{t.title}</h3>
@@ -1005,6 +1069,17 @@ export default function InterviewPage() {
                     onUseConfig={handleUseFetchedConfig}
                     onSavePreset={handleSavePreset}
                     mode="interview"
+                />
+
+                {/* Config Modal */}
+                <ExamConfigModal
+                    isOpen={configModalOpen}
+                    onClose={() => setConfigModalOpen(false)}
+                    onGenerate={handleConfigGenerate}
+                    mode="interview"
+                    presetName={configModalPreset.name}
+                    presetEmoji={configModalPreset.emoji}
+                    initialConfig={configModalPreset.initialConfig}
                 />
             </div>
         );
