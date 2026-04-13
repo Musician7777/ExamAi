@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 const HF_TOKEN = process.env.HF_TOKEN;
-const HF_KOKORO_TTS_URL = 'https://api-inference.huggingface.co/models/hexgrad/Kokoro-82M';
+const HF_KOKORO_TTS_URL = 'https://router.huggingface.co/hf-inference/models/hexgrad/Kokoro-82M';
 
 export async function POST(request) {
     try {
