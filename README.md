@@ -20,6 +20,22 @@ You can start editing the page by modifying `app/page.js`. The page auto-updates
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Environment Variables
+
+Create a `.env.local` file in the project root and set:
+
+```bash
+HF_TOKEN=your_hugging_face_access_token
+```
+
+## Hugging Face TTS Setup (Kokoro-82M)
+
+1. Create or log into your Hugging Face account: https://huggingface.co/
+2. Go to **Settings → Access Tokens**.
+3. Click **New token** and create a token with inference permissions.
+4. Copy the token and set it as `HF_TOKEN` in `.env.local`.
+5. Restart the Next.js server.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
