@@ -1,8 +1,6 @@
 'use client';
-import { ThemeProvider as NextThemesProvider } from 'next-themes';
-import { createContext, useContext } from 'react';
-
-const ThemeToggleContext = createContext();
+import { ThemeProvider as NextThemesProvider, useTheme as useNextTheme } from 'next-themes';
+import { useState, useEffect } from 'react';
 
 export function ThemeProvider({ children }) {
   return (
@@ -19,10 +17,18 @@ export function ThemeProvider({ children }) {
 }
 
 export function useTheme() {
-  const { theme, setTheme, resolvedTheme } = require('next-themes').useTheme();
+  const [mounted, setMounted] = useState(false);
+  const { theme, setTheme, resolvedTheme } = useNextTheme();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const currentTheme = mounted ? (theme || resolvedTheme || 'dark') : 'dark';
+
   return {
-    theme: resolvedTheme || theme || 'dark',
+    theme: currentTheme,
     setTheme,
-    toggleTheme: () => setTheme(theme === 'dark' ? 'light' : 'dark'), // Keep for backward compat
+    toggleTheme: () => setTheme(currentTheme === 'dark' ? 'light' : 'dark'),
   };
 }
