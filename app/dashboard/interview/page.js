@@ -130,26 +130,35 @@ function useSpeechSynthesis() {
     const [isSpeaking, setIsSpeaking] = useState(false);
     const onEndRef = useRef(null);
     const pollRef = useRef(null);
+    const audioRef = useRef(null);
+    const objectUrlRef = useRef(null);
 
     const fireOnEnd = useCallback(() => {
         clearInterval(pollRef.current);
+        pollRef.current = null;
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.src = '';
+            audioRef.current = null;
+        }
+        if (objectUrlRef.current) {
+            URL.revokeObjectURL(objectUrlRef.current);
+            objectUrlRef.current = null;
+        }
         setIsSpeaking(false);
         const cb = onEndRef.current;
         onEndRef.current = null;
         if (cb) cb();
     }, []);
 
-    const speak = useCallback((text, onEnd) => {
+    const speakWithBrowserFallback = useCallback((text) => {
         if (typeof window === 'undefined' || !window.speechSynthesis) {
-            if (onEnd) onEnd();
+            fireOnEnd();
             return;
         }
-        window.speechSynthesis.cancel();
-        clearInterval(pollRef.current);
-        onEndRef.current = onEnd || null;
 
-        const clean = text.replace(/\*\*/g, '').replace(/---/g, '').replace(/\n{2,}/g, '. ').replace(/\n/g, '. ').trim();
-        const utt = new SpeechSynthesisUtterance(clean);
+        window.speechSynthesis.cancel();
+        const utt = new SpeechSynthesisUtterance(text);
         utt.rate = 1.05;
         utt.pitch = 1.0;
         utt.volume = 1.0;
@@ -168,8 +177,6 @@ function useSpeechSynthesis() {
 
         window.speechSynthesis.speak(utt);
 
-        // Chrome bug workaround: onend sometimes never fires.
-        // Poll speechSynthesis.speaking to detect when it actually stops.
         pollRef.current = setInterval(() => {
             if (!window.speechSynthesis.speaking && !ended) {
                 ended = true;
@@ -179,12 +186,77 @@ function useSpeechSynthesis() {
     }, [fireOnEnd]);
 
     const stop = useCallback(() => {
-        if (typeof window === 'undefined' || !window.speechSynthesis) return;
         clearInterval(pollRef.current);
-        window.speechSynthesis.cancel();
-        setIsSpeaking(false);
+        pollRef.current = null;
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.src = '';
+            audioRef.current = null;
+        }
+        if (objectUrlRef.current) {
+            URL.revokeObjectURL(objectUrlRef.current);
+            objectUrlRef.current = null;
+        }
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+        }
         onEndRef.current = null;
+        setIsSpeaking(false);
     }, []);
+
+    const speak = useCallback(async (text, onEnd) => {
+        stop();
+        onEndRef.current = onEnd || null;
+        const clean = text.replace(/\*\*/g, '').replace(/---/g, '').replace(/\n{2,}/g, '. ').replace(/\n/g, '. ').trim();
+        if (!clean) {
+            fireOnEnd();
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/tts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: clean }),
+            });
+
+            if (!res.ok) {
+                speakWithBrowserFallback(clean);
+                return;
+            }
+
+            const blob = await res.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            objectUrlRef.current = objectUrl;
+            const audio = new Audio(objectUrl);
+            audioRef.current = audio;
+
+            let ended = false;
+            const finalize = () => {
+                if (ended) return;
+                ended = true;
+                fireOnEnd();
+            };
+
+            audio.onended = finalize;
+            audio.onerror = () => {
+                if (!ended) {
+                    ended = true;
+                    if (objectUrlRef.current) {
+                        URL.revokeObjectURL(objectUrlRef.current);
+                        objectUrlRef.current = null;
+                    }
+                    audioRef.current = null;
+                    speakWithBrowserFallback(clean);
+                }
+            };
+
+            setIsSpeaking(true);
+            await audio.play();
+        } catch {
+            speakWithBrowserFallback(clean);
+        }
+    }, [fireOnEnd, speakWithBrowserFallback, stop]);
 
     useEffect(() => {
         if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -192,12 +264,9 @@ function useSpeechSynthesis() {
             window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
         }
         return () => {
-            clearInterval(pollRef.current);
-            if (typeof window !== 'undefined' && window.speechSynthesis) {
-                window.speechSynthesis.cancel();
-            }
+            stop();
         };
-    }, []);
+    }, [stop]);
 
     return { isSpeaking, speak, stop };
 }
@@ -433,6 +502,7 @@ export default function InterviewPage() {
 
     // Awaiting mic (after AI finishes speaking, should we auto-start mic?)
     const [awaitingMic, setAwaitingMic] = useState(false);
+    const micStartTimeoutRef = useRef(null);
 
     const chatRef = useRef(null);
     const sendingRef = useRef(false); // prevent double-send
@@ -472,29 +542,14 @@ export default function InterviewPage() {
     useEffect(() => {
         if (awaitingMic && !isSpeaking && !isThinking && micEnabled && sttSupported && phase === 'interview') {
             setAwaitingMic(false);
-            // Small delay so browser doesn't choke
-            const t = setTimeout(() => {
+            clearTimeout(micStartTimeoutRef.current);
+            micStartTimeoutRef.current = setTimeout(() => {
                 console.log('[Interview] Auto-starting mic');
                 startListening();
             }, 500);
-            return () => clearTimeout(t);
         }
+        return () => clearTimeout(micStartTimeoutRef.current);
     }, [awaitingMic, isSpeaking, isThinking, micEnabled, sttSupported, phase, startListening]);
-
-    // Fallback: watch isSpeaking go from true→false to trigger mic
-    const wasSpeakingRef = useRef(false);
-    useEffect(() => {
-        if (wasSpeakingRef.current && !isSpeaking && !isThinking && micEnabled && sttSupported && phase === 'interview' && !isListening) {
-            // Speech just ended — trigger mic after a moment
-            const t = setTimeout(() => {
-                console.log('[Interview] Fallback: speech ended, starting mic');
-                startListening();
-            }, 800);
-            wasSpeakingRef.current = false;
-            return () => clearTimeout(t);
-        }
-        wasSpeakingRef.current = isSpeaking;
-    }, [isSpeaking, isThinking, micEnabled, sttSupported, phase, isListening, startListening]);
 
     // Auto-restart mic if browser stops recognition unexpectedly (e.g. silence/timeout)
     const prevListeningRef = useRef(false);
@@ -620,6 +675,7 @@ export default function InterviewPage() {
             console.error('Failed to start interview:', err);
             setIsThinking(false);
             setMessages([{ role: 'ai', text: 'Sorry, I had trouble getting started. Please try again.' }]);
+            if (useMic && !useVoice) setAwaitingMic(true);
         }
     }
 
@@ -1361,11 +1417,11 @@ export default function InterviewPage() {
                     </div>
 
                     <div className="w-full max-w-2xl text-center space-y-6 z-10">
-                        <div className="inline-flex items-center justify-center gap-2 px-6 py-2 rounded-full bg-secondary/80 backdrop-blur border text-sm font-bold uppercase tracking-wider text-muted-foreground shadow-sm">
+                        <div className="inline-flex items-center justify-center gap-2 px-6 py-2 rounded-full bg-secondary/80 backdrop-blur border text-sm font-bold uppercase tracking-wider text-muted-foreground shadow-sm min-w-44">
                             {isThinking && <span>Processing...</span>}
                             {isSpeaking && <span>Interviewer Speaking</span>}
                             {isListening && <><span className="w-2.5 h-2.5 bg-destructive rounded-full animate-pulse"/> Listening...</>}
-                            {!isThinking && !isSpeaking && !isListening && <span>Ready</span>}
+                            {!isThinking && !isSpeaking && !isListening && <span>{awaitingMic ? 'Preparing Mic...' : 'Ready'}</span>}
                         </div>
 
                         {currentQ?.question && !isThinking && (

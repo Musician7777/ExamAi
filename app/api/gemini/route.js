@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { generateWithFailover, hasApiKeys, parseAIResponse, isRateLimitError } from '@/lib/services/geminiService';
+import { generateWithFailover, hasApiKeys, parseAIResponse, isRateLimitError, isServiceUnavailableError } from '@/lib/services/geminiService';
 import { buildExamPrompt, buildFetchExamConfigPrompt } from '@/lib/prompts/examPrompts';
 import { buildInterviewPrompt, buildInterviewRespondPrompt, buildEvaluationPrompt, buildInterviewAnalysisPrompt, buildFetchInterviewConfigPrompt } from '@/lib/prompts/interviewPrompts';
 import { buildCodeEvaluationPrompt, buildFetchCodingConfigPrompt, buildChatPrompt } from '@/lib/prompts/codingPrompts';
@@ -137,6 +137,15 @@ export async function POST(request) {
                 error: 'All API keys are rate limited. Please wait 30-60 seconds and try again.',
                 isRateLimited: true,
             }, { status: 429 });
+        }
+        if (isServiceUnavailableError(error)) {
+            if (type === 'interview-question' || type === 'interview-respond' || type === 'evaluate-answer') {
+                return NextResponse.json(getMockResponse(type, config));
+            }
+            return NextResponse.json({
+                error: 'AI provider is temporarily unavailable. Please try again shortly.',
+                isServiceUnavailable: true,
+            }, { status: 503 });
         }
         return NextResponse.json({
             error: 'Failed to generate. Please try again.',
