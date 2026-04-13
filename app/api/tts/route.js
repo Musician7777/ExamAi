@@ -5,7 +5,7 @@ const HF_KOKORO_TTS_URL = 'https://router.huggingface.co/hf-inference/models/hex
 
 export async function POST(request) {
     try {
-        const { text } = await request.json();
+        const { text, voice = 'af_bella' } = await request.json();
         if (!text || !text.trim()) {
             return NextResponse.json({ error: 'Text is required' }, { status: 400 });
         }
@@ -22,27 +22,35 @@ export async function POST(request) {
             },
             body: JSON.stringify({
                 inputs: text.slice(0, 4000),
+                parameters: { voice },
                 options: { wait_for_model: true },
             }),
         });
 
         if (!response.ok) {
+            const rawError = await response.text();
             let errorMessage = `Hugging Face TTS request failed (${response.status})`;
-            try {
-                const errorBody = await response.json();
-                const bodyMessage = errorBody?.error || errorBody?.message;
-                if (bodyMessage) errorMessage = bodyMessage;
+            let bodyMessage = '';
 
-                if (response.status === 503 && /loading/i.test(bodyMessage || '')) {
-                    return NextResponse.json({
-                        error: 'TTS model is loading. Please retry in a few seconds.',
-                        isLoading: true,
-                        fallback: true,
-                    }, { status: 503 });
+            if (rawError) {
+                try {
+                    const errorBody = JSON.parse(rawError);
+                    bodyMessage = errorBody?.error || errorBody?.message || '';
+                } catch {
+                    bodyMessage = rawError;
                 }
-            } catch {
-                const raw = await response.text();
-                if (raw) errorMessage = `${errorMessage}: ${raw}`;
+            }
+
+            if (bodyMessage) {
+                errorMessage = bodyMessage;
+            }
+
+            if (response.status === 503 && /loading/i.test(bodyMessage || '')) {
+                return NextResponse.json({
+                    error: 'TTS model is loading. Please retry in a few seconds.',
+                    isLoading: true,
+                    fallback: true,
+                }, { status: 503 });
             }
 
             if (response.status === 401 || response.status === 403) {
