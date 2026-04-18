@@ -8,8 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Send, AudioLines, LogOut } from 'lucide-react';
+import { BarVisualizer } from '@/components/ui/bar-visualizer';
+import { Conversation, ConversationContent, ConversationEmptyState, ConversationScrollButton } from '@/components/ui/conversation';
+import { Message, MessageContent } from '@/components/ui/message';
+import { Response } from '@/components/ui/response';
+import { ShimmeringText } from '@/components/ui/shimmering-text';
 
 /* ─────────────────────────────────────────────
    INTERVIEW TEMPLATES
@@ -376,8 +382,8 @@ function useSpeechRecognition({ onSilence } = {}) {
    ───────────────────────────────────────────── */
 export default function InterviewPage() {
     const [phase, setPhase] = useState('setup');
-    // 'avatar' = simple AI orb mode, 'transcript' = chat transcript mode
-    const [viewMode, setViewMode] = useState('avatar');
+    // 'live' = BarVisualizer mode, 'transcript' = chat transcript mode
+    const [viewMode, setViewMode] = useState('live');
 
     // Setup
     const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -544,12 +550,30 @@ export default function InterviewPage() {
             setAwaitingMic(false);
             clearTimeout(micStartTimeoutRef.current);
             micStartTimeoutRef.current = setTimeout(() => {
-                console.log('[Interview] Auto-starting mic');
+                console.log('[Interview] Auto-starting mic (awaitingMic)');
                 startListening();
-            }, 500);
+            }, 150); // Fast start — like Gemini Live
         }
         return () => clearTimeout(micStartTimeoutRef.current);
     }, [awaitingMic, isSpeaking, isThinking, micEnabled, sttSupported, phase, startListening]);
+
+    // Watch for isSpeaking transition: was speaking → stopped → auto-start mic
+    const prevSpeakingRef = useRef(false);
+    useEffect(() => {
+        if (prevSpeakingRef.current && !isSpeaking && phase === 'interview' && micEnabled && sttSupported) {
+            // AI just finished speaking — immediately start listening
+            if (!isThinking && !sendingRef.current && !isListening) {
+                clearTimeout(micStartTimeoutRef.current);
+                micStartTimeoutRef.current = setTimeout(() => {
+                    if (!sendingRef.current && !isThinking) {
+                        console.log('[Interview] Auto-starting mic after TTS ended');
+                        startListening();
+                    }
+                }, 200);
+            }
+        }
+        prevSpeakingRef.current = isSpeaking;
+    }, [isSpeaking, isThinking, isListening, phase, micEnabled, sttSupported, startListening]);
 
     // Auto-restart mic if browser stops recognition unexpectedly (e.g. silence/timeout)
     const prevListeningRef = useRef(false);
@@ -564,7 +588,7 @@ export default function InterviewPage() {
                         console.log('[Interview] Auto-restarting mic after unexpected stop');
                         startListening();
                     }
-                }, 1500);
+                }, 800); // Faster restart
                 prevListeningRef.current = isListening;
                 return () => clearTimeout(t);
             }
@@ -972,12 +996,22 @@ export default function InterviewPage() {
         return selectedTemplate !== null;
     }
 
-    /* ─── Determine orb state ─── */
-    function getOrbState() {
-        if (isThinking) return 'orbThinking';
-        if (isSpeaking) return 'orbSpeaking';
-        if (isListening) return 'orbListening';
-        return 'orbIdle';
+    /* ─── Determine agent state for BarVisualizer ─── */
+    function getAgentState() {
+        if (isThinking) return 'thinking';
+        if (isSpeaking) return 'speaking';
+        if (isListening) return 'listening';
+        if (awaitingMic) return 'initializing';
+        return 'listening';
+    }
+
+    /* ─── Status label for Live view ─── */
+    function getStatusLabel() {
+        if (isThinking) return 'Processing...';
+        if (isSpeaking) return 'Interviewer Speaking';
+        if (isListening) return 'Listening...';
+        if (awaitingMic) return 'Preparing Mic...';
+        return 'Ready';
     }
 
     /* ═══════════════════════════════════════════
@@ -1372,158 +1406,233 @@ export default function InterviewPage() {
     /* ═══════════════════════════════════════════
        RENDER: LIVE INTERVIEW
        ═══════════════════════════════════════════ */
-    const orbState = getOrbState();
+    const agentState = getAgentState();
+    const statusLabel = getStatusLabel();
+
+    /* Typing-dot keyframes — injected once for transcript thinking indicator */
+    const typingDotCSS = `@keyframes typing-dot { 0%, 100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-5px); opacity: 1; } }`;
 
     return (
         <div className="flex flex-col h-[calc(100vh-theme(spacing.16))] bg-background">
-            {/* Base inline styles for custom Orb to replace CSS module */}
-            <style dangerouslySetInnerHTML={{__html: `
-                .orbContainer { width: 220px; height: 220px; border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; transition: all 0.5s ease; animation: float 6s ease-in-out infinite; margin: 0 auto; }
-                .orbCore { width: 60%; height: 60%; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.8), rgba(255,255,255,0)); filter: blur(4px); }
-                .orbIdle { background: radial-gradient(circle at 30% 30%, #a5b4fc, #4f46e5); box-shadow: 0 0 40px rgba(79, 70, 229, 0.4), inset 0 0 60px rgba(0,0,0,0.2); }
-                .orbThinking { animation: pulse-glow-orb 2s infinite, float 6s ease-in-out infinite; background: radial-gradient(circle at 30% 30%, #c4b5fd, #7c3aed); box-shadow: 0 0 60px rgba(124,58,237,0.6), inset 0 0 60px rgba(0,0,0,0.2); }
-                .orbSpeaking { animation: pulse-speaking-orb 1.5s infinite, float 4s ease-in-out infinite; background: radial-gradient(circle at 30% 30%, #93c5fd, #2563eb); box-shadow: 0 0 50px rgba(37,99,235,0.5), inset 0 0 60px rgba(0,0,0,0.2); }
-                .orbListening { animation: pulse-listening-orb 2s infinite, float 6s ease-in-out infinite; background: radial-gradient(circle at 30% 30%, #86efac, #16a34a); box-shadow: 0 0 60px rgba(22,163,74,0.6), inset 0 0 60px rgba(0,0,0,0.2); }
-                
-                @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
-                @keyframes pulse-glow-orb { 0%, 100% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.05); filter: brightness(1.2); } }
-                @keyframes pulse-speaking-orb { 0%, 100% { transform: scale(1); } 25% { transform: scale(1.1); } 50% { transform: scale(1.05); } 75% { transform: scale(1.15); } }
-                @keyframes pulse-listening-orb { 0%, 100% { transform: scale(1); box-shadow: 0 0 60px rgba(22,163,74,0.6); } 50% { transform: scale(1.02); box-shadow: 0 0 80px rgba(22,163,74,0.8); } }
-                @keyframes typing-dot { 0%, 100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-5px); opacity: 1; } }
-            `}} />
+            <style dangerouslySetInnerHTML={{ __html: typingDotCSS }} />
 
-            {/* Top Bar */}
-            <header className="flex items-center justify-between p-4 border-b bg-card shadow-sm z-10 shrink-0">
-                <div className="flex items-center gap-4">
-                    <div className="w-3 h-3 rounded-full bg-success animate-pulse" />
-                    <h3 className="font-bold hidden sm:block">🎤 {interviewConfig?.role || 'Interview'}</h3>
-                    <Badge variant="outline" className="text-sm py-1 font-mono">Q{questionCount}/{interviewConfig?.questionCount || 10}</Badge>
-                </div>
-                <div className="flex items-center gap-3">
-                    <Button variant="secondary" size="sm" onClick={() => setViewMode(v => v === 'avatar' ? 'transcript' : 'avatar')}>
-                        {viewMode === 'avatar' ? '📝 Transcript' : '🤖 Avatar'}
-                    </Button>
-                    <Button variant="destructive" size="sm" onClick={exitInterview} className="gap-2">
-                        <HiOutlineLogout /> Exit
-                    </Button>
-                </div>
+            {/* ═══ Top Bar ═══ */}
+            <header className="flex items-center justify-between px-4 py-3 border-b bg-card/80 backdrop-blur-sm z-10 shrink-0">
+                {/* Left — Topic + Question Counter */}
+                <Badge variant="outline" className="text-sm py-1.5 px-4 font-mono tracking-wide border-border/60">
+                    {interviewConfig?.topics?.[0] || 'Topic'} Q {String(questionCount).padStart(2, '0')}/{interviewConfig?.questionCount || 10}
+                </Badge>
+
+                {/* Center — Live / Transcript Tabs */}
+                <Tabs value={viewMode} onValueChange={setViewMode} className="">
+                    <TabsList className="h-9 bg-secondary/60 backdrop-blur">
+                        <TabsTrigger value="live" className="text-xs sm:text-sm px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                            Live
+                        </TabsTrigger>
+                        <TabsTrigger value="transcript" className="text-xs sm:text-sm px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                            Transcript
+                        </TabsTrigger>
+                    </TabsList>
+                </Tabs>
+
+                {/* Right — Exit */}
+                <Button variant="ghost" size="sm" onClick={exitInterview} className="gap-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+                    <LogOut className="w-4 h-4" />
+                    <span className="hidden sm:inline">Exit</span>
+                </Button>
             </header>
 
-            {/* AVATAR MODE */}
-            {viewMode === 'avatar' && (
-                <div className="flex-1 flex flex-col items-center justify-center p-6 gap-12 relative overflow-hidden">
-                    <div className={`orbContainer ${orbState}`}>
-                        <div className="orbCore" />
-                    </div>
+            {/* ═══ LIVE TAB — BarVisualizer ═══ */}
+            {viewMode === 'live' && (
+                <div className="flex-1 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+                    {/* Centered visualizer + status */}
+                    <div className="flex flex-col items-center gap-6 w-full max-w-xl">
+                        {/* Bar Visualizer */}
+                        <BarVisualizer
+                            state={agentState}
+                            demo={true}
+                            barCount={24}
+                            minHeight={10}
+                            maxHeight={90}
+                            centerAlign={false}
+                            className="h-48 md:h-56 w-full"
+                        />
 
-                    <div className="w-full max-w-2xl text-center space-y-6 z-10">
-                        <div className="inline-flex items-center justify-center gap-2 px-6 py-2 rounded-full bg-secondary/80 backdrop-blur border text-sm font-bold uppercase tracking-wider text-muted-foreground shadow-sm min-w-44">
-                            {isThinking && <span>Processing...</span>}
-                            {isSpeaking && <span>Interviewer Speaking</span>}
-                            {isListening && <><span className="w-2.5 h-2.5 bg-destructive rounded-full animate-pulse"/> Listening...</>}
-                            {!isThinking && !isSpeaking && !isListening && <span>{awaitingMic ? 'Preparing Mic...' : 'Ready'}</span>}
+                        {/* Status Pill */}
+                        <div className="inline-flex items-center justify-center gap-2.5 px-6 py-2 rounded-full bg-secondary/60 backdrop-blur border border-border/40 text-sm font-semibold uppercase tracking-wider text-muted-foreground shadow-sm min-w-44">
+                            {isThinking && <ShimmeringText text="Processing..." className="text-sm" />}
+                            {isSpeaking && <ShimmeringText text="Interviewer Speaking" className="text-sm" />}
+                            {isListening && (
+                                <>
+                                    <span className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
+                                    <span>Listening...</span>
+                                </>
+                            )}
+                            {!isThinking && !isSpeaking && !isListening && (
+                                <span>{awaitingMic ? 'Preparing Mic...' : 'Ready'}</span>
+                            )}
                         </div>
-
-                        {currentQ?.question && !isThinking && (
-                            <h2 className="text-2xl md:text-3xl font-medium leading-relaxed drop-shadow-sm transition-all">{currentQ.question}</h2>
-                        )}
-
-                        {isListening && transcript && (
-                            <div className="text-xl md:text-2xl text-primary font-medium italic opacity-80 transition-all">&ldquo;{transcript}&rdquo;</div>
-                        )}
                     </div>
                 </div>
             )}
 
-            {/* TRANSCRIPT MODE */}
+            {/* ═══ TRANSCRIPT TAB — Conversation UI ═══ */}
             {viewMode === 'transcript' && (
-                <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full border-x bg-card shadow-sm overflow-hidden">
-                    <div className="flex-1 p-4 overflow-y-auto" ref={chatRef}>
-                        <div className="space-y-6 pb-4 flex flex-col">
-                            {messages.map((msg, i) => {
-                                if (msg.role === 'feedback') {
-                                    return (
-                                        <div key={i} className="my-6 p-4 rounded-xl bg-secondary/20 border border-secondary self-center mx-12">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <Badge variant="outline" className="text-xs">📝 Feedback</Badge>
-                                                {msg.score !== undefined && (
-                                                    <span className={cn("font-bold text-sm", msg.score >= 7 ? "text-success" : msg.score >= 4 ? "text-warning" : "text-destructive")}>Score: {msg.score}/10</span>
+                <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full border-x border-border/40 bg-card overflow-hidden">
+                    {/* Message Area */}
+                    <Conversation className="flex-1">
+                        <ConversationContent className="p-4 sm:p-6 pb-2">
+                            {messages.length === 0 && !isThinking ? (
+                                <ConversationEmptyState
+                                    icon={
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="text-muted-foreground/60">
+                                            <circle cx="12" cy="12" r="3" fill="currentColor" opacity="0.8" />
+                                            <circle cx="12" cy="5" r="2" fill="currentColor" opacity="0.5" />
+                                            <circle cx="5" cy="12" r="2" fill="currentColor" opacity="0.5" />
+                                            <circle cx="19" cy="12" r="2" fill="currentColor" opacity="0.5" />
+                                        </svg>
+                                    }
+                                    title={
+                                        agentState === 'connecting' || agentState === 'initializing'
+                                            ? <ShimmeringText text="Starting conversation" />
+                                            : 'Start a conversation'
+                                    }
+                                    description="Type a message or tap the voice button"
+                                />
+                            ) : (
+                                <>
+                                    {messages.map((msg, i) => {
+                                        /* ─── Feedback messages ─── */
+                                        if (msg.role === 'feedback') {
+                                            return (
+                                                <div key={i} className="my-4 p-4 rounded-xl bg-secondary/20 border border-border/50 self-center mx-4 sm:mx-12 animate-in fade-in duration-300">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <Badge variant="outline" className="text-xs">📝 Feedback</Badge>
+                                                        {msg.score !== undefined && (
+                                                            <span className={cn("font-bold text-sm", msg.score >= 7 ? "text-success" : msg.score >= 4 ? "text-warning" : "text-destructive")}>
+                                                                Score: {msg.score}/10
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-sm text-muted-foreground space-y-1">
+                                                        {msg.text.split('\n').map((line, j) => (
+                                                            <span key={j} className="block">
+                                                                {line.startsWith('**') ? <strong className="text-foreground">{line.replace(/\*\*/g, '')}</strong> : line}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+
+                                        /* ─── User / AI messages ─── */
+                                        const role = msg.role === 'ai' ? 'assistant' : 'user';
+                                        return (
+                                            <Message key={i} from={role}>
+                                                <MessageContent>
+                                                    <Response
+                                                        className={cn(
+                                                            role === 'assistant'
+                                                                ? 'bg-secondary/50 text-foreground rounded-tl-sm'
+                                                                : 'bg-brand text-brand-foreground rounded-tr-sm'
+                                                        )}
+                                                    >
+                                                        {msg.text.split('\n').map((line, j) => (
+                                                            <span key={j} className="block">
+                                                                {line.startsWith('**') ? <strong>{line.replace(/\*\*/g, '')}</strong> : line}
+                                                            </span>
+                                                        ))}
+                                                    </Response>
+                                                </MessageContent>
+                                                {role === 'assistant' && (
+                                                    <div className="ring-border/50 size-7 flex-shrink-0 self-end overflow-hidden rounded-full ring-1 bg-secondary/60 flex items-center justify-center">
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-muted-foreground">
+                                                            <circle cx="12" cy="12" r="3" fill="currentColor" opacity="0.8" />
+                                                            <circle cx="12" cy="5" r="1.5" fill="currentColor" opacity="0.5" />
+                                                            <circle cx="5" cy="12" r="1.5" fill="currentColor" opacity="0.5" />
+                                                            <circle cx="19" cy="12" r="1.5" fill="currentColor" opacity="0.5" />
+                                                        </svg>
+                                                    </div>
                                                 )}
-                                            </div>
-                                            <div className="text-sm text-muted-foreground space-y-1">
-                                                {msg.text.split('\n').map((line, j) => (
-                                                    <span key={j} className="block">{line.startsWith('**') ? <strong className="text-foreground">{line.replace(/\*\*/g, '')}</strong> : line}</span>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    );
-                                }
-                                return (
-                                    <div key={i} className={cn("flex flex-col max-w-[85%]", msg.role === 'ai' ? "items-start" : "items-end self-end ml-auto")}>
-                                        <div className="text-xs font-semibold text-muted-foreground mb-1 px-1">
-                                            {msg.role === 'ai' ? '🤖 Interviewer' : '👤 You'}
-                                        </div>
-                                        <div className={cn("p-4 rounded-2xl shadow-sm text-sm leading-relaxed", msg.role === 'ai' ? "bg-secondary/50 text-foreground rounded-tl-sm" : "bg-primary text-primary-foreground rounded-tr-sm")}>
-                                            {msg.text.split('\n').map((line, j) => (
-                                                <span key={j} className="block">{line.startsWith('**') ? <strong>{line.replace(/\*\*/g, '')}</strong> : line}</span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                            
-                            {isThinking && (
-                                <div className="flex flex-col items-start max-w-[85%]">
-                                    <div className="text-xs font-semibold text-muted-foreground mb-1 px-1">🤖 Interviewer</div>
-                                    <div className="px-4 py-5 rounded-2xl bg-secondary/50 rounded-tl-sm flex gap-1.5 items-center">
-                                        <div className="w-2 h-2 rounded-full bg-muted-foreground" style={{animation: 'typing-dot 1.4s infinite ease-in-out'}} />
-                                        <div className="w-2 h-2 rounded-full bg-muted-foreground" style={{animation: 'typing-dot 1.4s infinite ease-in-out 0.2s'}} />
-                                        <div className="w-2 h-2 rounded-full bg-muted-foreground" style={{animation: 'typing-dot 1.4s infinite ease-in-out 0.4s'}} />
-                                    </div>
-                                </div>
-                            )}
+                                            </Message>
+                                        );
+                                    })}
 
-                            {isListening && transcript && (
-                                <div className="flex flex-col items-end self-end ml-auto max-w-[85%] opacity-70">
-                                    <div className="p-4 rounded-2xl bg-primary/80 text-primary-foreground rounded-tr-sm text-sm italic">
-                                        🎙️ {transcript}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                                    {/* Thinking indicator */}
+                                    {isThinking && (
+                                        <Message from="assistant">
+                                            <MessageContent>
+                                                <div className="px-4 py-4 rounded-2xl bg-secondary/50 rounded-tl-sm flex gap-1.5 items-center">
+                                                    <div className="w-2 h-2 rounded-full bg-muted-foreground" style={{ animation: 'typing-dot 1.4s infinite ease-in-out' }} />
+                                                    <div className="w-2 h-2 rounded-full bg-muted-foreground" style={{ animation: 'typing-dot 1.4s infinite ease-in-out 0.2s' }} />
+                                                    <div className="w-2 h-2 rounded-full bg-muted-foreground" style={{ animation: 'typing-dot 1.4s infinite ease-in-out 0.4s' }} />
+                                                </div>
+                                            </MessageContent>
+                                            <div className="ring-border/50 size-7 flex-shrink-0 self-end overflow-hidden rounded-full ring-1 bg-secondary/60 flex items-center justify-center">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-muted-foreground animate-pulse">
+                                                    <circle cx="12" cy="12" r="3" fill="currentColor" opacity="0.8" />
+                                                    <circle cx="12" cy="5" r="1.5" fill="currentColor" opacity="0.5" />
+                                                    <circle cx="5" cy="12" r="1.5" fill="currentColor" opacity="0.5" />
+                                                    <circle cx="19" cy="12" r="1.5" fill="currentColor" opacity="0.5" />
+                                                </svg>
+                                            </div>
+                                        </Message>
+                                    )}
 
-                    <div className="p-4 bg-background border-t shrink-0">
-                        <div className="flex items-end gap-2 max-w-4xl mx-auto">
-                            <textarea
-                                className="flex-1 min-h-[60px] max-h-[150px] p-3 text-sm rounded-xl border border-input bg-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary disabled:opacity-50 resize-none transition-colors"
+                                    {/* Live transcript while listening */}
+                                    {isListening && transcript && (
+                                        <Message from="user">
+                                            <MessageContent>
+                                                <Response className="bg-brand/70 text-brand-foreground rounded-tr-sm italic opacity-80">
+                                                    🎙️ {transcript}
+                                                </Response>
+                                            </MessageContent>
+                                        </Message>
+                                    )}
+                                </>
+                            )}
+                        </ConversationContent>
+                        <ConversationScrollButton />
+                    </Conversation>
+
+                    {/* ─── Input Footer ─── */}
+                    <div className="px-4 py-3 bg-background border-t border-border/40 shrink-0">
+                        <div className="flex items-center gap-2 max-w-4xl mx-auto">
+                            <Input
                                 value={input}
                                 onChange={e => setInput(e.target.value)}
-                                placeholder={isListening ? "Listening... speak your answer" : "Type your answer... (Press Enter to send)"}
                                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); manualSend(); } }}
+                                placeholder={isListening ? 'Listening... speak your answer' : 'Type a message...'}
+                                className="h-10 flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 bg-card border-border/60"
                                 disabled={isThinking}
                             />
-                            {micEnabled && sttSupported && (
-                                <Button
-                                    size="icon"
-                                    variant={isListening ? "destructive" : "secondary"}
-                                    className={cn("h-14 w-14 shrink-0 rounded-xl transition-all", isListening && "animate-pulse shadow-lg")}
-                                    onClick={toggleMic}
-                                    disabled={isThinking}
-                                >
-                                    <HiOutlineMicrophone className="w-6 h-6" />
-                                </Button>
-                            )}
                             <Button
                                 size="icon"
-                                className="h-14 w-14 shrink-0 rounded-xl"
+                                variant="ghost"
+                                className="rounded-full h-10 w-10 shrink-0 text-muted-foreground hover:text-foreground"
                                 onClick={manualSend}
                                 disabled={isThinking || !input.trim()}
                             >
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-                                    <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
-                                </svg>
+                                <Send className="w-4 h-4" />
+                                <span className="sr-only">Send message</span>
                             </Button>
+                            {micEnabled && sttSupported && (
+                                <Button
+                                    size="icon"
+                                    variant={isListening ? 'secondary' : 'ghost'}
+                                    className={cn(
+                                        'rounded-full h-10 w-10 shrink-0 transition-all',
+                                        isListening
+                                            ? 'text-destructive bg-destructive/10 animate-pulse shadow-sm'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    )}
+                                    onClick={toggleMic}
+                                    disabled={isThinking}
+                                >
+                                    <AudioLines className="w-4 h-4" />
+                                    <span className="sr-only">{isListening ? 'Stop listening' : 'Start voice'}</span>
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>
