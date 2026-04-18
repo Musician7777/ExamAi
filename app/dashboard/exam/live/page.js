@@ -18,6 +18,12 @@ export default function LiveExamPage() {
     const [timeLeft, setTimeLeft] = useState(-1);
     const [showSubmit, setShowSubmit] = useState(false);
     const timerReady = useRef(false);
+    const answersRef = useRef(answers);
+    const timeLeftRef = useRef(timeLeft);
+
+    // Keep refs in sync with state so handleSubmit always reads latest values
+    useEffect(() => { answersRef.current = answers; }, [answers]);
+    useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
 
     useEffect(() => {
         const data = sessionStorage.getItem('currentExam');
@@ -32,34 +38,34 @@ export default function LiveExamPage() {
         }
     }, [router]);
 
-    useEffect(() => {
-        if (!timerReady.current || !exam || timeLeft < 0) return;
-        if (timeLeft === 0) {
-            handleSubmit();
-            return;
-        }
-        const timer = setInterval(() => setTimeLeft(t => t - 1), 1000);
-        return () => clearInterval(timer);
-    }, [timeLeft, exam]);
-
     const getAllQuestions = useCallback(() => {
         if (!exam) return [];
         return exam.sections.flatMap((s) => s.questions);
     }, [exam]);
 
-    const handleSubmit = () => {
+    const handleSubmit = useCallback(() => {
+        // Use refs to always get the latest values (avoids stale closure on auto-submit)
+        const currentAnswers = answersRef.current;
+        const currentTimeLeft = timeLeftRef.current;
+
         const questions = getAllQuestions();
         const results = questions.map((q, i) => ({
             ...q,
-            userAnswer: answers[i] ?? null,
-            isCorrect: answers[i] === q.correct,
+            userAnswer: currentAnswers[i] ?? null,
+            isCorrect: currentAnswers[i] === q.correct,
         }));
 
         const correct = results.filter(r => r.isCorrect).length;
         const wrong = results.filter(r => r.userAnswer !== null && !r.isCorrect).length;
         const unanswered = results.filter(r => r.userAnswer === null).length;
         const totalMarks = questions.reduce((s, q) => s + (q.marks || 4), 0);
-        const score = correct * (questions[0]?.marks || 4) - wrong * (exam.negativeMarking || 0);
+        // Sum marks per question instead of assuming uniform marks
+        // Deduct negative marks proportional to each wrong question's marks
+        const negativePenalty = results.reduce((s, r) => {
+            if (r.userAnswer !== null && !r.isCorrect) return s + (r.marks || 4) * (exam.negativeMarking || 0);
+            return s;
+        }, 0);
+        const score = results.reduce((s, r) => s + (r.isCorrect ? (r.marks || 4) : 0), 0) - negativePenalty;
 
         sessionStorage.setItem('examResults', JSON.stringify({
             exam,
@@ -69,10 +75,20 @@ export default function LiveExamPage() {
             correct,
             wrong,
             unanswered,
-            timeTaken: (exam.duration || 60) * 60 - timeLeft,
+            timeTaken: (exam.duration || 60) * 60 - currentTimeLeft,
         }));
         router.push('/dashboard/exam/results');
-    };
+    }, [exam, getAllQuestions, router]);
+
+    useEffect(() => {
+        if (!timerReady.current || !exam || timeLeft < 0) return;
+        if (timeLeft === 0) {
+            handleSubmit();
+            return;
+        }
+        const timer = setInterval(() => setTimeLeft(t => t - 1), 1000);
+        return () => clearInterval(timer);
+    }, [timeLeft, exam, handleSubmit]);
 
     if (!exam) return null;
 
