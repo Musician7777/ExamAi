@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import connectDB from '@/lib/mongodb';
 import Activity from '@/models/Activity';
 import { awardXP } from '@/lib/services/gamificationService';
+import { rateLimit } from '@/lib/rateLimit';
 
 export async function GET(request) {
     try {
@@ -72,6 +73,11 @@ export async function POST(request) {
         }
 
         await connectDB();
+
+        // Rate limit: 30 activity saves per minute
+        const rateLimitResult = rateLimit(request, 30, 60000);
+        if (rateLimitResult) return rateLimitResult;
+
         const { type, title, score, totalMarks, details, difficulty, duration, tags } = await request.json();
 
         if (!type || !title) {

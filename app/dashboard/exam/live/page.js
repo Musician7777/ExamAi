@@ -8,35 +8,94 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
 
 export default function LiveExamPage() {
     const router = useRouter();
+    const { notify } = useNotification();
     const [exam, setExam] = useState(null);
     const [currentQ, setCurrentQ] = useState(0);
     const [answers, setAnswers] = useState({});
     const [marked, setMarked] = useState(new Set());
     const [timeLeft, setTimeLeft] = useState(-1);
     const [showSubmit, setShowSubmit] = useState(false);
+    const [resumePrompt, setResumePrompt] = useState(false);
+    const [savedSessionId, setSavedSessionId] = useState(null);
     const timerReady = useRef(false);
+    const autoSaveTimerRef = useRef(null);
+
+    // Refs to avoid stale closures when handleSubmit is called from timer
     const answersRef = useRef(answers);
     const timeLeftRef = useRef(timeLeft);
-
-    // Keep refs in sync with state so handleSubmit always reads latest values
+    const handleSubmitRef = useRef(null);
     useEffect(() => { answersRef.current = answers; }, [answers]);
     useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
 
+    // On mount: load exam from sessionStorage or check for resumable session
     useEffect(() => {
-        const data = sessionStorage.getItem('currentExam');
-        if (data) {
-            const parsed = JSON.parse(data);
-            setExam(parsed);
-            const duration = (parsed.duration || 60) * 60;
-            setTimeLeft(duration);
-            timerReady.current = true;
-        } else {
-            router.push('/dashboard/generate');
+        async function initExam() {
+            const data = sessionStorage.getItem('currentExam');
+            if (data) {
+                const parsed = JSON.parse(data);
+                setExam(parsed);
+                const duration = (parsed.duration || 60) * 60;
+                setTimeLeft(duration);
+                timerReady.current = true;
+
+                // Save session to DB for resume capability
+                try {
+                    const res = await fetch('/api/exam-session', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ examData: parsed, timeRemaining: duration }),
+                    });
+                    if (res.ok) {
+                        const { session } = await res.json();
+                        setSavedSessionId(session._id);
+                    }
+                } catch { /* non-critical */ }
+            } else {
+                // No exam in sessionStorage — check for resumable session in DB
+                try {
+                    const res = await fetch('/api/exam-session');
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.sessions?.length > 0) {
+                            setResumePrompt(true);
+                        } else {
+                            router.push('/dashboard/generate');
+                        }
+                    } else {
+                        router.push('/dashboard/generate');
+                    }
+                } catch {
+                    router.push('/dashboard/generate');
+                }
+            }
         }
+        initExam();
     }, [router]);
+
+    // Auto-save progress every 30 seconds
+    useEffect(() => {
+        if (!savedSessionId || !exam) return;
+        autoSaveTimerRef.current = setInterval(async () => {
+            try {
+                await fetch('/api/exam-session', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessionId: savedSessionId,
+                        answers,
+                        markedForReview: [...marked],
+                        currentQuestion: currentQ,
+                        timeRemaining: timeLeft,
+                    }),
+                });
+            } catch { /* non-critical */ }
+        }, 30000);
+        return () => clearInterval(autoSaveTimerRef.current);
+    }, [savedSessionId, exam, answers, marked, currentQ, timeLeft]);
 
     const getAllQuestions = useCallback(() => {
         if (!exam) return [];
@@ -44,6 +103,9 @@ export default function LiveExamPage() {
     }, [exam]);
 
     const handleSubmit = useCallback(() => {
+        // Clear auto-save on submit
+        clearInterval(autoSaveTimerRef.current);
+
         // Use refs to always get the latest values (avoids stale closure on auto-submit)
         const currentAnswers = answersRef.current;
         const currentTimeLeft = timeLeftRef.current;
@@ -59,13 +121,21 @@ export default function LiveExamPage() {
         const wrong = results.filter(r => r.userAnswer !== null && !r.isCorrect).length;
         const unanswered = results.filter(r => r.userAnswer === null).length;
         const totalMarks = questions.reduce((s, q) => s + (q.marks || 4), 0);
-        // Sum marks per question instead of assuming uniform marks
         // Deduct negative marks proportional to each wrong question's marks
         const negativePenalty = results.reduce((s, r) => {
             if (r.userAnswer !== null && !r.isCorrect) return s + (r.marks || 4) * (exam.negativeMarking || 0);
             return s;
         }, 0);
         const score = results.reduce((s, r) => s + (r.isCorrect ? (r.marks || 4) : 0), 0) - negativePenalty;
+
+        // Mark session as completed in DB
+        if (savedSessionId) {
+            fetch('/api/exam-session', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId: savedSessionId, status: 'completed', answers: currentAnswers, timeRemaining: currentTimeLeft }),
+            }).catch(() => {});
+        }
 
         sessionStorage.setItem('examResults', JSON.stringify({
             exam,
@@ -78,17 +148,80 @@ export default function LiveExamPage() {
             timeTaken: (exam.duration || 60) * 60 - currentTimeLeft,
         }));
         router.push('/dashboard/exam/results');
-    }, [exam, getAllQuestions, router]);
+    }, [exam, getAllQuestions, savedSessionId, router]);
 
+    // Timer effect — uses handleSubmitRef to avoid stale closure
     useEffect(() => {
         if (!timerReady.current || !exam || timeLeft < 0) return;
         if (timeLeft === 0) {
-            handleSubmit();
+            handleSubmitRef.current?.();
             return;
         }
         const timer = setInterval(() => setTimeLeft(t => t - 1), 1000);
         return () => clearInterval(timer);
-    }, [timeLeft, exam, handleSubmit]);
+    }, [timeLeft, exam]);
+
+    // Keep handleSubmit ref in sync so timer always calls the latest version
+    useEffect(() => { handleSubmitRef.current = handleSubmit; }, [handleSubmit]);
+
+    // Resume an existing session
+    async function handleResume() {
+        try {
+            const res = await fetch('/api/exam-session');
+            if (res.ok) {
+                const data = await res.json();
+                const latestSession = data.sessions?.[0];
+                if (latestSession) {
+                    setExam(latestSession.examData);
+                    setAnswers(latestSession.answers || {});
+                    setMarked(new Set(latestSession.markedForReview || []));
+                    setCurrentQ(latestSession.currentQuestion || 0);
+                    setTimeLeft(latestSession.timeRemaining || (latestSession.examData.duration || 60) * 60);
+                    setSavedSessionId(latestSession._id);
+                    timerReady.current = true;
+                    setResumePrompt(false);
+                    return;
+                }
+            }
+        } catch { /* fall through */ }
+        router.push('/dashboard/generate');
+    }
+
+    // Discard resumable session and start fresh
+    async function handleDiscardResume() {
+        try {
+            const res = await fetch('/api/exam-session');
+            if (res.ok) {
+                const data = await res.json();
+                for (const s of data.sessions || []) {
+                    await fetch('/api/exam-session', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sessionId: s._id, status: 'abandoned' }),
+                    });
+                }
+            }
+        } catch { /* non-critical */ }
+        setResumePrompt(false);
+        router.push('/dashboard/generate');
+    }
+
+    // Show resume prompt if there's a resumable session
+    if (resumePrompt && !exam) {
+        return (
+            <div className="max-w-md mx-auto py-20">
+                <Card className="p-8 text-center space-y-6">
+                    <span className="text-5xl">📝</span>
+                    <h2 className="text-2xl font-bold">Resume Exam?</h2>
+                    <p className="text-muted-foreground">You have an exam in progress. Would you like to continue where you left off?</p>
+                    <div className="flex flex-col gap-3 pt-2">
+                        <Button size="lg" onClick={handleResume} className="gap-2">▶ Resume Exam</Button>
+                        <Button variant="outline" size="lg" onClick={handleDiscardResume} className="gap-2">🗑 Discard & Start New</Button>
+                    </div>
+                </Card>
+            </div>
+        );
+    }
 
     if (!exam) return null;
 

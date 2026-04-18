@@ -36,9 +36,36 @@ export default function CodingPage() {
     const [showFetchModal, setShowFetchModal] = useState(false);
     const [fetchedProblems, setFetchedProblems] = useState(null);
     const [activePreset, setActivePreset] = useState(null);
+    const [difficultyFilter, setDifficultyFilter] = useState('all');
+    const [solvedIds, setSolvedIds] = useState(new Set());
     const { presets: savedPresets, savePreset, deletePreset } = useSavedPresets('examai_coding_presets');
     const [configModalOpen, setConfigModalOpen] = useState(false);
     const [configModalPreset, setConfigModalPreset] = useState({ name: '', emoji: '' });
+
+    // Load solved problem IDs from localStorage
+    useEffect(() => {
+        try {
+            const stored = localStorage.getItem('examai_solved_problems');
+            if (stored) setSolvedIds(new Set(JSON.parse(stored)));
+        } catch { /* ignore */ }
+    }, []);
+
+    // Listen for solved events from the coding editor page
+    useEffect(() => {
+        function handleSolved(e) {
+            const { problemId } = e.detail || {};
+            if (problemId != null) {
+                setSolvedIds(prev => {
+                    const next = new Set(prev);
+                    next.add(String(problemId));
+                    try { localStorage.setItem('examai_solved_problems', JSON.stringify([...next])); } catch { /* ignore */ }
+                    return next;
+                });
+            }
+        }
+        window.addEventListener('coding-problem-solved', handleSolved);
+        return () => window.removeEventListener('coding-problem-solved', handleSolved);
+    }, []);
 
     useEffect(() => {
         try {
@@ -66,8 +93,13 @@ export default function CodingPage() {
         router.push('/dashboard/coding/1');
     }
 
-    const displayProblems = fetchedProblems?.problems || defaultProblems;
+    const displayProblems = (fetchedProblems?.problems || defaultProblems).filter(p => {
+        if (difficultyFilter === 'all') return true;
+        return p.difficulty === difficultyFilter;
+    });
+    const allProblems = fetchedProblems?.problems || defaultProblems;
     const displayTitle = fetchedProblems?.title || null;
+    const solvedCount = allProblems.filter(p => solvedIds.has(String(p.id))).length;
 
     function handleUseFetchedConfig(config) { setFetchedProblems(config); setActivePreset(null); }
     function handleSelectSavedPreset(preset) { if (preset.problems) setFetchedProblems(preset); setActivePreset(preset.id); }
@@ -79,6 +111,26 @@ export default function CodingPage() {
             <div>
                 <h1 className="text-2xl font-bold">💻 Coding <span className="gradient-text">Challenges</span></h1>
                 <p className="text-muted-foreground mt-1">Practice DSA, debugging, and system design problems with an integrated code editor.</p>
+                {solvedCount > 0 && (
+                    <div className="flex items-center gap-2 mt-2">
+                        <Badge variant="success" className="gap-1">✅ {solvedCount}/{allProblems.length} Solved</Badge>
+                    </div>
+                )}
+            </div>
+
+            {/* Difficulty Filters */}
+            <div className="flex items-center gap-2 flex-wrap">
+                {['all', 'easy', 'medium', 'hard'].map(d => (
+                    <Button
+                        key={d}
+                        variant={difficultyFilter === d ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setDifficultyFilter(d)}
+                        className={cn("capitalize", difficultyFilter === d && d === 'easy' && 'bg-success hover:bg-success/90', difficultyFilter === d && d === 'medium' && 'bg-warning hover:bg-warning/90 text-warning-foreground', difficultyFilter === d && d === 'hard' && 'bg-destructive hover:bg-destructive/90')}
+                    >
+                        {d === 'all' ? `All (${allProblems.length})` : `${d} (${allProblems.filter(p => p.difficulty === d).length})`}
+                    </Button>
+                ))}
             </div>
 
             {/* Presets */}
@@ -122,10 +174,10 @@ export default function CodingPage() {
             <div className="space-y-2">
                 {displayProblems.map((p, idx) => (
                     <Link key={p.id || idx} href={`/dashboard/coding/${p.id || idx + 1}`}>
-                        <Card className="p-4 flex items-center justify-between hover:shadow-md hover:border-indigo-500/20 transition-all cursor-pointer">
+                        <Card className={cn("p-4 flex items-center justify-between hover:shadow-md hover:border-indigo-500/20 transition-all cursor-pointer", solvedIds.has(String(p.id)) && "border-success/30 bg-success/5")}>
                             <div className="flex items-center gap-4">
-                                <div className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center text-sm font-medium text-muted-foreground">
-                                    {p.id || idx + 1}
+                                <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center text-sm font-medium", solvedIds.has(String(p.id)) ? "bg-success/20 text-success" : "bg-secondary text-muted-foreground")}>
+                                    {solvedIds.has(String(p.id)) ? '✓' : (p.id || idx + 1)}
                                 </div>
                                 <div>
                                     <h4 className="text-sm font-semibold">{p.title}</h4>

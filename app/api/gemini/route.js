@@ -4,6 +4,8 @@ import { buildExamPrompt, buildFetchExamConfigPrompt } from '@/lib/prompts/examP
 import { buildInterviewPrompt, buildInterviewRespondPrompt, buildEvaluationPrompt, buildInterviewAnalysisPrompt, buildFetchInterviewConfigPrompt } from '@/lib/prompts/interviewPrompts';
 import { buildCodeEvaluationPrompt, buildFetchCodingConfigPrompt, buildChatPrompt } from '@/lib/prompts/codingPrompts';
 import { getMockExamResponse, getMockInterviewResponse, getMockCodeResponse } from '@/lib/prompts/mockResponses';
+import { sanitizePromptInput } from '@/lib/sanitize';
+import { rateLimit } from '@/lib/rateLimit';
 
 // JS code evaluator (kept inline since it's runtime logic, not a prompt)  
 function evaluateJavaScript(code, testCases) {
@@ -98,9 +100,27 @@ export async function POST(request) {
     let config = {};
 
     try {
+        // Rate limit: 20 requests per minute per IP
+        const rateLimitResult = rateLimit(request, 20, 60000);
+        if (rateLimitResult) return rateLimitResult;
+
         const body = await request.json();
         type = body.type;
         config = body.config;
+
+        // Sanitize user-provided text in config to prevent prompt injection
+        if (config) {
+            if (config.title) config.title = sanitizePromptInput(config.title);
+            if (config.examName) config.examName = sanitizePromptInput(config.examName);
+            if (config.message) config.message = sanitizePromptInput(config.message);
+            if (config.answer) config.answer = sanitizePromptInput(config.answer);
+            if (config.role) config.role = sanitizePromptInput(config.role);
+            if (config.company) config.company = sanitizePromptInput(config.company);
+            // Sanitize topic arrays
+            if (Array.isArray(config.topics)) {
+                config.topics = config.topics.map(t => typeof t === 'string' ? sanitizePromptInput(t) : t);
+            }
+        }
 
         // Validate type
         if (!PROMPT_BUILDERS[type]) {

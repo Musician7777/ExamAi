@@ -8,11 +8,13 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
 import { HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineMinusCircle, HiOutlineLightBulb, HiOutlineClock } from 'react-icons/hi';
 import { BarChart3 } from 'lucide-react';
 
 export default function ResultsPage() {
     const router = useRouter();
+    const { notify } = useNotification();
     const [data, setData] = useState(null);
     const savedRef = useRef(false);
 
@@ -41,7 +43,14 @@ export default function ResultsPage() {
                             sectionCount: parsed.exam?.sections?.length || 0,
                         },
                     }),
-                }).catch(err => console.error('Failed to save exam activity:', err));
+                }).then(async (res) => {
+                        if (res.ok) {
+                            const result = await res.json();
+                            if (result.xp?.xpAwarded) {
+                                notify({ emoji: '✨', title: `+${result.xp.xpAwarded} XP earned!`, description: result.xp.newBadges?.length > 0 ? `New badge: ${result.xp.newBadges.map(b => b.emoji + ' ' + b.name).join(', ')}` : undefined });
+                            }
+                        }
+                    }).catch(err => console.error('Failed to save exam activity:', err));
             }
         } else {
             router.push('/dashboard/generate');

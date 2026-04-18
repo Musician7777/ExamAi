@@ -1,9 +1,12 @@
-import { FaGithub } from 'react-icons/fa';
+import { FaGithub, FaTwitter, FaLinkedin, FaDiscord } from 'react-icons/fa';
 import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
 export default function Footer() {
     const socialLinks = [
-        { icon: FaGithub, label: 'GitHub' },
+        { icon: FaGithub, label: 'GitHub', href: 'https://github.com/examai' },
+        { icon: FaTwitter, label: 'Twitter', href: 'https://twitter.com/examai' },
+        { icon: FaLinkedin, label: 'LinkedIn', href: 'https://linkedin.com/company/examai' },
+        { icon: FaDiscord, label: 'Discord', href: 'https://discord.gg/examai' },
     ];
 
     return (
@@ -17,10 +20,12 @@ export default function Footer() {
                             AI-powered exam generation and interview simulation platform. Built for aspirants, students, and hiring companies.
                         </p>
                         <div className="flex gap-2 mt-4">
-                            {socialLinks.map(({ icon: Icon, label }) => (
+                            {socialLinks.map(({ icon: Icon, label, href }) => (
                                 <a
                                     key={label}
-                                    href="#"
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
                                     aria-label={label}
                                     className="w-9 h-9 rounded-lg bg-secondary hover:bg-secondary/80 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
                                 >
@@ -47,10 +52,10 @@ export default function Footer() {
                     </div>
                     <div className="flex flex-col gap-3">
                         <h4 className="text-sm font-semibold mb-1">Company</h4>
-                        <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">About</a>
-                        <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Blog</a>
-                        <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Careers</a>
-                        <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Contact</a>
+                        <Link href="/about" className="text-sm text-muted-foreground hover:text-foreground transition-colors">About</Link>
+                        <Link href="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Blog</Link>
+                        <Link href="/careers" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Careers</Link>
+                        <Link href="/contact" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Contact</Link>
                     </div>
                 </div>
             </div>
@@ -58,8 +63,8 @@ export default function Footer() {
             <div className="max-w-7xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <p className="text-sm text-muted-foreground">&copy; {new Date().getFullYear()} ExamAI. All rights reserved.</p>
                 <div className="flex gap-4 text-sm text-muted-foreground">
-                    <a href="#" className="hover:text-foreground transition-colors">Privacy</a>
-                    <a href="#" className="hover:text-foreground transition-colors">Terms</a>
+                    <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
+                    <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
                 </div>
             </div>
         </footer>

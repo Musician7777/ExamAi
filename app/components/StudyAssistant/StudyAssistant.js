@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 
 import { cn } from '@/lib/utils';
 
-export default function StudyAssistant() {
+export default function StudyAssistant({ notify } = {}) {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
         { role: 'assistant', text: "Hi! 👋 I'm your AI study assistant. Ask me anything about your exam prep, concepts, or problems!" },
@@ -64,7 +64,7 @@ export default function StudyAssistant() {
 
             {/* Chat Panel */}
             {isOpen && (
-                <Card className="fixed bottom-24 right-6 z-50 w-[380px] h-[520px] flex flex-col shadow-2xl border animate-in slide-in-from-bottom-5 fade-in duration-300">
+                <Card className="fixed bottom-24 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-[380px] max-h-[70vh] sm:h-[520px] flex flex-col shadow-2xl border animate-in slide-in-from-bottom-5 fade-in duration-300">
                     {/* Header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b">
                         <div className="flex items-center gap-2">
