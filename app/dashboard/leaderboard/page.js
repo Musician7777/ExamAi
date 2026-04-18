@@ -76,9 +76,9 @@ export default function LeaderboardPage() {
                                     <TableCell>
                                         <div className="flex items-center gap-3">
                                             <Avatar className="h-8 w-8">
-                                                <AvatarFallback className="text-xs">{user.userId?.charAt(0)?.toUpperCase() || '?'}</AvatarFallback>
+                                                <AvatarFallback className="text-xs">{user.displayName?.charAt(0)?.toUpperCase() || '?'}</AvatarFallback>
                                             </Avatar>
-                                            <span className="font-medium">{user.userId?.split('@')[0] || 'User'}</span>
+                                            <span className="font-medium">{user.displayName || 'User'}</span>
                                         </div>
                                     </TableCell>
                                     <TableCell>

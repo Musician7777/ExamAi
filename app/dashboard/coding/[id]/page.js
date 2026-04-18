@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
@@ -238,21 +238,57 @@ const problemsData = {
 export default function CodingEditorPage() {
     const params = useParams();
     const router = useRouter();
-    const problem = problemsData[params.id];
+    const hardcodedProblem = problemsData[params.id];
+    // Check sessionStorage for AI-generated problems (from ExamConfigModal / PresetManager)
+    const [aiProblem, setAiProblem] = useState(null);
+    const [problemLoading, setProblemLoading] = useState(!hardcodedProblem);
     const [language, setLanguage] = useState('javascript');
-    const [code, setCode] = useState(problem?.starterCode?.javascript || '');
+
+    // Load AI-generated problem from sessionStorage if no hardcoded match
+    useEffect(() => {
+        if (!hardcodedProblem) {
+            const stored = sessionStorage.getItem('codingProblem_' + params.id);
+            if (stored) {
+                try {
+                    setAiProblem(JSON.parse(stored));
+                } catch { /* ignore parse errors */ }
+            }
+        }
+        setProblemLoading(false);
+    }, [params.id, hardcodedProblem]);
+
+    const problem = hardcodedProblem || aiProblem;
+    const [code, setCode] = useState(hardcodedProblem?.starterCode?.javascript || '');
     const [output, setOutput] = useState(null);
     const [running, setRunning] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [executionOutput, setExecutionOutput] = useState(null);
+    const codeInitialized = useRef(false);
 
+    // Set starter code when problem becomes available (only once)
+    useEffect(() => {
+        if (problem?.starterCode?.[language] && !codeInitialized.current) {
+            codeInitialized.current = true;
+            setCode(problem.starterCode[language]);
+        }
+    }, [problem, language]);
+
+    // Show loading until problem is resolved (avoids editor flash with empty content)
     if (!problem) {
+        if (problemLoading) {
+            return (
+                <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+                    <span className="text-5xl animate-pulse">⏳</span>
+                    <h2 className="text-2xl font-bold text-foreground">Loading problem...</h2>
+                </div>
+            );
+        }
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
                 <span className="text-5xl">🔍</span>
                 <h2 className="text-2xl font-bold text-foreground">Problem not found</h2>
-                <p className="text-muted-foreground mb-4">This problem doesn&apos;t exist yet.</p>
+                <p className="text-muted-foreground mb-4">This problem doesn&apos;t exist yet. AI-generated problems are only available in the same browser session.</p>
                 <Button asChild variant="outline">
                     <Link href="/dashboard/coding">← Back to Problems</Link>
                 </Button>
