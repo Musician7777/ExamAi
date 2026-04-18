@@ -64,9 +64,8 @@ export default function DashboardLayout({ children }) {
                 sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
             )}>
                 {/* Logo */}
-                <Link href="/" className="flex items-center gap-2 px-5 py-5 font-bold text-lg">
-                    <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold">E</span>
-                    <span>Exam<span className="gradient-text">AI</span></span>
+                <Link href="/" className="flex items-center gap-2 px-5 py-4 font-bold text-lg">
+                    <img src="/Logo.png" alt="ExamAI" className="h-9 w-auto" style={{ mixBlendMode: 'screen' }} />
                 </Link>
 
                 <Separator />

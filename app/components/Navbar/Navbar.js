@@ -37,8 +37,7 @@ export default function Navbar() {
                 <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-16">
                     {/* Logo */}
                     <Link href="/" className="flex items-center gap-2 font-bold text-lg">
-                        <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold">E</span>
-                        <span>Exam<span className="gradient-text">AI</span></span>
+                        <img src="/Logo.png" alt="ExamAI" className="h-9 w-auto" style={{ mixBlendMode: 'screen' }} />
                     </Link>
 
                     {/* Desktop Nav Links */}
