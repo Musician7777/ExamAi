@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
 
 const Editor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
@@ -246,6 +247,7 @@ export default function CodingEditorPage() {
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [executionOutput, setExecutionOutput] = useState(null);
+    const { notify } = useNotification();
 
     if (!problem) {
         return (
@@ -306,7 +308,7 @@ export default function CodingEditorPage() {
             setOutput(result);
 
             // Save to database
-            await fetch('/api/activities', {
+            const actRes = await fetch('/api/activities', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -323,8 +325,21 @@ export default function CodingEditorPage() {
                     },
                 }),
             });
+            if (actRes.ok) {
+                const actData = await actRes.json();
+                if (actData.xp?.xpAwarded) {
+                    notify({ emoji: '✨', title: `+${actData.xp.xpAwarded} XP earned!`, description: actData.xp.newBadges?.length > 0 ? `New badge: ${actData.xp.newBadges.map(b => b.emoji + ' ' + b.name).join(', ')}` : undefined });
+                }
+            }
 
             setSubmitted(true);
+
+            // Dispatch solved event for the coding page tracker
+            if (result.passed) {
+                try {
+                    window.dispatchEvent(new CustomEvent('coding-problem-solved', { detail: { problemId: params.id } }));
+                } catch { /* ignore */ }
+            }
         } catch {
             setOutput({ passed: false, score: 0, testResults: [], feedback: 'Error submitting code.' });
         }

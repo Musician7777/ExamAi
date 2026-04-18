@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import StudyAssistant from '../components/StudyAssistant/StudyAssistant';
+import { NotificationProvider, useNotification } from '../components/BadgeNotification/BadgeNotification';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -36,10 +37,19 @@ const navItems = [
 ];
 
 export default function DashboardLayout({ children }) {
+    return (
+        <NotificationProvider>
+            <DashboardInner>{children}</DashboardInner>
+        </NotificationProvider>
+    );
+}
+
+function DashboardInner({ children }) {
     const pathname = usePathname();
     const { theme, setTheme } = useTheme();
     const { data: session } = useSession();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const { notify } = useNotification();
 
     const getInitials = (name) => {
         if (!name) return '?';
@@ -151,7 +161,7 @@ export default function DashboardLayout({ children }) {
                 {children}
             </main>
 
-            <StudyAssistant />
+            <StudyAssistant notify={notify} />
         </div>
     );
 }

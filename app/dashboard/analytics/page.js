@@ -1,10 +1,33 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Chart, registerables } from 'chart.js';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/app/providers/ThemeProvider';
 
 Chart.register(...registerables);
+
+/**
+ * Reads theme-aware CSS variable values from the document root
+ * and returns a chartColors object suitable for Chart.js configs.
+ */
+function getThemeChartColors() {
+    if (typeof document === 'undefined') {
+        return { primary: '#6366f1', primaryBg: 'rgba(99,102,241,0.1)', grid: 'rgba(99,102,241,0.08)', tick: '#64748b', label: '#94a3b8' };
+    }
+    const style = getComputedStyle(document.documentElement);
+    const primary = style.getPropertyValue('--color-primary')?.trim() || '#6366f1';
+    const muted = style.getPropertyValue('--color-muted-foreground')?.trim() || '#64748b';
+    const border = style.getPropertyValue('--color-border')?.trim() || 'rgba(99,102,241,0.08)';
+    // Build semi-transparent versions
+    const primaryBg = primary.startsWith('#')
+        ? `${primary}1a` // ~10% opacity via hex
+        : primary.replace(/[\d.]+\)$/, '0.1)');
+    const gridBg = border.startsWith('#')
+        ? `${border}14`
+        : border.replace(/[\d.]+\)$/, '0.08)');
+    return { primary, primaryBg, grid: gridBg, tick: muted, label: muted };
+}
 
 function ChartCanvas({ config }) {
     const canvasRef = useRef(null);
@@ -53,7 +76,9 @@ export default function AnalyticsPage() {
     const medScores = activities.filter(a => a.details?.difficulty === 'medium' || (a.totalMarks > 0 && (a.score / a.totalMarks) >= 0.5 && (a.score / a.totalMarks) < 0.8));
     const hardScores = activities.filter(a => a.details?.difficulty === 'hard' || (a.totalMarks > 0 && (a.score / a.totalMarks) < 0.5));
 
-    const chartColors = { grid: 'rgba(99,102,241,0.08)', tick: '#64748b', primary: '#6366f1', primaryBg: 'rgba(99,102,241,0.1)' };
+    const { theme } = useTheme();
+    // Re-derive colors whenever theme changes so charts repaint correctly
+    const chartColors = useMemo(() => getThemeChartColors(), [theme]);
 
     const lineConfig = {
         type: 'line',
@@ -63,8 +88,8 @@ export default function AnalyticsPage() {
 
     const radarConfig = {
         type: 'radar',
-        data: { labels: topicLabels, datasets: [{ label: 'Accuracy', data: topicValues, borderColor: chartColors.primary, backgroundColor: 'rgba(99,102,241,0.2)', pointBackgroundColor: chartColors.primary }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { r: { min: 0, max: 100, ticks: { color: chartColors.tick, stepSize: 25 }, grid: { color: 'rgba(99,102,241,0.1)' }, pointLabels: { color: '#94a3b8', font: { size: 12 } } } } },
+        data: { labels: topicLabels, datasets: [{ label: 'Accuracy', data: topicValues, borderColor: chartColors.primary, backgroundColor: chartColors.primaryBg, pointBackgroundColor: chartColors.primary }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { r: { min: 0, max: 100, ticks: { color: chartColors.tick, stepSize: 25 }, grid: { color: chartColors.grid }, pointLabels: { color: chartColors.label, font: { size: 12 } } } } },
     };
 
     const barConfig = {
@@ -76,7 +101,7 @@ export default function AnalyticsPage() {
     const doughnutConfig = {
         type: 'doughnut',
         data: { labels: ['High (80%+)', 'Medium (50-79%)', 'Low (<50%)'], datasets: [{ data: hasData ? [easyScores.length, medScores.length, hardScores.length] : [1, 1, 1], backgroundColor: hasData ? ['#4ade80', '#fbbf24', '#f87171'] : ['#334155', '#334155', '#334155'], borderWidth: 0, spacing: 4, borderRadius: 6 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 16, font: { size: 12 } } } }, cutout: '65%' },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: chartColors.label, padding: 16, font: { size: 12 } } } }, cutout: '65%' },
     };
 
     const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;

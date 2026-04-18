@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { executeCode, runTestCases, getSupportedLanguages } from '@/lib/services/codeExecutionService';
+import { rateLimit } from '@/lib/rateLimit';
 
 export async function POST(request) {
     try {
@@ -8,6 +9,10 @@ export async function POST(request) {
         if (!session?.user?.email) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        // Rate limit: 10 code executions per minute per IP
+        const rateLimitResult = rateLimit(request, 10, 60000);
+        if (rateLimitResult) return rateLimitResult;
 
         const { code, language, stdin, testCases, timeout } = await request.json();
 

@@ -11,6 +11,9 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { Loader2, Send, AudioLines, LogOut } from 'lucide-react';
+import { useSpeechSynthesis } from './hooks/useSpeechSynthesis';
+import { useSpeechRecognition } from './hooks/useSpeechRecognition';
+import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
 import { BarVisualizer } from '@/components/ui/bar-visualizer';
 import { Conversation, ConversationContent, ConversationEmptyState, ConversationScrollButton } from '@/components/ui/conversation';
 import { Message, MessageContent } from '@/components/ui/message';
@@ -130,257 +133,10 @@ const customTopicOptions = [
 ];
 
 /* ─────────────────────────────────────────────
-   TTS HOOK — with onEnd callback + Chrome fix
-   ───────────────────────────────────────────── */
-function useSpeechSynthesis() {
-    const [isSpeaking, setIsSpeaking] = useState(false);
-    const onEndRef = useRef(null);
-    const pollRef = useRef(null);
-    const audioRef = useRef(null);
-    const objectUrlRef = useRef(null);
-
-    const fireOnEnd = useCallback(() => {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-        if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.src = '';
-            audioRef.current = null;
-        }
-        if (objectUrlRef.current) {
-            URL.revokeObjectURL(objectUrlRef.current);
-            objectUrlRef.current = null;
-        }
-        setIsSpeaking(false);
-        const cb = onEndRef.current;
-        onEndRef.current = null;
-        if (cb) cb();
-    }, []);
-
-    const speakWithBrowserFallback = useCallback((text) => {
-        if (typeof window === 'undefined' || !window.speechSynthesis) {
-            fireOnEnd();
-            return;
-        }
-
-        window.speechSynthesis.cancel();
-        const utt = new SpeechSynthesisUtterance(text);
-        utt.rate = 1.05;
-        utt.pitch = 1.0;
-        utt.volume = 1.0;
-
-        const voices = window.speechSynthesis.getVoices();
-        const preferred = voices.find(v => v.name.includes('Google') && v.lang.startsWith('en'))
-            || voices.find(v => v.name.includes('Microsoft') && v.lang.startsWith('en') && v.name.includes('Online'))
-            || voices.find(v => v.lang.startsWith('en-') && v.localService === false)
-            || voices.find(v => v.lang.startsWith('en'));
-        if (preferred) utt.voice = preferred;
-
-        let ended = false;
-        utt.onstart = () => setIsSpeaking(true);
-        utt.onend = () => { if (!ended) { ended = true; fireOnEnd(); } };
-        utt.onerror = () => { if (!ended) { ended = true; fireOnEnd(); } };
-
-        window.speechSynthesis.speak(utt);
-
-        pollRef.current = setInterval(() => {
-            if (!window.speechSynthesis.speaking && !ended) {
-                ended = true;
-                fireOnEnd();
-            }
-        }, 300);
-    }, [fireOnEnd]);
-
-    const stop = useCallback(() => {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-        if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.src = '';
-            audioRef.current = null;
-        }
-        if (objectUrlRef.current) {
-            URL.revokeObjectURL(objectUrlRef.current);
-            objectUrlRef.current = null;
-        }
-        if (typeof window !== 'undefined' && window.speechSynthesis) {
-            window.speechSynthesis.cancel();
-        }
-        onEndRef.current = null;
-        setIsSpeaking(false);
-    }, []);
-
-    const speak = useCallback(async (text, onEnd) => {
-        stop();
-        onEndRef.current = onEnd || null;
-        const clean = text.replace(/\*\*/g, '').replace(/---/g, '').replace(/\n{2,}/g, '. ').replace(/\n/g, '. ').trim();
-        if (!clean) {
-            fireOnEnd();
-            return;
-        }
-
-        try {
-            const res = await fetch('/api/tts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: clean }),
-            });
-
-            if (!res.ok) {
-                speakWithBrowserFallback(clean);
-                return;
-            }
-
-            const blob = await res.blob();
-            const objectUrl = URL.createObjectURL(blob);
-            objectUrlRef.current = objectUrl;
-            const audio = new Audio(objectUrl);
-            audioRef.current = audio;
-
-            let ended = false;
-            const finalize = () => {
-                if (ended) return;
-                ended = true;
-                fireOnEnd();
-            };
-
-            audio.onended = finalize;
-            audio.onerror = () => {
-                if (!ended) {
-                    ended = true;
-                    if (objectUrlRef.current) {
-                        URL.revokeObjectURL(objectUrlRef.current);
-                        objectUrlRef.current = null;
-                    }
-                    audioRef.current = null;
-                    speakWithBrowserFallback(clean);
-                }
-            };
-
-            setIsSpeaking(true);
-            await audio.play();
-        } catch {
-            speakWithBrowserFallback(clean);
-        }
-    }, [fireOnEnd, speakWithBrowserFallback, stop]);
-
-    useEffect(() => {
-        if (typeof window !== 'undefined' && window.speechSynthesis) {
-            window.speechSynthesis.getVoices();
-            window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
-        }
-        return () => {
-            stop();
-        };
-    }, [stop]);
-
-    return { isSpeaking, speak, stop };
-}
-
-/* ─────────────────────────────────────────────
-   STT HOOK — with silence detection callback
-   ───────────────────────────────────────────── */
-function useSpeechRecognition({ onSilence } = {}) {
-    const [isListening, setIsListening] = useState(false);
-    const [transcript, setTranscript] = useState('');
-    const [supported, setSupported] = useState(true);
-    const recognitionRef = useRef(null);
-    const finalTranscriptRef = useRef('');
-    const silenceTimerRef = useRef(null);
-    const onSilenceRef = useRef(onSilence);
-    const hasSpokenRef = useRef(false);
-
-    useEffect(() => { onSilenceRef.current = onSilence; }, [onSilence]);
-
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SR) { setSupported(false); return; }
-
-        const recognition = new SR();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'en-US';
-
-        recognition.onresult = (event) => {
-            let interim = '';
-            let final = finalTranscriptRef.current;
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-                const t = event.results[i][0].transcript;
-                if (event.results[i].isFinal) {
-                    final += t + ' ';
-                    finalTranscriptRef.current = final;
-                } else {
-                    interim += t;
-                }
-            }
-            setTranscript(final + interim);
-            hasSpokenRef.current = true;
-
-            // Reset silence timer — user is speaking
-            clearTimeout(silenceTimerRef.current);
-            silenceTimerRef.current = setTimeout(() => {
-                // 2s of silence after speech → auto-send
-                if (hasSpokenRef.current && onSilenceRef.current) {
-                    const finalText = finalTranscriptRef.current.trim() || (final + interim).trim();
-                    if (finalText) onSilenceRef.current(finalText);
-                }
-            }, 2000);
-        };
-
-        recognition.onerror = (e) => {
-            if (e.error !== 'aborted' && e.error !== 'no-speech') {
-                console.warn('Speech recognition error:', e.error);
-            }
-            clearTimeout(silenceTimerRef.current);
-            setIsListening(false);
-        };
-
-        recognition.onend = () => {
-            clearTimeout(silenceTimerRef.current);
-            setIsListening(false);
-        };
-
-        recognitionRef.current = recognition;
-
-        return () => clearTimeout(silenceTimerRef.current);
-    }, []);
-
-    const startListening = useCallback(() => {
-        if (!recognitionRef.current) return;
-        finalTranscriptRef.current = '';
-        hasSpokenRef.current = false;
-        setTranscript('');
-        clearTimeout(silenceTimerRef.current);
-        try {
-            recognitionRef.current.start();
-            setIsListening(true);
-        } catch (e) {
-            console.warn('Could not start recognition:', e);
-        }
-    }, []);
-
-    const stopListening = useCallback(() => {
-        if (!recognitionRef.current) return;
-        clearTimeout(silenceTimerRef.current);
-        recognitionRef.current.stop();
-        setIsListening(false);
-        return finalTranscriptRef.current.trim() || transcript.trim();
-    }, [transcript]);
-
-    const resetTranscript = useCallback(() => {
-        finalTranscriptRef.current = '';
-        hasSpokenRef.current = false;
-        setTranscript('');
-    }, []);
-
-    return { isListening, transcript, supported, startListening, stopListening, resetTranscript };
-}
-
-/* ─────────────────────────────────────────────
    MAIN COMPONENT
    ───────────────────────────────────────────── */
 export default function InterviewPage() {
+    const { notify } = useNotification();
     const [phase, setPhase] = useState('setup');
     // 'live' = BarVisualizer mode, 'transcript' = chat transcript mode
     const [viewMode, setViewMode] = useState('live');
@@ -862,7 +618,7 @@ export default function InterviewPage() {
             const totalEarned = data.reduce((s, r) => s + (r.score || 0), 0);
             const totalPossible = totalQs * 10;
             const pct = Math.round((totalEarned / totalPossible) * 100);
-            await fetch('/api/activities', {
+            const res = await fetch('/api/activities', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -883,6 +639,12 @@ export default function InterviewPage() {
                     },
                 }),
             });
+            if (res.ok) {
+                const actData = await res.json();
+                if (actData.xp?.xpAwarded) {
+                    notify({ emoji: '✨', title: `+${actData.xp.xpAwarded} XP earned!`, description: actData.xp.newBadges?.length > 0 ? `New badge: ${actData.xp.newBadges.map(b => b.emoji + ' ' + b.name).join(', ')}` : undefined });
+                }
+            }
         } catch (err) {
             console.error('Failed to save interview activity:', err);
         }

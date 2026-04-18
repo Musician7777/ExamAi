@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server';
+import { rateLimit } from '@/lib/rateLimit';
 
 const HF_TOKEN = process.env.HF_TOKEN;
 const HF_KOKORO_TTS_URL = 'https://router.huggingface.co/hf-inference/models/hexgrad/Kokoro-82M';
 
 export async function POST(request) {
     try {
+        // Rate limit: 15 TTS requests per minute per IP
+        const rateLimitResult = rateLimit(request, 15, 60000);
+        if (rateLimitResult) return rateLimitResult;
+
         const { text, voice = 'af_bella' } = await request.json();
         if (!text || !text.trim()) {
             return NextResponse.json({ error: 'Text is required' }, { status: 400 });
