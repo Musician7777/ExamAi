@@ -37,7 +37,7 @@ export default function Navbar() {
                 <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-16">
                     {/* Logo */}
                     <Link href="/" className="flex items-center gap-2 font-bold text-lg">
-                        <img src="/Logo.png" alt="ExamAI" className="h-9 w-auto" style={{ mixBlendMode: 'screen' }} />
+                        <img src="/Logo.png" alt="ExamAI" className="h-12 w-auto" style={{ mixBlendMode: 'screen' }} />
                     </Link>
 
                     {/* Desktop Nav Links */}

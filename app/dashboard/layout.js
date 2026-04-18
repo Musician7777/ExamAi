@@ -65,7 +65,7 @@ export default function DashboardLayout({ children }) {
             )}>
                 {/* Logo */}
                 <Link href="/" className="flex items-center gap-2 px-5 py-4 font-bold text-lg">
-                    <img src="/Logo.png" alt="ExamAI" className="h-9 w-auto" style={{ mixBlendMode: 'screen' }} />
+                    <img src="/Logo.png" alt="ExamAI" className="h-12 w-auto" style={{ mixBlendMode: 'screen' }} />
                 </Link>
 
                 <Separator />
