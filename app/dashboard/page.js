@@ -1,10 +1,12 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { Zap, Code, MessageSquare, BarChart3 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
 import ExamConfigModal from '../components/ExamConfigModal/ExamConfigModal';
 import { cn } from '@/lib/utils';
 
@@ -15,11 +17,77 @@ const quickActions = [
     { icon: <BarChart3 className="h-5 w-5" />, bg: 'bg-sky-500/10', color: 'text-sky-400', href: '/dashboard/analytics', title: 'View Analytics', desc: 'Performance insights', mode: null, emoji: '📊' },
 ];
 
+function GamificationWidget({ gamData, loading }) {
+    if (loading) return (
+        <Card className="p-5 space-y-4" aria-label="Gamification loading">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-3 w-full" />
+        </Card>
+    );
+    if (!gamData) return null;
+
+    const level = gamData.levelInfo || { level: 1, title: 'Beginner', xp: 0, xpForNext: 100, progress: 0 };
+    const streak = gamData.currentStreak || 0;
+    const badges = gamData.badgeDetails || [];
+    const recentBadges = badges.slice(-3).reverse();
+
+    return (
+        <Card className="p-5 space-y-4" aria-label="Your progress">
+            <div className="flex items-center justify-between">
+                <h3 className="font-semibold flex items-center gap-2">🏆 Your Progress</h3>
+                <Link href="/dashboard/profile" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">View all →</Link>
+            </div>
+
+            {/* Level & XP */}
+            <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                    <span className="font-semibold">Lv.{level.level} — {level.title}</span>
+                    <span className="text-muted-foreground">{level.xp} XP</span>
+                </div>
+                <Progress value={level.progress} className="h-2.5" aria-label={`Level ${level.level} progress: ${Math.round(level.progress)}%`} />
+                {level.nextLevel && <p className="text-xs text-muted-foreground">{level.xpForNext} XP to Level {level.level + 1}</p>}
+            </div>
+
+            {/* Streak & Stats */}
+            <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-2 rounded-lg bg-orange-500/5 border border-orange-500/10">
+                    <div className="text-lg font-bold text-orange-400">🔥 {streak}</div>
+                    <div className="text-[10px] text-muted-foreground">Streak</div>
+                </div>
+                <div className="p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+                    <div className="text-lg font-bold text-emerald-400">{badges.length}</div>
+                    <div className="text-[10px] text-muted-foreground">Badges</div>
+                </div>
+                <div className="p-2 rounded-lg bg-indigo-500/5 border border-indigo-500/10">
+                    <div className="text-lg font-bold text-indigo-400">{gamData.totalExams || 0}</div>
+                    <div className="text-[10px] text-muted-foreground">Exams</div>
+                </div>
+            </div>
+
+            {/* Recent Badges */}
+            {recentBadges.length > 0 && (
+                <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground font-semibold">Recent Badges</p>
+                    <div className="flex gap-2">
+                        {recentBadges.map(b => (
+                            <div key={b.id} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-secondary/30 text-xs" title={b.description}>
+                                <span>{b.emoji}</span>
+                                <span className="font-medium">{b.name}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </Card>
+    );
+}
+
 export default function DashboardPage() {
     const { data: session } = useSession();
     const router = useRouter();
     const firstName = session?.user?.name?.split(' ')[0] || 'there';
     const [dashData, setDashData] = useState(null);
+    const [gamData, setGamData] = useState(null);
     const [loading, setLoading] = useState(true);
 
     const [configModalOpen, setConfigModalOpen] = useState(false);
@@ -29,8 +97,12 @@ export default function DashboardPage() {
     useEffect(() => {
         async function fetchDashboard() {
             try {
-                const res = await fetch('/api/dashboard');
-                if (res.ok) { const data = await res.json(); setDashData(data); }
+                const [dashRes, gamRes] = await Promise.all([
+                    fetch('/api/dashboard'),
+                    fetch('/api/gamification'),
+                ]);
+                if (dashRes.ok) { const data = await dashRes.json(); setDashData(data); }
+                if (gamRes.ok) { const data = await gamRes.json(); setGamData(data.profile); }
             } catch (err) { console.error('Failed to fetch dashboard:', err); }
             setLoading(false);
         }
@@ -86,7 +158,9 @@ export default function DashboardPage() {
 
             <div className="grid lg:grid-cols-5 gap-6">
                 {/* Recent Activity */}
-                <Card className="lg:col-span-3 p-6">
+                <div className="lg:col-span-3 space-y-6">
+                    <GamificationWidget gamData={gamData} loading={loading} />
+                    <Card className="p-6">
                     <h2 className="text-lg font-semibold mb-4">Recent Activity</h2>
                     {loading ? (
                         <p className="text-muted-foreground text-sm py-4">Loading...</p>
@@ -116,6 +190,7 @@ export default function DashboardPage() {
                         </div>
                     )}
                 </Card>
+                </div>
 
                 {/* Quick Actions */}
                 <div className="lg:col-span-2 space-y-3">

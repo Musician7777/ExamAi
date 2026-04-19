@@ -24,12 +24,37 @@ export default function LiveExamPage() {
     const timerReady = useRef(false);
     const autoSaveTimerRef = useRef(null);
 
+    // Time-per-question tracking
+    const [questionTimes, setQuestionTimes] = useState({});
+    const questionStartRef = useRef(Date.now());
+    const currentQRef = useRef(0);
+
     // Refs to avoid stale closures when handleSubmit is called from timer
     const answersRef = useRef(answers);
     const timeLeftRef = useRef(timeLeft);
     const handleSubmitRef = useRef(null);
+    const questionTimesRef = useRef(questionTimes);
     useEffect(() => { answersRef.current = answers; }, [answers]);
     useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
+    useEffect(() => { questionTimesRef.current = questionTimes; }, [questionTimes]);
+    useEffect(() => { currentQRef.current = currentQ; }, [currentQ]);
+
+    // Track time when switching questions
+    const trackQuestionTime = useCallback((fromQ) => {
+        const now = Date.now();
+        const elapsed = Math.round((now - questionStartRef.current) / 1000); // seconds
+        setQuestionTimes(prev => ({
+            ...prev,
+            [fromQ]: (prev[fromQ] || 0) + elapsed,
+        }));
+        questionStartRef.current = now;
+    }, []);
+
+    // Navigate to a specific question with time tracking
+    const navigateToQuestion = useCallback((targetQ) => {
+        trackQuestionTime(currentQRef.current);
+        setCurrentQ(targetQ);
+    }, [trackQuestionTime]);
 
     // On mount: load exam from sessionStorage or check for resumable session
     useEffect(() => {
@@ -41,6 +66,7 @@ export default function LiveExamPage() {
                 const duration = (parsed.duration || 60) * 60;
                 setTimeLeft(duration);
                 timerReady.current = true;
+                questionStartRef.current = Date.now();
 
                 // Save session to DB for resume capability
                 try {
@@ -107,15 +133,20 @@ export default function LiveExamPage() {
         // Clear auto-save on submit
         clearInterval(autoSaveTimerRef.current);
 
+        // Track time for the last question
+        trackQuestionTime(currentQRef.current);
+
         // Use refs to always get the latest values (avoids stale closure on auto-submit)
         const currentAnswers = answersRef.current;
         const currentTimeLeft = timeLeftRef.current;
+        const currentQuestionTimes = questionTimesRef.current;
 
         const questions = getAllQuestions();
         const results = questions.map((q, i) => ({
             ...q,
             userAnswer: currentAnswers[i] ?? null,
             isCorrect: currentAnswers[i] === q.correct,
+            timeSpent: currentQuestionTimes[i] || 0,
         }));
 
         const correct = results.filter(r => r.isCorrect).length;
@@ -147,9 +178,10 @@ export default function LiveExamPage() {
             wrong,
             unanswered,
             timeTaken: (exam.duration || 60) * 60 - currentTimeLeft,
+            questionTimes: currentQuestionTimes,
         }));
         router.push('/dashboard/exam/results');
-    }, [exam, getAllQuestions, savedSessionId, router]);
+    }, [exam, getAllQuestions, savedSessionId, router, trackQuestionTime]);
 
     // Timer effect — uses handleSubmitRef to avoid stale closure
     useEffect(() => {
@@ -164,6 +196,95 @@ export default function LiveExamPage() {
 
     // Keep handleSubmit ref in sync so timer always calls the latest version
     useEffect(() => { handleSubmitRef.current = handleSubmit; }, [handleSubmit]);
+
+    // Keyboard shortcuts
+    useEffect(() => {
+        if (!exam || showSubmit) return;
+        const questions = exam.sections.flatMap(s => s.questions);
+
+        function handleKeyDown(e) {
+            // Don't capture when user is typing in an input or interacting with a radio/button
+            const interactiveTags = ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'];
+            const isInteractive = e.target.tagName && interactiveTags.includes(e.target.tagName);
+            const isRadio = e.target.getAttribute('role') === 'radio';
+            if (isInteractive || isRadio) return;
+
+            switch (e.key) {
+                case 'ArrowLeft':
+                case 'ArrowUp':
+                    e.preventDefault();
+                    if (currentQRef.current > 0) navigateToQuestion(currentQRef.current - 1);
+                    break;
+                case 'ArrowRight':
+                case 'ArrowDown':
+                    e.preventDefault();
+                    if (currentQRef.current < questions.length - 1) navigateToQuestion(currentQRef.current + 1);
+                    break;
+                case '1': case '2': case '3': case '4': case '5':
+                case '6': case '7': case '8': case '9': {
+                    const optIdx = parseInt(e.key) - 1;
+                    const q = questions[currentQRef.current];
+                    if (q && optIdx < q.options.length) {
+                        e.preventDefault();
+                        setAnswers(prev => ({ ...prev, [currentQRef.current]: optIdx }));
+                    }
+                    break;
+                }
+                case 'a': case 'A': {
+                    const q = questions[currentQRef.current];
+                    if (q && 0 < q.options.length) { e.preventDefault(); setAnswers(prev => ({ ...prev, [currentQRef.current]: 0 })); }
+                    break;
+                }
+                case 'b': case 'B': {
+                    const q = questions[currentQRef.current];
+                    if (q && 1 < q.options.length) { e.preventDefault(); setAnswers(prev => ({ ...prev, [currentQRef.current]: 1 })); }
+                    break;
+                }
+                case 'c': case 'C': {
+                    const q = questions[currentQRef.current];
+                    if (q && 2 < q.options.length) { e.preventDefault(); setAnswers(prev => ({ ...prev, [currentQRef.current]: 2 })); }
+                    break;
+                }
+                case 'd': case 'D': {
+                    const q = questions[currentQRef.current];
+                    if (q && 3 < q.options.length) { e.preventDefault(); setAnswers(prev => ({ ...prev, [currentQRef.current]: 3 })); }
+                    break;
+                }
+                case 'm': case 'M': {
+                    e.preventDefault();
+                    setMarked(prev => {
+                        const next = new Set(prev);
+                        if (next.has(currentQRef.current)) next.delete(currentQRef.current);
+                        else next.add(currentQRef.current);
+                        return next;
+                    });
+                    break;
+                }
+                case 'x': case 'X': {
+                    e.preventDefault();
+                    setAnswers(prev => {
+                        const next = { ...prev };
+                        delete next[currentQRef.current];
+                        return next;
+                    });
+                    break;
+                }
+                case 'Enter': {
+                    e.preventDefault();
+                    setShowSubmit(true);
+                    break;
+                }
+                case 'Escape': {
+                    e.preventDefault();
+                    setShowSubmit(false);
+                    break;
+                }
+            }
+        }
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [exam, showSubmit, navigateToQuestion]);
 
     // Resume an existing session
     async function handleResume() {
@@ -181,6 +302,7 @@ export default function LiveExamPage() {
                     setSavedSessionId(latestSession._id);
                     timerReady.current = true;
                     setResumePrompt(false);
+                    questionStartRef.current = Date.now();
                     return;
                 }
             }
@@ -247,22 +369,42 @@ export default function LiveExamPage() {
                 </div>
             </div>
 
+            {/* Keyboard shortcuts hint */}
+            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground" role="note" aria-label="Keyboard shortcuts">
+                <span className="px-2 py-1 rounded bg-secondary/50 border">← → Navigate</span>
+                <span className="px-2 py-1 rounded bg-secondary/50 border">1-4 / A-D Select option</span>
+                <span className="px-2 py-1 rounded bg-secondary/50 border">M Mark for review</span>
+                <span className="px-2 py-1 rounded bg-secondary/50 border">X Clear answer</span>
+                <span className="px-2 py-1 rounded bg-secondary/50 border">Enter Submit</span>
+                <span className="px-2 py-1 rounded bg-secondary/50 border">Esc Cancel</span>
+            </div>
+
             <div className="grid lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-3 space-y-4">
                     <Card className="p-6">
                         <div className="flex items-center justify-between mb-6">
                             <span className="font-semibold text-lg">Question {currentQ + 1} <span className="text-muted-foreground text-sm font-normal">of {questions.length}</span></span>
-                            <Badge variant={q.difficulty === 'easy' ? 'success' : q.difficulty === 'hard' ? 'destructive' : 'warning'}>{q.difficulty}</Badge>
+                            <div className="flex items-center gap-2">
+                                {questionTimes[currentQ] > 0 && (
+                                    <span className="text-xs text-muted-foreground flex items-center gap-1" aria-label={`Time spent on this question: ${questionTimes[currentQ]}s`}>
+                                        <HiOutlineClock className="h-3 w-3" /> {Math.floor(questionTimes[currentQ] / 60)}m{questionTimes[currentQ] % 60}s
+                                    </span>
+                                )}
+                                <Badge variant={q.difficulty === 'easy' ? 'success' : q.difficulty === 'hard' ? 'destructive' : 'warning'}>{q.difficulty}</Badge>
+                            </div>
                         </div>
                         
-                        <Progress value={progress} className="h-1 mb-6" />
+                        <Progress value={progress} className="h-1 mb-6" aria-label={`Progress: ${currentQ + 1} of ${questions.length}`} />
 
                         <p className="text-lg mb-8 leading-relaxed whitespace-pre-wrap">{q.text}</p>
                         
-                        <div className="space-y-3">
+                        <div className="space-y-3" role="radiogroup" aria-label="Answer options">
                             {q.options.map((opt, i) => (
                                 <div
                                     key={i}
+                                    role="radio"
+                                    aria-checked={answers[currentQ] === i}
+                                    tabIndex={0}
                                     className={cn(
                                         "flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all",
                                         answers[currentQ] === i 
@@ -270,6 +412,12 @@ export default function LiveExamPage() {
                                             : "border-transparent bg-secondary/50 hover:bg-secondary"
                                     )}
                                     onClick={() => setAnswers({ ...answers, [currentQ]: i })}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            setAnswers({ ...answers, [currentQ]: i });
+                                        }
+                                    }}
                                 >
                                     <div className={cn(
                                         "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 transition-colors",
@@ -278,6 +426,7 @@ export default function LiveExamPage() {
                                         {String.fromCharCode(65 + i)}
                                     </div>
                                     <span className={cn("text-base font-medium", answers[currentQ] === i ? "text-foreground" : "text-muted-foreground")}>{opt}</span>
+                                    <span className="ml-auto text-xs text-muted-foreground font-mono opacity-50">{i + 1}</span>
                                 </div>
                             ))}
                         </div>
@@ -285,7 +434,7 @@ export default function LiveExamPage() {
 
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="flex items-center gap-2">
-                            <Button variant="outline" size="lg" onClick={() => setCurrentQ(Math.max(0, currentQ - 1))} disabled={currentQ === 0} className="gap-2 shrink-0">
+                            <Button variant="outline" size="lg" onClick={() => navigateToQuestion(Math.max(0, currentQ - 1))} disabled={currentQ === 0} className="gap-2 shrink-0" aria-label="Previous question">
                                 <HiOutlineArrowLeft /> <span className="hidden sm:inline">Previous</span>
                             </Button>
                             <Button variant="outline" size="lg" onClick={() => {
@@ -293,7 +442,7 @@ export default function LiveExamPage() {
                                 if (next.has(currentQ)) next.delete(currentQ);
                                 else next.add(currentQ);
                                 setMarked(next);
-                            }} className="gap-2 shrink-0">
+                            }} className={cn("gap-2 shrink-0", marked.has(currentQ) && "ring-1 ring-warning")} aria-label={marked.has(currentQ) ? 'Unmark for review' : 'Mark for review'}>
                                 <HiOutlineFlag className={cn(marked.has(currentQ) && "fill-warning text-warning")} /> 
                                 <span className="hidden sm:inline">{marked.has(currentQ) ? 'Unmark' : 'Mark'}</span>
                             </Button>
@@ -301,12 +450,12 @@ export default function LiveExamPage() {
                                 const next = { ...answers };
                                 delete next[currentQ];
                                 setAnswers(next);
-                            }} className="gap-2 shrink-0">
+                            }} className="gap-2 shrink-0" aria-label="Clear answer">
                                 <HiOutlineX /> <span className="hidden sm:inline">Clear</span>
                             </Button>
                         </div>
                         {currentQ < questions.length - 1 && (
-                            <Button size="lg" onClick={() => setCurrentQ(currentQ + 1)} className="gap-2 shrink-0">
+                            <Button size="lg" onClick={() => navigateToQuestion(currentQ + 1)} className="gap-2 shrink-0" aria-label="Next question">
                                 Next <HiOutlineArrowRight />
                             </Button>
                         )}
@@ -316,7 +465,7 @@ export default function LiveExamPage() {
                 <div className="lg:col-span-1 space-y-6">
                     <Card className="p-5">
                         <h3 className="font-semibold mb-4 text-center">Question Navigator</h3>
-                        <div className="grid grid-cols-5 gap-2 max-h-[300px] overflow-y-auto pr-1 pb-1">
+                        <div className="grid grid-cols-5 gap-2 max-h-[300px] overflow-y-auto pr-1 pb-1" role="navigation" aria-label="Question navigator">
                             {questions.map((_, i) => {
                                 const isCurrent = i === currentQ;
                                 const isAnswered = answers[i] !== undefined;
@@ -325,7 +474,8 @@ export default function LiveExamPage() {
                                 return (
                                     <button
                                         key={i}
-                                        onClick={() => setCurrentQ(i)}
+                                        onClick={() => navigateToQuestion(i)}
+                                        aria-label={`Question ${i + 1}${isAnswered ? ', answered' : ''}${isMarked ? ', marked for review' : ''}${isCurrent ? ', current' : ''}`}
                                         className={cn(
                                             "h-10 rounded-md font-semibold text-sm transition-all border",
                                             isCurrent ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : "",

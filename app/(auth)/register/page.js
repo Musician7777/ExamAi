@@ -32,7 +32,7 @@ export default function RegisterPage() {
             const result = await signIn('credentials', { email: form.email, password: form.password, redirect: false });
             if (result?.error) { setError('Account created! But auto-login failed. Please sign in manually.'); router.push('/login'); }
             else { router.push('/dashboard'); router.refresh(); }
-        } catch { setError('Something went wrong. Please try again.'); }
+        } catch (err) { console.error('Registration error:', err); setError('Something went wrong. Please try again.'); }
         finally { setLoading(false); }
     };
 

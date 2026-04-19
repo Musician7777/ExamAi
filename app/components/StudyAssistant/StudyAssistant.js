@@ -41,6 +41,7 @@ export default function StudyAssistant({ notify } = {}) {
                 suggestedTopics: data.suggestedTopics || [],
             }]);
         } catch (err) {
+            console.error('Study assistant error:', err);
             setMessages(prev => [...prev, { role: 'assistant', text: 'Connection error. Please try again.' }]);
         }
         setLoading(false);

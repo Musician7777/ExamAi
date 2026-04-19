@@ -28,7 +28,7 @@ function LoginContent() {
         try {
             const result = await signIn('credentials', { email: form.email, password: form.password, redirect: false });
             if (result?.error) { setError(result.error); } else { router.push(callbackUrl); router.refresh(); }
-        } catch { setError('Something went wrong. Please try again.'); }
+        } catch (err) { console.error('Login error:', err); setError('Something went wrong. Please try again.'); }
         finally { setLoading(false); }
     };
 
@@ -94,7 +94,7 @@ function LoginContent() {
                                     <Checkbox id="remember" />
                                     <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">Remember me</Label>
                                 </div>
-                                <a href="#" className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors">Forgot password?</a>
+                                <Link href="/forgot-password" className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors">Forgot password?</Link>
                             </div>
                             <Button type="submit" variant="brand" className="w-full" disabled={loading}>
                                 {loading ? 'Signing in...' : 'Sign In'}

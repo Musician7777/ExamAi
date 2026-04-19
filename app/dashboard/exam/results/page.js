@@ -7,16 +7,21 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
 import { HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineMinusCircle, HiOutlineLightBulb, HiOutlineClock } from 'react-icons/hi';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, RotateCcw, Share2, Copy, CheckCircle2 } from 'lucide-react';
 
 export default function ResultsPage() {
     const router = useRouter();
     const { notify } = useNotification();
     const [data, setData] = useState(null);
     const savedRef = useRef(false);
+    const [shareOpen, setShareOpen] = useState(false);
+    const [shareUrl, setShareUrl] = useState('');
+    const [shareLoading, setShareLoading] = useState(false);
+    const [copied, setCopied] = useState(false);
 
     useEffect(() => {
         const stored = sessionStorage.getItem('examResults');
@@ -41,7 +46,9 @@ export default function ResultsPage() {
                             unanswered: parsed.unanswered,
                             timeTaken: parsed.timeTaken,
                             sectionCount: parsed.exam?.sections?.length || 0,
+                            sections: parsed.exam?.sections?.map(s => s.name) || [],
                         },
+                        tags: parsed.exam?.sections?.map(s => s.name) || [],
                     }),
                 }).then(async (res) => {
                         if (res.ok) {
@@ -68,8 +75,78 @@ export default function ResultsPage() {
     const sectionResults = exam.sections.map(section => {
         const sectionQs = results.filter(r => section.questions.some(q => q.id === r.id));
         const sectionCorrect = sectionQs.filter(r => r.isCorrect).length;
-        return { name: section.name, correct: sectionCorrect, total: sectionQs.length, percent: sectionQs.length > 0 ? Math.round((sectionCorrect / sectionQs.length) * 100) : 0 };
+        const sectionTime = sectionQs.reduce((s, r) => s + (r.timeSpent || 0), 0);
+        return { name: section.name, correct: sectionCorrect, total: sectionQs.length, percent: sectionQs.length > 0 ? Math.round((sectionCorrect / sectionQs.length) * 100) : 0, avgTime: sectionQs.length > 0 ? Math.round(sectionTime / sectionQs.length) : 0 };
     });
+
+    // Average time per question
+    const totalTimeSpent = results.reduce((s, r) => s + (r.timeSpent || 0), 0);
+    const avgTimePerQ = results.length > 0 ? Math.round(totalTimeSpent / results.length) : 0;
+
+    // Find fastest and slowest questions
+    const questionsWithTime = results.map((r, i) => ({ ...r, index: i, timeSpent: r.timeSpent || 0 })).filter(q => q.timeSpent > 0);
+    const fastestQ = questionsWithTime.length > 0 ? questionsWithTime.reduce((min, q) => q.timeSpent < min.timeSpent ? q : min, questionsWithTime[0]) : null;
+    const slowestQ = questionsWithTime.length > 0 ? questionsWithTime.reduce((max, q) => q.timeSpent > max.timeSpent ? q : max, questionsWithTime[0]) : null;
+
+    // Retry exam — regenerate with same config
+    function handleRetry() {
+        const config = {
+            examType: exam.title || exam.examType || 'Custom',
+            totalQuestions: results.length,
+            sections: exam.sections.map(s => s.name),
+            difficulty: '30% Easy, 50% Medium, 20% Hard',
+            negativeMarking: exam.negativeMarking || 0,
+            timeLimit: exam.duration || 60,
+        };
+        sessionStorage.setItem('examConfigModalResult', JSON.stringify({ mode: 'exam', config }));
+        router.push('/dashboard/generate');
+    }
+
+    // Share results
+    async function handleShare() {
+        setShareLoading(true);
+        setShareOpen(true);
+        setCopied(false);
+        try {
+            const res = await fetch('/api/share', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'exam',
+                    title: exam.title || 'Exam Results',
+                    data: {
+                        score,
+                        totalMarks,
+                        percent,
+                        correct,
+                        wrong,
+                        unanswered,
+                        timeTaken,
+                        sectionResults,
+                        grade,
+                    },
+                }),
+            });
+            const result = await res.json();
+            if (res.ok && result.shareUrl) {
+                setShareUrl(result.shareUrl);
+            } else {
+                setShareUrl('');
+                notify({ emoji: '❌', title: 'Share failed', description: result.error || 'Could not generate share link' });
+            }
+        } catch (err) {
+            console.error('Share error:', err);
+            notify({ emoji: '❌', title: 'Share failed', description: 'Network error' });
+        }
+        setShareLoading(false);
+    }
+
+    function formatTime(seconds) {
+        if (!seconds || seconds <= 0) return '—';
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return m > 0 ? `${m}m ${s}s` : `${s}s`;
+    }
 
     return (
         <div className="max-w-4xl mx-auto space-y-8">
@@ -109,6 +186,31 @@ export default function ResultsPage() {
                 </div>
             </Card>
 
+            {/* Time Analysis */}
+            {questionsWithTime.length > 0 && (
+                <div className="space-y-4">
+                    <h2 className="text-xl font-semibold flex items-center gap-2"><HiOutlineClock className="h-5 w-5 text-primary" /> Time Analysis</h2>
+                    <div className="grid sm:grid-cols-3 gap-4">
+                        <Card className="p-4 text-center">
+                            <div className="text-2xl font-bold text-primary">{formatTime(avgTimePerQ)}</div>
+                            <div className="text-xs text-muted-foreground mt-1">Avg. Time / Question</div>
+                        </Card>
+                        {fastestQ && (
+                            <Card className="p-4 text-center">
+                                <div className="text-2xl font-bold text-emerald-400">{formatTime(fastestQ.timeSpent)}</div>
+                                <div className="text-xs text-muted-foreground mt-1">Fastest (Q{fastestQ.index + 1})</div>
+                            </Card>
+                        )}
+                        {slowestQ && (
+                            <Card className="p-4 text-center">
+                                <div className="text-2xl font-bold text-amber-400">{formatTime(slowestQ.timeSpent)}</div>
+                                <div className="text-xs text-muted-foreground mt-1">Slowest (Q{slowestQ.index + 1})</div>
+                            </Card>
+                        )}
+                    </div>
+                </div>
+            )}
+
             <div className="space-y-4">
                 <h2 className="text-xl font-semibold flex items-center gap-2"><BarChart3 className="h-5 w-5 text-primary" /> Section-wise Breakdown</h2>
                 <div className="grid gap-3">
@@ -116,9 +218,12 @@ export default function ResultsPage() {
                         <Card key={i} className="p-4 flex items-center gap-4">
                             <div className="w-1/3 font-medium truncate">{s.name}</div>
                             <div className="flex-1">
-                                <Progress value={s.percent} className="h-2" />
+                                <Progress value={s.percent} className="h-2" aria-label={`${s.name}: ${s.percent}%`} />
                             </div>
                             <div className="w-16 text-right font-semibold text-sm">{s.correct}/{s.total}</div>
+                            {s.avgTime > 0 && (
+                                <div className="w-16 text-right text-xs text-muted-foreground">~{formatTime(s.avgTime)}</div>
+                            )}
                         </Card>
                     ))}
                 </div>
@@ -131,9 +236,16 @@ export default function ResultsPage() {
                         <Card key={i} className={cn("p-6 border-l-4", r.userAnswer === null ? "border-l-muted" : r.isCorrect ? "border-l-success" : "border-l-destructive")}>
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                                 <span className="font-semibold text-muted-foreground">Q{i + 1} • {r.topic}</span>
-                                <Badge variant={r.userAnswer === null ? "outline" : r.isCorrect ? "success" : "destructive"}>
-                                    {r.userAnswer === null ? 'Skipped' : r.isCorrect ? '✓ Correct' : '✗ Wrong'}
-                                </Badge>
+                                <div className="flex items-center gap-2">
+                                    {r.timeSpent > 0 && (
+                                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                            <HiOutlineClock className="h-3 w-3" /> {formatTime(r.timeSpent)}
+                                        </span>
+                                    )}
+                                    <Badge variant={r.userAnswer === null ? "outline" : r.isCorrect ? "success" : "destructive"}>
+                                        {r.userAnswer === null ? 'Skipped' : r.isCorrect ? '✓ Correct' : '✗ Wrong'}
+                                    </Badge>
+                                </div>
                             </div>
                             <p className="text-lg mb-4">{r.text}</p>
                             
@@ -157,13 +269,63 @@ export default function ResultsPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-border">
-                <Button asChild size="lg" className="w-full sm:w-auto">
-                    <Link href="/dashboard/generate">Generate New Exam</Link>
+                <Button size="lg" onClick={handleRetry} className="gap-2" aria-label="Retry this exam with same configuration but different questions">
+                    <RotateCcw className="h-4 w-4" /> Retry This Exam
                 </Button>
-                <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
+                <Button variant="outline" size="lg" onClick={handleShare} className="gap-2" aria-label="Share your exam results">
+                    <Share2 className="h-4 w-4" /> Share Results
+                </Button>
+                <Button asChild variant="outline" size="lg" className="gap-2">
                     <Link href="/dashboard/analytics">View Analytics</Link>
                 </Button>
+                <Button asChild variant="ghost" size="lg" className="gap-2">
+                    <Link href="/dashboard/generate">Generate New Exam</Link>
+                </Button>
             </div>
+
+            {/* Share Dialog */}
+            <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2"><Share2 className="h-5 w-5" /> Share Results</DialogTitle>
+                        <DialogDescription>Share your exam results with others via a link.</DialogDescription>
+                    </DialogHeader>
+                    {shareLoading ? (
+                        <div className="py-8 text-center text-muted-foreground">Generating share link...</div>
+                    ) : shareUrl ? (
+                        <div className="space-y-4 py-4">
+                            <div className="flex items-center gap-2 p-3 rounded-lg bg-secondary/50 border">
+                                <input
+                                    type="text"
+                                    readOnly
+                                    value={shareUrl}
+                                    className="flex-1 bg-transparent text-sm font-mono outline-none"
+                                    aria-label="Share URL"
+                                />
+                                <Button
+                                    size="sm"
+                                    variant={copied ? 'brand' : 'outline'}
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(shareUrl);
+                                        setCopied(true);
+                                        setTimeout(() => setCopied(false), 2000);
+                                    }}
+                                    className="gap-1 shrink-0"
+                                >
+                                    {copied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                                    {copied ? 'Copied!' : 'Copy'}
+                                </Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground">Anyone with this link can view your results summary (no answers shown).</p>
+                        </div>
+                    ) : (
+                        <div className="py-8 text-center text-muted-foreground">Failed to generate share link.</div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShareOpen(false)}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
