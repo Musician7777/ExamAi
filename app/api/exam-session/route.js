@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import connectDB from '@/lib/mongodb';
 import ExamSession from '@/models/ExamSession';
+import logger from '@/lib/logger';
 
 // GET — Get active/paused sessions or a specific session
 export async function GET(request) {
@@ -36,7 +37,7 @@ export async function GET(request) {
 
     return NextResponse.json({ sessions: activeSessions });
   } catch (error) {
-    console.error('ExamSession GET error:', error);
+    logger.error({ err: error }, 'ExamSession GET error');
     return NextResponse.json({ error: 'Failed to fetch sessions' }, { status: 500 });
   }
 }
@@ -71,7 +72,7 @@ export async function POST(request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('ExamSession POST error:', error);
+    logger.error({ err: error }, 'ExamSession POST error');
     return NextResponse.json({ error: 'Failed to create session' }, { status: 500 });
   }
 }
@@ -125,7 +126,7 @@ export async function PATCH(request) {
     await examSession.save();
     return NextResponse.json({ session: examSession, message: 'Session updated' });
   } catch (error) {
-    console.error('ExamSession PATCH error:', error);
+    logger.error({ err: error }, 'ExamSession PATCH error');
     return NextResponse.json({ error: 'Failed to update session' }, { status: 500 });
   }
 }

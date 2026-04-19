@@ -18,6 +18,7 @@ import { buildCodeEvaluationPrompt, buildFetchCodingConfigPrompt, buildChatPromp
 import { getMockExamResponse, getMockInterviewResponse, getMockCodeResponse } from '@/lib/prompts/mockResponses';
 import { sanitizePromptInput } from '@/lib/sanitize';
 import { rateLimit } from '@/lib/rateLimit';
+import logger from '@/lib/logger';
 
 // JS code evaluator (kept inline since it's runtime logic, not a prompt)
 function evaluateJavaScript(code, testCases) {
@@ -193,7 +194,7 @@ export async function POST(request) {
 
     return NextResponse.json(parsed);
   } catch (error) {
-    console.error('Gemini API error:', error);
+    logger.error({ err: error }, 'Gemini API error');
     if (isRateLimitError(error)) {
       return NextResponse.json(
         {

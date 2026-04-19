@@ -32,6 +32,8 @@ import { Loader2, Send, AudioLines, LogOut } from 'lucide-react';
 import { useSpeechSynthesis } from './hooks/useSpeechSynthesis';
 import { useSpeechRecognition } from './hooks/useSpeechRecognition';
 import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
+import { cacheInvalidate } from '@/lib/clientCache';
+import clientLogger from '@/lib/client-logger';
 import { BarVisualizer } from '@/components/ui/bar-visualizer';
 import {
   Conversation,
@@ -226,7 +228,7 @@ export default function InterviewPage() {
         }
       }
     } catch (e) {
-      console.warn('Failed to read examConfigModalResult from sessionStorage:', e.message);
+      clientLogger.warn('Failed to read examConfigModalResult from sessionStorage:', e.message);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -369,7 +371,7 @@ export default function InterviewPage() {
       setAwaitingMic(false);
       clearTimeout(micStartTimeoutRef.current);
       micStartTimeoutRef.current = setTimeout(() => {
-        console.debug('[Interview] Auto-starting mic (awaitingMic)');
+        clientLogger.debug('[Interview] Auto-starting mic (awaitingMic)');
         startListening();
       }, 150); // Fast start — like Gemini Live
     }
@@ -385,7 +387,7 @@ export default function InterviewPage() {
         clearTimeout(micStartTimeoutRef.current);
         micStartTimeoutRef.current = setTimeout(() => {
           if (!sendingRef.current && !isThinking) {
-            console.debug('[Interview] Auto-starting mic after TTS ended');
+            clientLogger.debug('[Interview] Auto-starting mic after TTS ended');
             startListening();
           }
         }, 200);
@@ -404,7 +406,7 @@ export default function InterviewPage() {
         const t = setTimeout(() => {
           // Re-check conditions at execution time (state may have changed)
           if (!sendingRef.current && !isSpeaking && !isThinking) {
-            console.debug('[Interview] Auto-restarting mic after unexpected stop');
+            clientLogger.debug('[Interview] Auto-restarting mic after unexpected stop');
             startListening();
           }
         }, 800); // Faster restart
@@ -458,10 +460,10 @@ export default function InterviewPage() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       // Got permission — stop tracks immediately, we just needed the grant
       stream.getTracks().forEach((t) => t.stop());
-      console.debug('[Interview] Mic permission granted');
+      clientLogger.debug('[Interview] Mic permission granted');
       return true;
     } catch (e) {
-      console.warn('[Interview] Mic permission denied:', e);
+      clientLogger.warn('[Interview] Mic permission denied:', e);
       return false;
     }
   }
@@ -512,14 +514,14 @@ export default function InterviewPage() {
       if (useVoice) {
         speak(greeting, () => {
           // After AI finishes speaking, auto-start mic
-          console.debug('[Interview] TTS ended, queuing mic');
+          clientLogger.debug('[Interview] TTS ended, queuing mic');
           if (useMic) setAwaitingMic(true);
         });
       } else if (useMic) {
         setAwaitingMic(true);
       }
     } catch (err) {
-      console.error('Failed to start interview:', err);
+      clientLogger.error('Failed to start interview:', err);
       setIsThinking(false);
       setMessages([{ role: 'ai', text: 'Sorry, I had trouble getting started. Please try again.' }]);
       if (useMic && !useVoice) setAwaitingMic(true);
@@ -630,7 +632,7 @@ export default function InterviewPage() {
         }
       }
     } catch (err) {
-      console.error('Error processing answer:', err);
+      clientLogger.error('Error processing answer:', err);
       setIsThinking(false);
       sendingRef.current = false;
       setMessages((prev) => [...prev, { role: 'ai', text: 'I had a brief issue. Could you repeat your answer?' }]);
@@ -713,6 +715,10 @@ export default function InterviewPage() {
         }),
       });
       if (res.ok) {
+        // Invalidate client cache so dashboard/analytics refresh on next visit
+        cacheInvalidate('/api/dashboard');
+        cacheInvalidate('/api/gamification');
+        cacheInvalidate('/api/activities');
         const actData = await res.json();
         if (actData.xp?.xpAwarded) {
           notify({
@@ -726,7 +732,7 @@ export default function InterviewPage() {
         }
       }
     } catch (err) {
-      console.error('Failed to save interview activity:', err);
+      clientLogger.error('Failed to save interview activity:', err);
     }
   }
 
@@ -797,7 +803,7 @@ export default function InterviewPage() {
       if (data.error) throw new Error(data.error);
       setAnalysis(data);
     } catch (err) {
-      console.error('Failed to fetch analysis:', err);
+      clientLogger.error('Failed to fetch analysis:', err);
       // Provide fallback analysis
       setAnalysis({
         overallVerdict: 'Analysis could not be generated. Review your Q&A below for self-assessment.',

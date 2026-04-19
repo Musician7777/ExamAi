@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import clientLogger from '@/lib/client-logger';
 import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
 
 export default function LiveExamPage() {
@@ -98,7 +99,7 @@ export default function LiveExamPage() {
             setSavedSessionId(session._id);
           }
         } catch (e) {
-          console.warn('Failed to save exam session to DB:', e.message);
+          clientLogger.warn('Failed to save exam session to DB:', e.message);
         }
       } else {
         // No exam in sessionStorage — check for resumable session in DB
@@ -115,7 +116,7 @@ export default function LiveExamPage() {
             router.push('/dashboard/generate');
           }
         } catch (e) {
-          console.warn('Failed to check for resumable exam session:', e.message);
+          clientLogger.warn('Failed to check for resumable exam session:', e.message);
           router.push('/dashboard/generate');
         }
       }
@@ -140,7 +141,7 @@ export default function LiveExamPage() {
           }),
         });
       } catch (e) {
-        console.warn('Auto-save failed:', e.message);
+        clientLogger.warn('Auto-save failed:', e.message);
       }
     }, 30000);
     return () => clearInterval(autoSaveTimerRef.current);
@@ -193,7 +194,7 @@ export default function LiveExamPage() {
           answers: currentAnswers,
           timeRemaining: currentTimeLeft,
         }),
-      }).catch((e) => console.warn('Failed to mark exam session as completed:', e.message));
+      }).catch((e) => clientLogger.warn('Failed to mark exam session as completed:', e.message));
     }
 
     sessionStorage.setItem(
@@ -364,7 +365,7 @@ export default function LiveExamPage() {
         }
       }
     } catch (e) {
-      console.warn('Failed to resume exam session:', e.message);
+      clientLogger.warn('Failed to resume exam session:', e.message);
     }
     router.push('/dashboard/generate');
   }
@@ -384,7 +385,7 @@ export default function LiveExamPage() {
         }
       }
     } catch (e) {
-      console.warn('Failed to discard exam session:', e.message);
+      clientLogger.warn('Failed to discard exam session:', e.message);
     }
     setResumePrompt(false);
     router.push('/dashboard/generate');

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import connectDB from '@/lib/mongodb';
 import SharedResult from '@/models/SharedResult';
 import { v4 as uuidv4 } from 'uuid';
+import logger from '@/lib/logger';
 
 // GET — Fetch a shared result by short code
 export async function GET(request) {
@@ -35,7 +36,7 @@ export async function GET(request) {
       },
     });
   } catch (error) {
-    console.error('Share GET error:', error);
+    logger.error({ err: error }, 'Share GET error');
     return NextResponse.json({ error: 'Failed to fetch shared result' }, { status: 500 });
   }
 }
@@ -76,7 +77,7 @@ export async function POST(request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Share POST error:', error);
+    logger.error({ err: error }, 'Share POST error');
     return NextResponse.json({ error: 'Failed to share result' }, { status: 500 });
   }
 }

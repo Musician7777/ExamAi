@@ -4,6 +4,8 @@ import connectDB from '@/lib/mongodb';
 import Activity from '@/models/Activity';
 import { awardXP } from '@/lib/services/gamificationService';
 import { rateLimit } from '@/lib/rateLimit';
+import { cacheWrap, cacheDelete, cacheInvalidatePrefix } from '@/lib/services/cacheService';
+import logger from '@/lib/logger';
 
 export async function GET(request) {
   try {
@@ -45,22 +47,35 @@ export async function GET(request) {
     const skip = (page - 1) * limit;
     const sort = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
 
-    const [activities, total] = await Promise.all([
-      Activity.find(query).sort(sort).skip(skip).limit(limit).lean(),
-      Activity.countDocuments(query),
-    ]);
+    // Build a stable cache key from query params
+    const filterKey = JSON.stringify(query) + JSON.stringify(sort) + `${skip}-${limit}`;
+    const cacheKey = `activities:${session.user.email}:${filterKey}`;
 
-    return NextResponse.json({
-      activities,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+    const data = await cacheWrap(
+      cacheKey,
+      async () => {
+        const [activities, total] = await Promise.all([
+          Activity.find(query).sort(sort).skip(skip).limit(limit).lean(),
+          Activity.countDocuments(query),
+        ]);
+        return {
+          activities,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+          },
+        };
       },
+      30_000 // 30s server cache
+    );
+
+    return NextResponse.json(data, {
+      headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=15' },
     });
   } catch (error) {
-    console.error('Activities GET error:', error);
+    logger.error({ err: error }, 'Activities GET error');
     return NextResponse.json({ error: 'Failed to fetch activities' }, { status: 500 });
   }
 }
@@ -104,8 +119,14 @@ export async function POST(request) {
         totalMarks: totalMarks || 100,
       });
     } catch (xpError) {
-      console.error('XP award failed (non-critical):', xpError);
+      logger.warn({ err: xpError }, 'XP award failed (non-critical)');
     }
+
+    // Invalidate activity & dashboard caches for this user
+    const email = session.user.email;
+    cacheInvalidatePrefix(`activities:${email}`);
+    cacheDelete(`dashboard:${email}`);
+    cacheDelete(`gamification:${email}`);
 
     return NextResponse.json(
       {
@@ -116,7 +137,7 @@ export async function POST(request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Activities POST error:', error);
+    logger.error({ err: error }, 'Activities POST error');
     return NextResponse.json({ error: 'Failed to save activity' }, { status: 500 });
   }
 }

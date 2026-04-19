@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
+import clientLogger from '@/lib/client-logger';
 
 /**
  * Speech-to-Text hook with silence detection callback.
@@ -60,7 +61,7 @@ export function useSpeechRecognition({ onSilence } = {}) {
 
     recognition.onerror = (e) => {
       if (e.error !== 'aborted' && e.error !== 'no-speech') {
-        console.warn('Speech recognition error:', e.error);
+        clientLogger.warn('Speech recognition error:', e.error);
       }
       clearTimeout(silenceTimerRef.current);
       setIsListening(false);
@@ -86,7 +87,7 @@ export function useSpeechRecognition({ onSilence } = {}) {
       recognitionRef.current.start();
       setIsListening(true);
     } catch (e) {
-      console.warn('Could not start recognition:', e);
+      clientLogger.warn('Could not start recognition:', e);
     }
   }, []);
 

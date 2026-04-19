@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Mail, ArrowLeft, CheckCircle2, Copy } from 'lucide-react';
+import clientLogger from '@/lib/client-logger';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -40,7 +41,7 @@ export default function ForgotPasswordPage() {
         setMessage({ type: 'error', text: data.error || 'Something went wrong' });
       }
     } catch (err) {
-      console.error('Forgot password error:', err);
+      clientLogger.error('Forgot password error:', err);
       setMessage({ type: 'error', text: 'Network error. Please try again.' });
     }
     setLoading(false);

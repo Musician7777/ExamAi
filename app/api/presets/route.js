@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import connectDB from '@/lib/mongodb';
 import SharedPreset from '@/models/SharedPreset';
 import { v4 as uuidv4 } from 'uuid';
+import logger from '@/lib/logger';
 
 // GET — Get a preset by short code
 export async function GET(request) {
@@ -37,7 +38,7 @@ export async function GET(request) {
       },
     });
   } catch (error) {
-    console.error('Presets GET error:', error);
+    logger.error({ err: error }, 'Presets GET error');
     return NextResponse.json({ error: 'Failed to fetch preset' }, { status: 500 });
   }
 }
@@ -80,7 +81,7 @@ export async function POST(request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Presets POST error:', error);
+    logger.error({ err: error }, 'Presets POST error');
     return NextResponse.json({ error: 'Failed to share preset' }, { status: 500 });
   }
 }

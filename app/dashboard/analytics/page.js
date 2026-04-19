@@ -5,6 +5,7 @@ import AnalyticsLoadingSkeleton from './AnalyticsLoadingSkeleton';
 import DeepTopicAnalytics from './DeepTopicAnalytics';
 import InsightCards from './InsightCards';
 import { useAnalytics } from './hooks/useAnalytics';
+import { RefreshShimmer } from '@/components/ui/refresh-shimmer';
 
 export default function AnalyticsPage() {
   const {
@@ -22,6 +23,7 @@ export default function AnalyticsPage() {
     weakTopics,
     strongTopics,
     insights,
+    revalidating,
   } = useAnalytics();
 
   if (loading) {
@@ -29,7 +31,8 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 relative">
+      <RefreshShimmer active={revalidating} />
       <div>
         <h1 className="text-2xl font-bold">
           📊 Performance <span className="gradient-text">Analytics</span>

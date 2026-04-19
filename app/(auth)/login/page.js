@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import clientLogger from '@/lib/client-logger';
 
 function LoginContent() {
   const router = useRouter();
@@ -34,7 +35,7 @@ function LoginContent() {
         router.refresh();
       }
     } catch (err) {
-      console.error('Login error:', err);
+      clientLogger.error('Login error:', err);
       setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);

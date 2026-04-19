@@ -4,6 +4,7 @@ import { generateWithFailover, hasApiKeys, parseAIResponse } from '@/lib/service
 import { buildChatPrompt } from '@/lib/prompts/codingPrompts';
 import { sanitizePromptInput } from '@/lib/sanitize';
 import { rateLimit } from '@/lib/rateLimit';
+import logger from '@/lib/logger';
 
 export async function POST(request) {
   try {
@@ -52,7 +53,7 @@ export async function POST(request) {
 
     return NextResponse.json(parsed);
   } catch (error) {
-    console.error('Chat API error:', error);
+    logger.error({ err: error }, 'Chat API error');
     return NextResponse.json(
       {
         error: 'Failed to process message',

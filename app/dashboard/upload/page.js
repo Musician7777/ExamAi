@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import clientLogger from '@/lib/client-logger';
 
 const steps = ['Upload File', 'Extract Text', 'Detect Sections', 'Analyze Pattern', 'Generate Exam'];
 
@@ -58,7 +59,7 @@ export default function UploadPage() {
         setError('PDF parsed but exam generation requires a Gemini API key.');
       }
     } catch (err) {
-      console.error('Upload error:', err);
+      clientLogger.error('Upload error:', err);
       setError(err.message || 'Failed to process file');
       setProcessing(false);
     }

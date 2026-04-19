@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import clientLogger from '@/lib/client-logger';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -46,7 +47,7 @@ export default function RegisterPage() {
         router.refresh();
       }
     } catch (err) {
-      console.error('Registration error:', err);
+      clientLogger.error('Registration error:', err);
       setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);

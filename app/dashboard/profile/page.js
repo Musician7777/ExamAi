@@ -1,6 +1,9 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { useCachedFetch } from '@/hooks/useCachedFetch';
+import clientLogger from '@/lib/client-logger';
+import { cacheInvalidate } from '@/lib/clientCache';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,15 +15,35 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { User, Shield, Trophy, Flame, Star, Lock, Mail, Calendar, CheckCircle2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { RefreshShimmer } from '@/components/ui/refresh-shimmer';
 
 export default function ProfilePage() {
   const { data: session, update: updateSession } = useSession();
-  const [userData, setUserData] = useState(null);
-  const [gamification, setGamification] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: userData,
+    loading: userLoading,
+    revalidating: userRevalidating,
+    refetch: refetchUser,
+  } = useCachedFetch('/api/user', {
+    ttl: 60_000,
+    selector: (json) => json.user,
+  });
+
+  const {
+    data: gamification,
+    loading: gamLoading,
+    revalidating: gamRevalidating,
+  } = useCachedFetch('/api/gamification', {
+    ttl: 60_000,
+    selector: (json) => json.profile,
+  });
+
+  const loading = userLoading || gamLoading;
+  const revalidating = !loading && (userRevalidating || gamRevalidating);
 
   // Edit state
   const [editName, setEditName] = useState('');
+  const [nameEdited, setNameEdited] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
 
@@ -31,26 +54,12 @@ export default function ProfilePage() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState(null);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [userRes, gamRes] = await Promise.all([fetch('/api/user'), fetch('/api/gamification')]);
-        if (userRes.ok) {
-          const data = await userRes.json();
-          setUserData(data.user);
-          setEditName(data.user.name || '');
-        }
-        if (gamRes.ok) {
-          const data = await gamRes.json();
-          setGamification(data.profile);
-        }
-      } catch (err) {
-        console.error('Failed to fetch profile data:', err);
-      }
-      setLoading(false);
-    }
-    fetchData();
-  }, []);
+  // Sync editName from server data on first load (not if user has manually edited)
+  const [prevUserData, setPrevUserData] = useState(null);
+  if (userData !== prevUserData) {
+    setPrevUserData(userData);
+    if (!nameEdited && userData) setEditName(userData.name || '');
+  }
 
   async function handleSaveName() {
     if (!editName.trim()) return;
@@ -64,14 +73,18 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setUserData(data.user);
+        cacheInvalidate('/api/user');
+        cacheInvalidate('/api/dashboard');
+        cacheInvalidate('/api/gamification');
         setMessage({ type: 'success', text: 'Name updated successfully!' });
+        setNameEdited(false);
         await updateSession({ name: editName.trim() });
+        refetchUser();
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to update name' });
       }
     } catch (err) {
-      console.error('Profile update error:', err);
+      clientLogger.error('Profile update error:', err);
       setMessage({ type: 'error', text: 'Network error. Please try again.' });
     }
     setSaving(false);
@@ -97,6 +110,7 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (res.ok) {
+        cacheInvalidate('/api/user');
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
@@ -105,7 +119,7 @@ export default function ProfilePage() {
         setPasswordMessage({ type: 'error', text: data.error || 'Failed to change password' });
       }
     } catch (err) {
-      console.error('Password change error:', err);
+      clientLogger.error('Password change error:', err);
       setPasswordMessage({ type: 'error', text: 'Network error. Please try again.' });
     }
     setChangingPassword(false);
@@ -213,7 +227,8 @@ export default function ProfilePage() {
   const isGoogleUser = userData?.authProvider === 'google';
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8 relative">
+      <RefreshShimmer active={revalidating} />
       <div>
         <h1 className="text-2xl font-bold">
           👤 Profile & <span className="gradient-text">Settings</span>
@@ -236,7 +251,10 @@ export default function ProfilePage() {
                 <Input
                   id="edit-name"
                   value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
+                  onChange={(e) => {
+                    setEditName(e.target.value);
+                    setNameEdited(true);
+                  }}
                   placeholder="Your name"
                   className="max-w-sm"
                   aria-label="Display name"

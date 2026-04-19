@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { executeCode, runTestCases, getSupportedLanguages } from '@/lib/services/codeExecutionService';
 import { rateLimit } from '@/lib/rateLimit';
+import logger from '@/lib/logger';
 
 export async function POST(request) {
   try {
@@ -30,7 +31,7 @@ export async function POST(request) {
     const result = await executeCode(code, language, stdin || '', timeout || 10000);
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Code execution error:', error);
+    logger.error({ err: error }, 'Code execution error');
     return NextResponse.json(
       {
         error: 'Execution failed',

@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import PasswordReset from '@/models/PasswordReset';
+import logger from '@/lib/logger';
 
 export async function POST(request) {
   try {
@@ -46,7 +47,7 @@ export async function POST(request) {
       message: 'Password reset successfully. You can now sign in with your new password.',
     });
   } catch (error) {
-    console.error('Reset password error:', error);
+    logger.error({ err: error }, 'Reset password error');
     return NextResponse.json({ error: 'Failed to reset password' }, { status: 500 });
   }
 }

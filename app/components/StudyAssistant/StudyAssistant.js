@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 
 import { cn } from '@/lib/utils';
+import clientLogger from '@/lib/client-logger';
 
 export default function StudyAssistant({ notify } = {}) {
   const [isOpen, setIsOpen] = useState(false);
@@ -47,7 +48,7 @@ export default function StudyAssistant({ notify } = {}) {
         },
       ]);
     } catch (err) {
-      console.error('Study assistant error:', err);
+      clientLogger.error('Study assistant error:', err);
       setMessages((prev) => [...prev, { role: 'assistant', text: 'Connection error. Please try again.' }]);
     }
     setLoading(false);

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
+import logger from '@/lib/logger';
 
 export async function POST(request) {
   try {
@@ -37,7 +38,7 @@ export async function POST(request) {
 
     return NextResponse.json({ message: 'Account created successfully', userId: user._id }, { status: 201 });
   } catch (error) {
-    console.error('Registration error:', error);
+    logger.error({ err: error }, 'Registration error');
     return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }

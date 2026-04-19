@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
+import clientLogger from '@/lib/client-logger';
 
 /**
  * Text-to-Speech hook with Kokoro TTS API + browser fallback.
@@ -153,7 +154,7 @@ export function useSpeechSynthesis() {
         setIsSpeaking(true);
         await audio.play();
       } catch (e) {
-        console.warn('TTS API failed, falling back to browser speech:', e.message);
+        clientLogger.warn('TTS API failed, falling back to browser speech:', e.message);
         speakWithBrowserFallback(clean);
       }
     },

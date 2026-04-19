@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Lock, CheckCircle2, XCircle } from 'lucide-react';
+import clientLogger from '@/lib/client-logger';
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -54,7 +55,7 @@ function ResetPasswordForm() {
         setMessage({ type: 'error', text: data.error || 'Failed to reset password' });
       }
     } catch (err) {
-      console.error('Reset password error:', err);
+      clientLogger.error('Reset password error:', err);
       setMessage({ type: 'error', text: 'Network error. Please try again.' });
     }
     setLoading(false);

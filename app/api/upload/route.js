@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { parsePDF, analyzeExamPattern, buildPatternReplicationPrompt } from '@/lib/services/pdfParserService';
 import { generateWithFailover, hasApiKeys, parseAIResponse } from '@/lib/services/geminiService';
+import logger from '@/lib/logger';
 
 export async function POST(request) {
   try {
@@ -91,7 +92,7 @@ export async function POST(request) {
       },
     });
   } catch (error) {
-    console.error('Upload error:', error);
+    logger.error({ err: error }, 'Upload error');
     return NextResponse.json(
       {
         error: 'Failed to process file',

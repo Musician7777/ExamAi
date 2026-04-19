@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import bcrypt from 'bcryptjs';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
+import { cacheWrap, cacheDelete } from '@/lib/services/cacheService';
+import logger from '@/lib/logger';
 
 export async function GET() {
   try {
@@ -11,17 +13,29 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await connectDB();
-    const user = await User.findOne({ email: session.user.email })
-      .select('name email image authProvider createdAt')
-      .lean();
-    if (!user) {
+    const cacheKey = `user:${session.user.email}`;
+    const data = await cacheWrap(
+      cacheKey,
+      async () => {
+        await connectDB();
+        const user = await User.findOne({ email: session.user.email })
+          .select('name email image authProvider createdAt')
+          .lean();
+        if (!user) return null;
+        return { user };
+      },
+      60_000
+    );
+
+    if (!data) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ user });
+    return NextResponse.json(data, {
+      headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=30' },
+    });
   } catch (error) {
-    console.error('User GET error:', error);
+    logger.error({ err: error }, 'User GET error');
     return NextResponse.json({ error: 'Failed to fetch user' }, { status: 500 });
   }
 }
@@ -75,12 +89,17 @@ export async function PATCH(request) {
 
     await user.save();
 
+    // Invalidate caches after mutation
+    cacheDelete(`user:${session.user.email}`);
+    cacheDelete(`dashboard:${session.user.email}`);
+    cacheDelete(`gamification:${session.user.email}`);
+
     return NextResponse.json({
       user: { name: user.name, email: user.email, image: user.image, authProvider: user.authProvider },
       message: 'Profile updated successfully',
     });
   } catch (error) {
-    console.error('User PATCH error:', error);
+    logger.error({ err: error }, 'User PATCH error');
     return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
   }
 }

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import clientLogger from '@/lib/client-logger';
 
 /* ═══ FETCH EXAM MODAL ═══ */
 export function FetchExamModal({ isOpen, onClose, onUseConfig, onSavePreset, mode = 'exam' }) {
@@ -49,7 +50,7 @@ export function FetchExamModal({ isOpen, onClose, onUseConfig, onSavePreset, mod
       if (data.error) throw new Error(data.error);
       setResult(data);
     } catch (err) {
-      console.error('Fetch config error:', err);
+      clientLogger.error('Fetch config error:', err);
       alert('Failed to fetch configuration. Please try again.');
     }
     setLoading(false);
@@ -300,7 +301,7 @@ export function useSavedPresets(storageKey) {
       const stored = localStorage.getItem(storageKey);
       if (stored) setPresets(JSON.parse(stored)); // eslint-disable-line react-hooks/set-state-in-effect -- SSR-safe localStorage init
     } catch (e) {
-      console.warn('Failed to load presets from localStorage:', e.message);
+      clientLogger.warn('Failed to load presets from localStorage:', e.message);
     }
   }, [storageKey]);
 

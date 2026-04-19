@@ -2,6 +2,7 @@
 import { Component } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import clientLogger from '@/lib/client-logger';
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -14,7 +15,7 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('ErrorBoundary caught:', error, errorInfo);
+    clientLogger.error('ErrorBoundary caught:', error, errorInfo);
   }
 
   handleReset = () => {

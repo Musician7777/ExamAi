@@ -1,34 +1,30 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useCachedFetch } from '@/hooks/useCachedFetch';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { RefreshShimmer } from '@/components/ui/refresh-shimmer';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
 export default function LeaderboardPage() {
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
 
-  useEffect(() => {
-    async function fetchLeaderboard() {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/leaderboard?page=${page}&limit=20`);
-        const data = await res.json();
-        setLeaderboard(data.users || []);
-        setTotalPages(data.totalPages || 1);
-      } catch (err) {
-        console.error('Failed to fetch leaderboard:', err);
-      }
-      setLoading(false);
-    }
-    fetchLeaderboard();
-  }, [page]);
+  const {
+    data: leaderboardData,
+    loading,
+    revalidating,
+  } = useCachedFetch(`/api/leaderboard?page=${page}&limit=20`, {
+    deps: [page],
+    ttl: 120_000, // 2 min — leaderboard changes less frequently
+    selector: (json) => ({ users: json.users || [], totalPages: json.totalPages || 1 }),
+  });
+
+  const leaderboard = leaderboardData?.users || [];
+  const totalPages = leaderboardData?.totalPages || 1;
 
   const rankEmoji = (rank) => {
     if (rank === 1) return '🥇';
@@ -46,7 +42,8 @@ export default function LeaderboardPage() {
         <p className="text-muted-foreground mt-1">Top performers ranked by experience points earned</p>
       </div>
 
-      <Card>
+      <Card className="relative overflow-hidden">
+        <RefreshShimmer active={revalidating && !loading} />
         <Table>
           <TableHeader>
             <TableRow>

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { getUserProfile, awardXP, BADGES } from '@/lib/services/gamificationService';
+import { cacheWrap, cacheDelete } from '@/lib/services/cacheService';
+import logger from '@/lib/logger';
 
 export async function GET() {
   try {
@@ -9,10 +11,21 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const profile = await getUserProfile(session.user.email);
-    return NextResponse.json({ profile, allBadges: BADGES });
+    const cacheKey = `gamification:${session.user.email}`;
+    const data = await cacheWrap(
+      cacheKey,
+      async () => {
+        const profile = await getUserProfile(session.user.email);
+        return { profile, allBadges: BADGES };
+      },
+      60_000
+    ); // 60s server cache
+
+    return NextResponse.json(data, {
+      headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=30' },
+    });
   } catch (error) {
-    console.error('Gamification GET error:', error);
+    logger.error({ err: error }, 'Gamification GET error');
     return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 });
   }
 }
@@ -34,9 +47,14 @@ export async function POST(request) {
       score: score || 0,
       totalMarks: totalMarks || 100,
     });
+
+    // Invalidate caches after mutation
+    cacheDelete(`gamification:${session.user.email}`);
+    cacheDelete(`dashboard:${session.user.email}`);
+
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Gamification POST error:', error);
+    logger.error({ err: error }, 'Gamification POST error');
     return NextResponse.json({ error: 'Failed to award XP' }, { status: 500 });
   }
 }

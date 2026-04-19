@@ -17,6 +17,8 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
+import { cacheInvalidate } from '@/lib/clientCache';
+import clientLogger from '@/lib/client-logger';
 import {
   HiOutlineCheckCircle,
   HiOutlineXCircle,
@@ -66,6 +68,10 @@ export default function ResultsPage() {
         })
           .then(async (res) => {
             if (res.ok) {
+              // Invalidate client cache so dashboard/analytics refresh on next visit
+              cacheInvalidate('/api/dashboard');
+              cacheInvalidate('/api/gamification');
+              cacheInvalidate('/api/activities');
               const result = await res.json();
               if (result.xp?.xpAwarded) {
                 notify({
@@ -79,7 +85,7 @@ export default function ResultsPage() {
               }
             }
           })
-          .catch((err) => console.error('Failed to save exam activity:', err));
+          .catch((err) => clientLogger.error('Failed to save exam activity:', err));
       }
     } else {
       router.push('/dashboard/generate');
@@ -176,7 +182,7 @@ export default function ResultsPage() {
         });
       }
     } catch (err) {
-      console.error('Share error:', err);
+      clientLogger.error('Share error:', err);
       notify({ emoji: '❌', title: 'Share failed', description: 'Network error' });
     }
     setShareLoading(false);

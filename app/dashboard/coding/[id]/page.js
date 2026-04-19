@@ -12,6 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
+import { cacheInvalidate } from '@/lib/clientCache';
+import clientLogger from '@/lib/client-logger';
 
 const Editor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
@@ -336,7 +338,7 @@ export default function CodingEditorPage() {
         try {
           setAiProblem(JSON.parse(stored)); // eslint-disable-line react-hooks/set-state-in-effect -- SSR-safe sessionStorage init
         } catch (e) {
-          console.warn('Failed to parse AI-generated problem from sessionStorage:', e.message);
+          clientLogger.warn('Failed to parse AI-generated problem from sessionStorage:', e.message);
         }
       }
     }
@@ -465,7 +467,7 @@ export default function CodingEditorPage() {
         setExecutionOutput(result);
       }
     } catch (e) {
-      console.error('Code execution error:', e.message);
+      clientLogger.error('Code execution error:', e.message);
       setOutput({ passed: false, score: 0, testResults: [], feedback: 'Error running code. Check your syntax.' });
     }
     setRunning(false);
@@ -497,6 +499,10 @@ export default function CodingEditorPage() {
         }),
       });
       if (actRes.ok) {
+        // Invalidate client cache so dashboard/analytics refresh on next visit
+        cacheInvalidate('/api/dashboard');
+        cacheInvalidate('/api/gamification');
+        cacheInvalidate('/api/activities');
         const actData = await actRes.json();
         if (actData.xp?.xpAwarded) {
           notify({
@@ -517,11 +523,11 @@ export default function CodingEditorPage() {
         try {
           window.dispatchEvent(new CustomEvent('coding-problem-solved', { detail: { problemId: params.id } }));
         } catch (e) {
-          console.warn('Failed to dispatch coding-problem-solved event:', e.message);
+          clientLogger.warn('Failed to dispatch coding-problem-solved event:', e.message);
         }
       }
     } catch (e) {
-      console.error('Code submission error:', e.message);
+      clientLogger.error('Code submission error:', e.message);
       setOutput({ passed: false, score: 0, testResults: [], feedback: 'Error submitting code.' });
     }
     setSubmitting(false);

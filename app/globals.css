@@ -314,6 +314,14 @@ html.gradient .bg-background {
     transform: scale(1);
   }
 }
+@keyframes shimmer-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
 @keyframes spin {
   from {
     transform: rotate(0deg);

@@ -1,6 +1,7 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useTheme } from '@/app/providers/ThemeProvider';
+import { useCachedFetch } from '@/hooks/useCachedFetch';
 
 /**
  * Reads theme-aware CSS variable values from the document root
@@ -100,24 +101,15 @@ function buildDeepTopicScores(activities) {
  * Returns loading state, derived metrics, chart configs, and insight cards data.
  */
 export function useAnalytics() {
-  const [activities, setActivities] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchActivities() {
-      try {
-        const res = await fetch('/api/activities?limit=50');
-        if (res.ok) {
-          const data = await res.json();
-          setActivities(data.activities || []);
-        }
-      } catch (err) {
-        console.error('Failed to fetch activities:', err);
-      }
-      setLoading(false);
-    }
-    fetchActivities();
-  }, []);
+  const {
+    data: activitiesData,
+    loading,
+    revalidating,
+  } = useCachedFetch('/api/activities?limit=50', {
+    ttl: 60_000,
+    selector: (json) => json.activities || [],
+  });
+  const activities = activitiesData || [];
 
   const { theme } = useTheme();
   const chartColors = useMemo(() => getThemeChartColors(), [theme]);
@@ -387,5 +379,6 @@ export function useAnalytics() {
     weakTopics,
     strongTopics,
     insights,
+    revalidating,
   };
 }

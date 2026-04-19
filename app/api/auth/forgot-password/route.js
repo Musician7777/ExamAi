@@ -5,6 +5,7 @@ import User from '@/models/User';
 import PasswordReset from '@/models/PasswordReset';
 import { rateLimit } from '@/lib/rateLimit';
 import { sendPasswordResetEmail } from '@/lib/services/emailService';
+import logger from '@/lib/logger';
 
 export async function POST(request) {
   try {
@@ -62,7 +63,7 @@ export async function POST(request) {
 
     if (emailResult.error) {
       // Resend was configured but failed — provide fallback link so user isn't stuck
-      console.error('[forgot-password] Email send failed:', emailResult.error);
+      logger.error({ err: emailResult.error }, '[forgot-password] Email send failed');
       const fallbackUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
       return NextResponse.json({
         message: 'Email delivery failed — a direct reset link is provided below.',
@@ -78,7 +79,7 @@ export async function POST(request) {
       resetUrl: emailResult.resetUrl,
     });
   } catch (error) {
-    console.error('Forgot password error:', error);
+    logger.error({ err: error }, 'Forgot password error');
     return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
   }
 }

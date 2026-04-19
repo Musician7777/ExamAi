@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { rateLimit } from '@/lib/rateLimit';
+import logger from '@/lib/logger';
 
 const HF_TOKEN = process.env.HF_TOKEN;
 const HF_KOKORO_TTS_URL = 'https://router.huggingface.co/hf-inference/models/hexgrad/Kokoro-82M';
@@ -42,7 +43,7 @@ export async function POST(request) {
           const errorBody = JSON.parse(rawError);
           bodyMessage = errorBody?.error || errorBody?.message || '';
         } catch (e) {
-          console.warn('TTS: Failed to parse error response as JSON:', e.message);
+          logger.warn({ err: e }, 'TTS: Failed to parse error response as JSON');
           bodyMessage = rawError;
         }
       }
@@ -83,7 +84,7 @@ export async function POST(request) {
         if (payload?.error) details = payload.error;
       } catch (e) {
         // Not JSON — keep default details.
-        console.warn('TTS: Non-JSON response body when expecting audio:', e.message);
+        logger.warn({ err: e }, 'TTS: Non-JSON response body when expecting audio');
       }
       throw new Error(details);
     }
@@ -98,7 +99,7 @@ export async function POST(request) {
       },
     });
   } catch (error) {
-    console.error('TTS API error:', error);
+    logger.error({ err: error }, 'TTS API error');
     return NextResponse.json(
       {
         error: 'Failed to synthesize speech',

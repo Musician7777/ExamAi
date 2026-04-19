@@ -1,12 +1,14 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import { useCachedFetch } from '@/hooks/useCachedFetch';
 import { Zap, Code, MessageSquare, BarChart3 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
+import { RefreshShimmer } from '@/components/ui/refresh-shimmer';
 import ExamConfigModal from '../components/ExamConfigModal/ExamConfigModal';
 import { cn } from '@/lib/utils';
 
@@ -139,33 +141,30 @@ export default function DashboardPage() {
   const { data: session } = useSession();
   const router = useRouter();
   const firstName = session?.user?.name?.split(' ')[0] || 'there';
-  const [dashData, setDashData] = useState(null);
-  const [gamData, setGamData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: dashData,
+    loading: dashLoading,
+    revalidating: dashRevalidating,
+  } = useCachedFetch('/api/dashboard', {
+    ttl: 60_000, // 60s
+    selector: (json) => json,
+  });
+
+  const {
+    data: gamData,
+    loading: gamLoading,
+    revalidating: gamRevalidating,
+  } = useCachedFetch('/api/gamification', {
+    ttl: 60_000,
+    selector: (json) => json.profile,
+  });
+
+  const loading = dashLoading || gamLoading;
+  const revalidating = !loading && (dashRevalidating || gamRevalidating);
 
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [configModalMode, setConfigModalMode] = useState('exam');
   const [configModalPreset, setConfigModalPreset] = useState({ name: '', emoji: '' });
-
-  useEffect(() => {
-    async function fetchDashboard() {
-      try {
-        const [dashRes, gamRes] = await Promise.all([fetch('/api/dashboard'), fetch('/api/gamification')]);
-        if (dashRes.ok) {
-          const data = await dashRes.json();
-          setDashData(data);
-        }
-        if (gamRes.ok) {
-          const data = await gamRes.json();
-          setGamData(data.profile);
-        }
-      } catch (err) {
-        console.error('Failed to fetch dashboard:', err);
-      }
-      setLoading(false);
-    }
-    fetchDashboard();
-  }, []);
 
   function handleQuickAction(action) {
     if (!action.mode) {
@@ -223,7 +222,8 @@ export default function DashboardPage() {
       ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 relative">
+      <RefreshShimmer active={revalidating} />
       <div>
         <h1 className="text-2xl font-bold">
           Welcome back, <span className="gradient-text">{firstName}</span> 👋

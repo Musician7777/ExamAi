@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineMinusCircle, HiOutlineClock } from 'react-icons/hi';
 import { BarChart3, Eye, Zap } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import clientLogger from '@/lib/client-logger';
 
 function SharedResultContent() {
   const params = useParams();
@@ -29,7 +30,7 @@ function SharedResultContent() {
           setError(data.error || 'Not found');
         }
       } catch (err) {
-        console.error('Failed to fetch shared result:', err);
+        clientLogger.error('Failed to fetch shared result:', err);
         setError('Network error');
       }
       setLoading(false);

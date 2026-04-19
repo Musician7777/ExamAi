@@ -1,47 +1,56 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Calendar, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { useCachedFetch } from '@/hooks/useCachedFetch';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { RefreshShimmer } from '@/components/ui/refresh-shimmer';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 export default function ActivityPage() {
-  const [activities, setActivities] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
+  const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({ type: '', dateFrom: '', dateTo: '', minScore: '', difficulty: '' });
   const [showFilters, setShowFilters] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
 
-  const fetchActivities = useCallback(
-    async (page = 1) => {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams({ page, limit: 15 });
-        if (filters.type) params.set('type', filters.type);
-        if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
-        if (filters.dateTo) params.set('dateTo', filters.dateTo);
-        if (filters.minScore) params.set('minScore', filters.minScore);
-        if (filters.difficulty) params.set('difficulty', filters.difficulty);
-        const res = await fetch(`/api/activities?${params}`);
-        const data = await res.json();
-        setActivities(data.activities || []);
-        setPagination(data.pagination || { page: 1, totalPages: 1, total: 0 });
-      } catch (err) {
-        console.error('Failed to fetch activities:', err);
-      }
-      setLoading(false);
-    },
-    [filters]
-  );
+  // Build URL with filters
+  const buildUrl = useCallback(() => {
+    const params = new URLSearchParams({ page, limit: 15 });
+    if (filters.type) params.set('type', filters.type);
+    if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
+    if (filters.dateTo) params.set('dateTo', filters.dateTo);
+    if (filters.minScore) params.set('minScore', filters.minScore);
+    if (filters.difficulty) params.set('difficulty', filters.difficulty);
+    return `/api/activities?${params}`;
+  }, [page, filters]);
 
-  useEffect(() => {
-    fetchActivities(); // eslint-disable-line react-hooks/set-state-in-effect -- fetch callback sets state after async data load
-  }, [fetchActivities]);
+  // Reset page to 1 when filters change (adjusting state during render)
+  const [prevFilterKey, setPrevFilterKey] = useState(JSON.stringify(filters));
+  const currentFilterKey = JSON.stringify(filters);
+  if (prevFilterKey !== currentFilterKey) {
+    setPrevFilterKey(currentFilterKey);
+    setPage(1);
+  }
+
+  const {
+    data: activitiesData,
+    loading,
+    revalidating,
+  } = useCachedFetch(buildUrl(), {
+    deps: [page, filters],
+    ttl: 30_000, // 30s — activities change more often when user completes tasks
+    selector: (json) => ({
+      activities: json.activities || [],
+      pagination: json.pagination || { page: 1, totalPages: 1, total: 0 },
+    }),
+  });
+
+  const activities = activitiesData?.activities || [];
+  const pagination = activitiesData?.pagination || { page: 1, totalPages: 1, total: 0 };
 
   const typeIcon = (type) => ({ exam: '📝', coding: '💻', interview: '🎤' })[type] || '📄';
   const scoreColor = (score, total) => {
@@ -50,7 +59,8 @@ export default function ActivityPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      <RefreshShimmer active={revalidating && !loading} />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">
@@ -265,12 +275,7 @@ export default function ActivityPage() {
 
       {pagination.totalPages > 1 && (
         <div className="flex items-center justify-center gap-4 pt-4">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pagination.page <= 1}
-            onClick={() => fetchActivities(pagination.page - 1)}
-          >
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
             ← Previous
           </Button>
           <span className="text-sm text-muted-foreground">
@@ -279,8 +284,8 @@ export default function ActivityPage() {
           <Button
             variant="outline"
             size="sm"
-            disabled={pagination.page >= pagination.totalPages}
-            onClick={() => fetchActivities(pagination.page + 1)}
+            disabled={page >= pagination.totalPages}
+            onClick={() => setPage((p) => p + 1)}
           >
             Next →
           </Button>

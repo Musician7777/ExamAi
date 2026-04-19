@@ -15,6 +15,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import clientLogger from '@/lib/client-logger';
 
 const defaultProblems = [
   { id: 1, title: 'Two Sum', tags: ['Array', 'Hash Map'], difficulty: 'easy' },
@@ -55,7 +56,7 @@ export default function CodingPage() {
       const stored = localStorage.getItem('examai_solved_problems');
       if (stored) setSolvedIds(new Set(JSON.parse(stored))); // eslint-disable-line react-hooks/set-state-in-effect -- SSR-safe localStorage init
     } catch (e) {
-      console.warn('Failed to load solved problems from localStorage:', e.message);
+      clientLogger.warn('Failed to load solved problems from localStorage:', e.message);
     }
   }, []);
 
@@ -70,7 +71,7 @@ export default function CodingPage() {
           try {
             localStorage.setItem('examai_solved_problems', JSON.stringify([...next]));
           } catch (e) {
-            console.warn('Failed to save solved problems to localStorage:', e.message);
+            clientLogger.warn('Failed to save solved problems to localStorage:', e.message);
           }
           return next;
         });
@@ -92,7 +93,7 @@ export default function CodingPage() {
         }
       }
     } catch (e) {
-      console.warn('Failed to read examConfigModalResult from sessionStorage:', e.message);
+      clientLogger.warn('Failed to read examConfigModalResult from sessionStorage:', e.message);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

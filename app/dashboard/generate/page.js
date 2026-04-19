@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import clientLogger from '@/lib/client-logger';
 
 const governmentPresets = [
   { id: 'upsc', emoji: '🏛️', name: 'UPSC CSE', desc: 'Civil Services Prelims' },
@@ -88,7 +89,7 @@ export default function GeneratePage() {
       sessionStorage.setItem('currentExam', JSON.stringify(exam));
       router.push('/dashboard/exam/live');
     } catch (error) {
-      console.error('Error generating exam:', error);
+      clientLogger.error('Error generating exam:', error);
       alert('Network error. Please try again.');
     }
     setLoading(false);
@@ -107,7 +108,7 @@ export default function GeneratePage() {
         if (mode === 'exam' && config) handleGenerateFromModalRef.current?.(config);
       }
     } catch (e) {
-      console.warn('Failed to read examConfigModalResult from sessionStorage:', e.message);
+      clientLogger.warn('Failed to read examConfigModalResult from sessionStorage:', e.message);
     }
   }, []);
 
@@ -206,7 +207,7 @@ export default function GeneratePage() {
       sessionStorage.setItem('currentExam', JSON.stringify(exam));
       router.push('/dashboard/exam/live');
     } catch (error) {
-      console.error('Error generating exam:', error);
+      clientLogger.error('Error generating exam:', error);
       alert('Network error. Please try again.');
     }
     setLoading(false);
