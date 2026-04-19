@@ -21,10 +21,10 @@ export function useTheme() {
   const { theme, setTheme, resolvedTheme } = useNextTheme();
 
   useEffect(() => {
-    setMounted(true);
+    setMounted(true); // eslint-disable-line react-hooks/set-state-in-effect -- hydration guard, must start false
   }, []);
 
-  const currentTheme = mounted ? (theme || resolvedTheme || 'dark') : 'dark';
+  const currentTheme = mounted ? theme || resolvedTheme || 'dark' : 'dark';
 
   return {
     theme: currentTheme,

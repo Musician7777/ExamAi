@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
-const userProfileSchema = new mongoose.Schema({
+const userProfileSchema = new mongoose.Schema(
+  {
     userId: { type: String, required: true, unique: true, index: true },
     xp: { type: Number, default: 0 },
     badges: { type: [String], default: [] },
@@ -11,9 +12,11 @@ const userProfileSchema = new mongoose.Schema({
     totalCoding: { type: Number, default: 0 },
     totalInterviews: { type: Number, default: 0 },
     bestScore: { type: Number, default: 0 },
-}, {
+  },
+  {
     timestamps: true,
-});
+  }
+);
 
 const UserProfile = mongoose.models.UserProfile || mongoose.model('UserProfile', userProfileSchema);
 export default UserProfile;

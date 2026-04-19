@@ -9,15 +9,17 @@ Chart.register(...registerables);
  * Automatically destroys and recreates the chart when the config prop changes.
  */
 export default function ChartCanvas({ config }) {
-    const canvasRef = useRef(null);
-    const chartRef = useRef(null);
+  const canvasRef = useRef(null);
+  const chartRef = useRef(null);
 
-    useEffect(() => {
-        if (chartRef.current) chartRef.current.destroy();
-        const ctx = canvasRef.current.getContext('2d');
-        chartRef.current = new Chart(ctx, config);
-        return () => { if (chartRef.current) chartRef.current.destroy(); };
-    }, [config]);
+  useEffect(() => {
+    if (chartRef.current) chartRef.current.destroy();
+    const ctx = canvasRef.current.getContext('2d');
+    chartRef.current = new Chart(ctx, config);
+    return () => {
+      if (chartRef.current) chartRef.current.destroy();
+    };
+  }, [config]);
 
-    return <canvas ref={canvasRef} />;
+  return <canvas ref={canvasRef} />;
 }

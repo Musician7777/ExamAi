@@ -15,19 +15,15 @@ export async function GET() {
     const userId = session.user.email;
 
     // Get all activities for this user
-    const activities = await Activity.find({ userId })
-      .sort({ createdAt: -1 })
-      .lean();
+    const activities = await Activity.find({ userId }).sort({ createdAt: -1 }).lean();
 
     // Calculate stats
     const totalActivities = activities.length;
-    const scores = activities.filter(a => a.totalMarks > 0).map(a => (a.score / a.totalMarks) * 100);
-    const avgScore = scores.length > 0
-      ? Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length)
-      : 0;
+    const scores = activities.filter((a) => a.totalMarks > 0).map((a) => (a.score / a.totalMarks) * 100);
+    const avgScore = scores.length > 0 ? Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length) : 0;
 
     // Recent activities (last 5)
-    const recentActivities = activities.slice(0, 5).map(a => ({
+    const recentActivities = activities.slice(0, 5).map((a) => ({
       title: a.title,
       type: a.type,
       score: a.totalMarks > 0 ? `${Math.round((a.score / a.totalMarks) * 100)}%` : '—',
@@ -36,9 +32,9 @@ export async function GET() {
     }));
 
     // Count by type
-    const examCount = activities.filter(a => a.type === 'exam').length;
-    const codingCount = activities.filter(a => a.type === 'coding').length;
-    const interviewCount = activities.filter(a => a.type === 'interview').length;
+    const examCount = activities.filter((a) => a.type === 'exam').length;
+    const codingCount = activities.filter((a) => a.type === 'coding').length;
+    const interviewCount = activities.filter((a) => a.type === 'interview').length;
 
     return NextResponse.json({
       stats: {

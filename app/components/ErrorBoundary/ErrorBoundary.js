@@ -47,7 +47,7 @@ export default class ErrorBoundary extends Component {
               <Button variant="outline" onClick={this.handleReload} className="gap-2">
                 ↻ Reload Page
               </Button>
-              <Button variant="ghost" onClick={() => window.location.href = '/dashboard'} className="gap-2">
+              <Button variant="ghost" onClick={() => (window.location.href = '/dashboard')} className="gap-2">
                 🏠 Dashboard
               </Button>
             </div>

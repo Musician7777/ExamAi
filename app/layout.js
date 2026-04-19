@@ -8,7 +8,8 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 export const metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL || 'http://localhost:3000'),
   title: 'ExamAI – AI-Powered Exam & Interview Generation',
-  description: 'Generate realistic exams, coding tests, and AI-powered interview simulations for government exams, private hiring, and campus placements.',
+  description:
+    'Generate realistic exams, coding tests, and AI-powered interview simulations for government exams, private hiring, and campus placements.',
   keywords: 'exam generator, AI interview, coding test, UPSC, SSC, placement, hiring assessment',
   icons: {
     icon: '/Favicon.png',
@@ -16,24 +17,25 @@ export const metadata = {
   },
   openGraph: {
     title: 'ExamAI – AI-Powered Exam & Interview Generation',
-    description: 'Generate realistic exams, coding tests, and AI-powered interview simulations for government exams, private hiring, and campus placements.',
+    description:
+      'Generate realistic exams, coding tests, and AI-powered interview simulations for government exams, private hiring, and campus placements.',
     siteName: 'ExamAI',
     type: 'website',
-  images: [
-    {
-      url: '/coverImage.png',
-      width: 1200,
-      height: 630,
-      alt: 'ExamAI – AI-Powered Exam & Interview Platform',
-    },
-  ],
-},
-twitter: {
-  card: 'summary_large_image',
-  title: 'ExamAI – AI-Powered Exam & Interview Generation',
-  description: 'Generate realistic exams, coding tests, and AI-powered interview simulations.',
-  images: ['/coverImage.png'],
-},
+    images: [
+      {
+        url: '/coverImage.png',
+        width: 1200,
+        height: 630,
+        alt: 'ExamAI – AI-Powered Exam & Interview Platform',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'ExamAI – AI-Powered Exam & Interview Generation',
+    description: 'Generate realistic exams, coding tests, and AI-powered interview simulations.',
+    images: ['/coverImage.png'],
+  },
   robots: {
     index: true,
     follow: true,
@@ -45,9 +47,7 @@ export default function RootLayout({ children }) {
     <html lang="en" suppressHydrationWarning>
       <body className={inter.variable}>
         <AuthProvider>
-          <ThemeProvider>
-            {children}
-          </ThemeProvider>
+          <ThemeProvider>{children}</ThemeProvider>
         </AuthProvider>
       </body>
     </html>

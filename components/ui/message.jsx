@@ -1,6 +1,6 @@
-"use client"
+'use client';
 
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils';
 
 /**
  * Message — composable message container with role-based styling.
@@ -8,20 +8,16 @@ import { cn } from "@/lib/utils"
  * - from: "user" | "assistant"
  * - className, children
  */
-function Message({ from = "user", className, children, ...props }) {
+function Message({ from = 'user', className, children, ...props }) {
   return (
     <div
-      className={cn(
-        "flex w-full gap-3",
-        from === "user" ? "flex-row-reverse" : "flex-row",
-        className
-      )}
+      className={cn('flex w-full gap-3', from === 'user' ? 'flex-row-reverse' : 'flex-row', className)}
       data-role={from}
       {...props}
     >
       {children}
     </div>
-  )
+  );
 }
 
 /**
@@ -29,16 +25,10 @@ function Message({ from = "user", className, children, ...props }) {
  */
 function MessageContent({ className, children, ...props }) {
   return (
-    <div
-      className={cn(
-        "flex max-w-[85%] min-w-0 flex-col gap-1",
-        className
-      )}
-      {...props}
-    >
+    <div className={cn('flex max-w-[85%] min-w-0 flex-col gap-1', className)} {...props}>
       {children}
     </div>
-  )
+  );
 }
 
-export { Message, MessageContent }
+export { Message, MessageContent };

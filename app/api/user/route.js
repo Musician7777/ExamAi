@@ -5,77 +5,82 @@ import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 
 export async function GET() {
-    try {
-        const session = await getServerSession();
-        if (!session?.user?.email) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        await connectDB();
-        const user = await User.findOne({ email: session.user.email }).select('name email image authProvider createdAt').lean();
-        if (!user) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-
-        return NextResponse.json({ user });
-    } catch (error) {
-        console.error('User GET error:', error);
-        return NextResponse.json({ error: 'Failed to fetch user' }, { status: 500 });
+  try {
+    const session = await getServerSession();
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    await connectDB();
+    const user = await User.findOne({ email: session.user.email })
+      .select('name email image authProvider createdAt')
+      .lean();
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ user });
+  } catch (error) {
+    console.error('User GET error:', error);
+    return NextResponse.json({ error: 'Failed to fetch user' }, { status: 500 });
+  }
 }
 
 export async function PATCH(request) {
-    try {
-        const session = await getServerSession();
-        if (!session?.user?.email) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        await connectDB();
-        const body = await request.json();
-        const { name, image, currentPassword, newPassword } = body;
-
-        const user = await User.findOne({ email: session.user.email });
-        if (!user) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-
-        // Update name
-        if (name && name.trim() !== user.name) {
-            user.name = name.trim();
-        }
-
-        // Update image
-        if (image !== undefined) {
-            user.image = image;
-        }
-
-        // Change password
-        if (currentPassword && newPassword) {
-            if (user.authProvider === 'google') {
-                return NextResponse.json({ error: 'Google accounts cannot change password here. Use Google settings.' }, { status: 400 });
-            }
-            if (!user.password) {
-                return NextResponse.json({ error: 'No password set for this account.' }, { status: 400 });
-            }
-            const isValid = await bcrypt.compare(currentPassword, user.password);
-            if (!isValid) {
-                return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 });
-            }
-            if (newPassword.length < 8) {
-                return NextResponse.json({ error: 'New password must be at least 8 characters' }, { status: 400 });
-            }
-            user.password = await bcrypt.hash(newPassword, 12);
-        }
-
-        await user.save();
-
-        return NextResponse.json({
-            user: { name: user.name, email: user.email, image: user.image, authProvider: user.authProvider },
-            message: 'Profile updated successfully',
-        });
-    } catch (error) {
-        console.error('User PATCH error:', error);
-        return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+  try {
+    const session = await getServerSession();
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    await connectDB();
+    const body = await request.json();
+    const { name, image, currentPassword, newPassword } = body;
+
+    const user = await User.findOne({ email: session.user.email });
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Update name
+    if (name && name.trim() !== user.name) {
+      user.name = name.trim();
+    }
+
+    // Update image
+    if (image !== undefined) {
+      user.image = image;
+    }
+
+    // Change password
+    if (currentPassword && newPassword) {
+      if (user.authProvider === 'google') {
+        return NextResponse.json(
+          { error: 'Google accounts cannot change password here. Use Google settings.' },
+          { status: 400 }
+        );
+      }
+      if (!user.password) {
+        return NextResponse.json({ error: 'No password set for this account.' }, { status: 400 });
+      }
+      const isValid = await bcrypt.compare(currentPassword, user.password);
+      if (!isValid) {
+        return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 });
+      }
+      if (newPassword.length < 8) {
+        return NextResponse.json({ error: 'New password must be at least 8 characters' }, { status: 400 });
+      }
+      user.password = await bcrypt.hash(newPassword, 12);
+    }
+
+    await user.save();
+
+    return NextResponse.json({
+      user: { name: user.name, email: user.email, image: user.image, authProvider: user.authProvider },
+      message: 'Profile updated successfully',
+    });
+  } catch (error) {
+    console.error('User PATCH error:', error);
+    return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+  }
 }
