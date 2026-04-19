@@ -19,21 +19,21 @@ export const metadata = {
     description: 'Generate realistic exams, coding tests, and AI-powered interview simulations for government exams, private hiring, and campus placements.',
     siteName: 'ExamAI',
     type: 'website',
-    images: [
-      {
-        url: '/Logo.png',
-        width: 1200,
-        height: 630,
-        alt: 'ExamAI – AI-Powered Exam & Interview Platform',
-      },
-    ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'ExamAI – AI-Powered Exam & Interview Generation',
-    description: 'Generate realistic exams, coding tests, and AI-powered interview simulations.',
-    images: ['/Logo.png'],
-  },
+  images: [
+    {
+      url: '/coverImage.png',
+      width: 1200,
+      height: 630,
+      alt: 'ExamAI – AI-Powered Exam & Interview Platform',
+    },
+  ],
+},
+twitter: {
+  card: 'summary_large_image',
+  title: 'ExamAI – AI-Powered Exam & Interview Generation',
+  description: 'Generate realistic exams, coding tests, and AI-powered interview simulations.',
+  images: ['/coverImage.png'],
+},
   robots: {
     index: true,
     follow: true,
