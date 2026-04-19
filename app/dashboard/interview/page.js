@@ -306,7 +306,7 @@ export default function InterviewPage() {
             setAwaitingMic(false);
             clearTimeout(micStartTimeoutRef.current);
             micStartTimeoutRef.current = setTimeout(() => {
-                console.log('[Interview] Auto-starting mic (awaitingMic)');
+                console.debug('[Interview] Auto-starting mic (awaitingMic)');
                 startListening();
             }, 150); // Fast start — like Gemini Live
         }
@@ -322,7 +322,7 @@ export default function InterviewPage() {
                 clearTimeout(micStartTimeoutRef.current);
                 micStartTimeoutRef.current = setTimeout(() => {
                     if (!sendingRef.current && !isThinking) {
-                        console.log('[Interview] Auto-starting mic after TTS ended');
+                        console.debug('[Interview] Auto-starting mic after TTS ended');
                         startListening();
                     }
                 }, 200);
@@ -341,7 +341,7 @@ export default function InterviewPage() {
                 const t = setTimeout(() => {
                     // Re-check conditions at execution time (state may have changed)
                     if (!sendingRef.current && !isSpeaking && !isThinking) {
-                        console.log('[Interview] Auto-restarting mic after unexpected stop');
+                        console.debug('[Interview] Auto-restarting mic after unexpected stop');
                         startListening();
                     }
                 }, 800); // Faster restart
@@ -391,7 +391,7 @@ export default function InterviewPage() {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             // Got permission — stop tracks immediately, we just needed the grant
             stream.getTracks().forEach(t => t.stop());
-            console.log('[Interview] Mic permission granted');
+            console.debug('[Interview] Mic permission granted');
             return true;
         } catch (e) {
             console.warn('[Interview] Mic permission denied:', e);
@@ -445,7 +445,7 @@ export default function InterviewPage() {
             if (useVoice) {
                 speak(greeting, () => {
                     // After AI finishes speaking, auto-start mic
-                    console.log('[Interview] TTS ended, queuing mic');
+                    console.debug('[Interview] TTS ended, queuing mic');
                     if (useMic) setAwaitingMic(true);
                 });
             } else if (useMic) {
