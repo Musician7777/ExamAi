@@ -7,9 +7,21 @@ export function ThemeProvider({ children }) {
     <NextThemesProvider
       attribute="class"
       defaultTheme="dark"
-      themes={['light', 'dark', 'gradient', 'punchy', 'simple-white']}
+      themes={[
+        'light',
+        'dark',
+        'simple-white',
+        'punchy',
+        'gradient',
+        'aurora',
+        'sunset',
+        'ocean',
+        'glass-dark',
+        'glass-light',
+        'frosted',
+      ]}
       enableSystem={false}
-      disableTransitionOnChange
+      disableTransitionOnChange={false}
     >
       {children}
     </NextThemesProvider>

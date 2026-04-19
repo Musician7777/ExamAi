@@ -5,6 +5,12 @@
 @custom-variant punchy (&:is(.punchy *));
 @custom-variant gradient (&:is(.gradient *));
 @custom-variant simple-white (&:is(.simple-white *));
+@custom-variant aurora (&:is(.aurora *));
+@custom-variant sunset (&:is(.sunset *));
+@custom-variant ocean (&:is(.ocean *));
+@custom-variant glass-dark (&:is(.glass-dark *));
+@custom-variant glass-light (&:is(.glass-light *));
+@custom-variant frosted (&:is(.frosted *));
 
 @theme {
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -138,6 +144,10 @@
   --input: 240 10% 20%;
   --ring: 310 100% 65%;
   --chart-1: 310 100% 65%;
+  --chart-2: 180 100% 50%;
+  --chart-3: 60 100% 50%;
+  --chart-4: 280 80% 60%;
+  --chart-5: 140 70% 50%;
   --brand: 180 100% 50%;
   --brand-foreground: 0 0% 0%;
   --success: 142 100% 50%;
@@ -166,8 +176,17 @@
   --border: 0 0% 90%;
   --input: 0 0% 90%;
   --ring: 0 0% 0%;
+  --chart-1: 0 0% 20%;
+  --chart-2: 220 70% 50%;
+  --chart-3: 160 60% 45%;
+  --chart-4: 30 80% 55%;
+  --chart-5: 280 65% 60%;
   --brand: 0 0% 0%;
   --brand-foreground: 0 0% 100%;
+  --success: 142 71% 45%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 0%;
 }
 
 .gradient {
@@ -190,16 +209,493 @@
   --border: 260 30% 25%;
   --input: 260 30% 25%;
   --ring: 280 80% 60%;
+  --chart-1: 280 80% 60%;
+  --chart-2: 220 70% 55%;
+  --chart-3: 320 60% 55%;
+  --chart-4: 180 50% 45%;
+  --chart-5: 40 70% 55%;
   --brand: 220 80% 60%;
   --brand-foreground: 0 0% 100%;
+  --success: 142 71% 45%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 0%;
 }
 
+.aurora {
+  --background: 160 30% 8%;
+  --foreground: 160 20% 90%;
+  --card: 160 25% 12%;
+  --card-foreground: 160 20% 90%;
+  --popover: 160 25% 12%;
+  --popover-foreground: 160 20% 90%;
+  --primary: 160 60% 45%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 160 20% 18%;
+  --secondary-foreground: 160 20% 90%;
+  --muted: 160 20% 18%;
+  --muted-foreground: 160 15% 60%;
+  --accent: 140 50% 40%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 62% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 160 20% 22%;
+  --input: 160 20% 22%;
+  --ring: 160 60% 45%;
+  --chart-1: 160 60% 45%;
+  --chart-2: 140 50% 40%;
+  --chart-3: 180 40% 50%;
+  --chart-4: 120 45% 35%;
+  --chart-5: 200 35% 55%;
+  --brand: 160 55% 50%;
+  --brand-foreground: 0 0% 100%;
+  --success: 140 60% 40%;
+  --success-foreground: 0 0% 100%;
+  --warning: 45 70% 50%;
+  --warning-foreground: 0 0% 0%;
+}
+
+.sunset {
+  --background: 340 30% 8%;
+  --foreground: 30 20% 92%;
+  --card: 340 25% 13%;
+  --card-foreground: 30 20% 92%;
+  --popover: 340 25% 13%;
+  --popover-foreground: 30 20% 92%;
+  --primary: 20 80% 55%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 340 20% 20%;
+  --secondary-foreground: 30 20% 92%;
+  --muted: 340 20% 20%;
+  --muted-foreground: 340 15% 60%;
+  --accent: 340 70% 50%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 62% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 340 20% 22%;
+  --input: 340 20% 22%;
+  --ring: 20 80% 55%;
+  --chart-1: 20 80% 55%;
+  --chart-2: 340 70% 50%;
+  --chart-3: 280 60% 55%;
+  --chart-4: 45 70% 55%;
+  --chart-5: 10 65% 45%;
+  --brand: 20 75% 55%;
+  --brand-foreground: 0 0% 100%;
+  --success: 140 60% 40%;
+  --success-foreground: 0 0% 100%;
+  --warning: 45 75% 55%;
+  --warning-foreground: 0 0% 0%;
+}
+
+.ocean {
+  --background: 210 40% 8%;
+  --foreground: 200 30% 92%;
+  --card: 210 35% 13%;
+  --card-foreground: 200 30% 92%;
+  --popover: 210 35% 13%;
+  --popover-foreground: 200 30% 92%;
+  --primary: 200 70% 50%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 25% 20%;
+  --secondary-foreground: 200 30% 92%;
+  --muted: 210 25% 20%;
+  --muted-foreground: 210 20% 60%;
+  --accent: 180 60% 45%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 62% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 210 25% 22%;
+  --input: 210 25% 22%;
+  --ring: 200 70% 50%;
+  --chart-1: 200 70% 50%;
+  --chart-2: 180 60% 45%;
+  --chart-3: 220 50% 55%;
+  --chart-4: 160 40% 40%;
+  --chart-5: 240 45% 60%;
+  --brand: 200 65% 50%;
+  --brand-foreground: 0 0% 100%;
+  --success: 160 55% 40%;
+  --success-foreground: 0 0% 100%;
+  --warning: 45 70% 50%;
+  --warning-foreground: 0 0% 0%;
+}
+
+.glass-dark {
+  --background: 240 15% 6%;
+  --foreground: 0 0% 92%;
+  --card: 240 15% 9%;
+  --card-foreground: 0 0% 92%;
+  --popover: 240 15% 9%;
+  --popover-foreground: 0 0% 92%;
+  --primary: 240 50% 65%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 10% 15%;
+  --secondary-foreground: 0 0% 92%;
+  --muted: 240 10% 15%;
+  --muted-foreground: 240 10% 55%;
+  --accent: 240 50% 65%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 62% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 240 10% 20%;
+  --input: 240 10% 20%;
+  --ring: 240 50% 65%;
+  --chart-1: 240 50% 65%;
+  --chart-2: 200 45% 55%;
+  --chart-3: 280 40% 60%;
+  --chart-4: 160 35% 45%;
+  --chart-5: 320 40% 55%;
+  --brand: 240 45% 60%;
+  --brand-foreground: 0 0% 100%;
+  --success: 150 50% 40%;
+  --success-foreground: 0 0% 100%;
+  --warning: 45 65% 50%;
+  --warning-foreground: 0 0% 0%;
+}
+
+.glass-light {
+  --background: 220 15% 92%;
+  --foreground: 240 10% 8%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 8%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 8%;
+  --primary: 240 50% 40%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 10% 88%;
+  --secondary-foreground: 240 10% 8%;
+  --muted: 220 10% 88%;
+  --muted-foreground: 240 5% 45%;
+  --accent: 240 50% 40%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 62% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 10% 82%;
+  --input: 220 10% 82%;
+  --ring: 240 50% 40%;
+  --chart-1: 240 50% 40%;
+  --chart-2: 200 45% 45%;
+  --chart-3: 280 40% 50%;
+  --chart-4: 160 35% 40%;
+  --chart-5: 320 40% 50%;
+  --brand: 240 45% 45%;
+  --brand-foreground: 0 0% 100%;
+  --success: 150 50% 40%;
+  --success-foreground: 0 0% 100%;
+  --warning: 45 65% 50%;
+  --warning-foreground: 0 0% 0%;
+}
+
+.frosted {
+  --background: 215 30% 10%;
+  --foreground: 210 25% 90%;
+  --card: 220 25% 14%;
+  --card-foreground: 210 25% 90%;
+  --popover: 220 25% 14%;
+  --popover-foreground: 210 25% 90%;
+  --primary: 210 60% 55%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 215 20% 18%;
+  --secondary-foreground: 210 25% 90%;
+  --muted: 215 20% 18%;
+  --muted-foreground: 215 15% 55%;
+  --accent: 230 50% 60%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 62% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 215 20% 22%;
+  --input: 215 20% 22%;
+  --ring: 210 60% 55%;
+  --chart-1: 210 60% 55%;
+  --chart-2: 230 50% 60%;
+  --chart-3: 190 40% 45%;
+  --chart-4: 250 35% 55%;
+  --chart-5: 170 30% 40%;
+  --brand: 210 55% 55%;
+  --brand-foreground: 0 0% 100%;
+  --success: 160 50% 40%;
+  --success-foreground: 0 0% 100%;
+  --warning: 45 65% 50%;
+  --warning-foreground: 0 0% 0%;
+}
+
+/* ═══ Gradient background overrides ═══ */
 html.gradient body {
   background: linear-gradient(135deg, hsl(260 40% 10%), hsl(220 50% 12%));
   background-attachment: fixed;
 }
 html.gradient .bg-background {
   background-color: transparent !important;
+}
+
+html.aurora body {
+  background: linear-gradient(135deg, hsl(160 30% 8%), hsl(180 25% 10%), hsl(140 20% 7%));
+  background-attachment: fixed;
+}
+html.aurora .bg-background {
+  background-color: transparent !important;
+}
+
+html.sunset body {
+  background: linear-gradient(135deg, hsl(340 30% 8%), hsl(20 25% 10%), hsl(280 15% 7%));
+  background-attachment: fixed;
+}
+html.sunset .bg-background {
+  background-color: transparent !important;
+}
+
+html.ocean body {
+  background: linear-gradient(135deg, hsl(210 40% 8%), hsl(200 35% 12%), hsl(220 30% 6%));
+  background-attachment: fixed;
+}
+html.ocean .bg-background {
+  background-color: transparent !important;
+}
+
+/* ═══ Glassmorphism background overrides ═══ */
+
+/* ─── Glass Dark ─── */
+html.glass-dark body {
+  background: linear-gradient(145deg, hsl(240 15% 6%), hsl(260 10% 9%));
+  background-attachment: fixed;
+}
+html.glass-dark .bg-background {
+  background-color: hsl(240 15% 6% / 0.25) !important;
+}
+html.glass-dark .bg-background\/90 {
+  background: hsl(240 15% 9% / 0.7) !important;
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+}
+html.glass-dark .bg-background\/50 {
+  background: hsl(240 15% 6% / 0.4) !important;
+  backdrop-filter: blur(12px) saturate(1.1);
+  -webkit-backdrop-filter: blur(12px) saturate(1.1);
+}
+html.glass-dark .bg-card {
+  background: hsl(240 15% 9% / 0.5) !important;
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border-color: hsl(240 10% 20% / 0.3) !important;
+}
+html.glass-dark .bg-card\/80 {
+  background: hsl(240 15% 9% / 0.6) !important;
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border-color: hsl(240 10% 20% / 0.3) !important;
+}
+html.glass-dark .bg-card\/50 {
+  background: hsl(240 15% 9% / 0.35) !important;
+  backdrop-filter: blur(12px) saturate(1.1);
+  -webkit-backdrop-filter: blur(12px) saturate(1.1);
+  border-color: hsl(240 10% 20% / 0.2) !important;
+}
+html.glass-dark .bg-popover {
+  background: hsl(240 15% 9% / 0.6) !important;
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+}
+html.glass-dark .bg-popover\/95 {
+  background: hsl(240 15% 9% / 0.7) !important;
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+}
+html.glass-dark aside {
+  background: hsl(240 15% 9% / 0.7) !important;
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  border-color: hsl(240 10% 20% / 0.35) !important;
+}
+html.glass-dark nav.fixed {
+  background: hsl(240 15% 9% / 0.7) !important;
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+}
+html.glass-dark [role='dialog'] {
+  background: hsl(240 15% 9% / 0.75) !important;
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  border-color: hsl(240 10% 20% / 0.4) !important;
+}
+html.glass-dark [data-radix-popper-content-wrapper] > div {
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+}
+html.glass-dark input[type='text'],
+html.glass-dark input[type='email'],
+html.glass-dark input[type='password'],
+html.glass-dark input[type='search'],
+html.glass-dark input[type='number'],
+html.glass-dark input[type='url'],
+html.glass-dark input[type='tel'],
+html.glass-dark textarea,
+html.glass-dark select {
+  background-color: hsl(240 15% 6% / 0.4) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ─── Glass Light ─── */
+html.glass-light body {
+  background: linear-gradient(145deg, hsl(220 15% 92%), hsl(240 10% 88%));
+  background-attachment: fixed;
+}
+html.glass-light .bg-background {
+  background-color: hsl(220 15% 92% / 0.3) !important;
+}
+html.glass-light .bg-background\/90 {
+  background: hsl(220 15% 92% / 0.75) !important;
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+}
+html.glass-light .bg-background\/50 {
+  background: hsl(220 15% 92% / 0.5) !important;
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+}
+html.glass-light .bg-card {
+  background: hsl(0 0% 100% / 0.45) !important;
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border-color: hsl(0 0% 80% / 0.35) !important;
+}
+html.glass-light .bg-card\/80 {
+  background: hsl(0 0% 100% / 0.55) !important;
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border-color: hsl(0 0% 80% / 0.35) !important;
+}
+html.glass-light .bg-card\/50 {
+  background: hsl(0 0% 100% / 0.3) !important;
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  border-color: hsl(0 0% 80% / 0.25) !important;
+}
+html.glass-light .bg-popover {
+  background: hsl(0 0% 100% / 0.55) !important;
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+}
+html.glass-light .bg-popover\/95 {
+  background: hsl(0 0% 100% / 0.65) !important;
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+}
+html.glass-light aside {
+  background: hsl(0 0% 100% / 0.65) !important;
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-color: hsl(0 0% 80% / 0.4) !important;
+}
+html.glass-light nav.fixed {
+  background: hsl(0 0% 100% / 0.65) !important;
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+}
+html.glass-light [role='dialog'] {
+  background: hsl(0 0% 100% / 0.7) !important;
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border-color: hsl(0 0% 80% / 0.4) !important;
+}
+html.glass-light [data-radix-popper-content-wrapper] > div {
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+}
+html.glass-light input[type='text'],
+html.glass-light input[type='email'],
+html.glass-light input[type='password'],
+html.glass-light input[type='search'],
+html.glass-light input[type='number'],
+html.glass-light input[type='url'],
+html.glass-light input[type='tel'],
+html.glass-light textarea,
+html.glass-light select {
+  background-color: hsl(0 0% 100% / 0.35) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ─── Frosted ─── */
+html.frosted body {
+  background: linear-gradient(145deg, hsl(215 30% 10%), hsl(225 25% 14%));
+  background-attachment: fixed;
+}
+html.frosted .bg-background {
+  background-color: hsl(215 30% 10% / 0.2) !important;
+}
+html.frosted .bg-background\/90 {
+  background: hsl(215 30% 10% / 0.65) !important;
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+}
+html.frosted .bg-background\/50 {
+  background: hsl(215 30% 10% / 0.35) !important;
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+}
+html.frosted .bg-card {
+  background: hsl(220 25% 14% / 0.4) !important;
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border-color: hsl(220 20% 25% / 0.25) !important;
+}
+html.frosted .bg-card\/80 {
+  background: hsl(220 25% 14% / 0.5) !important;
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border-color: hsl(220 20% 25% / 0.3) !important;
+}
+html.frosted .bg-card\/50 {
+  background: hsl(220 25% 14% / 0.3) !important;
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  border-color: hsl(220 20% 25% / 0.2) !important;
+}
+html.frosted .bg-popover {
+  background: hsl(220 25% 14% / 0.5) !important;
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+}
+html.frosted .bg-popover\/95 {
+  background: hsl(220 25% 14% / 0.6) !important;
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+}
+html.frosted aside {
+  background: hsl(220 25% 14% / 0.6) !important;
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  border-color: hsl(220 20% 25% / 0.3) !important;
+}
+html.frosted nav.fixed {
+  background: hsl(220 25% 14% / 0.6) !important;
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+}
+html.frosted [role='dialog'] {
+  background: hsl(220 25% 14% / 0.7) !important;
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  border-color: hsl(220 20% 25% / 0.35) !important;
+}
+html.frosted [data-radix-popper-content-wrapper] > div {
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+}
+html.frosted input[type='text'],
+html.frosted input[type='email'],
+html.frosted input[type='password'],
+html.frosted input[type='search'],
+html.frosted input[type='number'],
+html.frosted input[type='url'],
+html.frosted input[type='tel'],
+html.frosted textarea,
+html.frosted select {
+  background-color: hsl(220 25% 10% / 0.35) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 @layer base {
@@ -214,6 +710,21 @@ html.gradient .bg-background {
   html {
     scroll-behavior: smooth;
   }
+}
+
+/* Smooth theme transition — fades colors over 300ms */
+/* Must be OUTSIDE @layer so reduced-motion override wins by source order */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition:
+    background-color 300ms ease-in-out,
+    color 300ms ease-in-out,
+    border-color 300ms ease-in-out,
+    box-shadow 300ms ease-in-out,
+    fill 300ms ease-in-out,
+    stroke 300ms ease-in-out !important;
 }
 
 /* ═══ Utility classes ═══ */
@@ -355,6 +866,12 @@ html.gradient .bg-background {
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html.theme-transition,
+  html.theme-transition *,
+  html.theme-transition *::before,
+  html.theme-transition *::after {
     transition-duration: 0.01ms !important;
   }
   html {

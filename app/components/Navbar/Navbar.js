@@ -2,20 +2,13 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
-import { useTheme } from '../../providers/ThemeProvider';
-import { Sun, Moon, Menu, X, LogOut, Palette } from 'lucide-react';
+import ThemePicker from '../ThemePicker/ThemePicker';
+import { Menu, X, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
 export default function Navbar() {
-  const { theme, setTheme } = useTheme();
   const { data: session, status } = useSession();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -73,20 +66,7 @@ export default function Navbar() {
 
           {/* Actions */}
           <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Select theme" className="rounded-full">
-                  <Palette className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setTheme('light')}>Light</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme('dark')}>Dark</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme('punchy')}>Cyberpunk</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme('gradient')}>Cosmic</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme('simple-white')}>Minimal White</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ThemePicker />
 
             {status === 'loading' ? (
               <div className="w-20 h-8 rounded-md bg-muted animate-pulse" />

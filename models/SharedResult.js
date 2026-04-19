@@ -14,7 +14,7 @@ const sharedResultSchema = new mongoose.Schema(
     },
     resultType: {
       type: String,
-      enum: ['exam', 'coding', 'interview'],
+      enum: ['exam', 'coding', 'interview', 'profile'],
       required: true,
     },
     title: {

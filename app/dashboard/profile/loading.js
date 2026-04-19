@@ -10,10 +10,10 @@ export default function ProfileLoading() {
         <Skeleton className="h-4 w-64" />
       </div>
 
-      {/* Profile card */}
+      {/* Profile card — circular ring skeleton */}
       <Card className="p-6 md:p-8">
         <div className="flex flex-col sm:flex-row items-start gap-6">
-          <Skeleton className="w-20 h-20 rounded-2xl shrink-0" />
+          <Skeleton className="w-24 h-24 rounded-full shrink-0" />
           <div className="flex-1 space-y-4 w-full">
             <div className="space-y-2">
               <Skeleton className="h-4 w-24" />
@@ -64,6 +64,17 @@ export default function ProfileLoading() {
             </div>
           ))}
         </div>
+        <Skeleton className="h-px w-full my-5" />
+        <Skeleton className="h-4 w-28 mb-3" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 opacity-40">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="p-3 rounded-xl border text-center space-y-1.5">
+              <Skeleton className="h-6 w-6 rounded mx-auto" />
+              <Skeleton className="h-3 w-14 mx-auto" />
+              <Skeleton className="h-2 w-18 mx-auto" />
+            </div>
+          ))}
+        </div>
         <Skeleton className="h-px w-full my-6" />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -75,21 +86,48 @@ export default function ProfileLoading() {
         </div>
       </Card>
 
-      {/* Password card */}
+      {/* Settings card skeleton */}
       <Card className="p-6 md:p-8">
         <div className="flex items-center gap-2 mb-6">
           <Skeleton className="h-5 w-5 rounded" />
-          <Skeleton className="h-6 w-36" />
+          <Skeleton className="h-6 w-24" />
         </div>
-        <div className="space-y-4 max-w-sm">
+        <Skeleton className="h-4 w-12 mb-3" />
+        <div className="flex flex-wrap gap-2 mb-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-7 w-7 rounded-full" />
+          ))}
+        </div>
+        {/* Email change skeleton */}
+        <Skeleton className="h-px w-full my-6" />
+        <Skeleton className="h-4 w-28 mb-2" />
+        <Skeleton className="h-4 w-48 mb-3" />
+        <div className="flex items-end gap-2 max-w-md">
+          <div className="flex-1 space-y-1.5">
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-9 w-full" />
+          </div>
+          <Skeleton className="h-9 w-16" />
+        </div>
+
+        {/* Password skeleton */}
+        <Skeleton className="h-px w-full my-6" />
+        <Skeleton className="h-4 w-24 mb-3" />
+        <div className="space-y-3 max-w-sm">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="space-y-2">
-              <Skeleton className="h-4 w-24" />
+            <div key={i} className="space-y-1.5">
+              <Skeleton className="h-3 w-20" />
               <Skeleton className="h-9 w-full" />
             </div>
           ))}
           <Skeleton className="h-9 w-32" />
         </div>
+
+        {/* Danger zone skeleton */}
+        <Skeleton className="h-px w-full my-6" />
+        <Skeleton className="h-4 w-28 mb-2" />
+        <Skeleton className="h-4 w-64 mb-3" />
+        <Skeleton className="h-9 w-32" />
       </Card>
     </div>
   );

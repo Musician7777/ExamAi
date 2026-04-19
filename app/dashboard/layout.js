@@ -3,7 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
-import { useTheme } from '../providers/ThemeProvider';
+import ThemePicker from '../components/ThemePicker/ThemePicker';
 import {
   Home,
   Zap,
@@ -14,20 +14,11 @@ import {
   Menu,
   ClipboardList,
   Star,
-  Sun,
-  Moon,
   LogOut,
-  Palette,
   UserCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import StudyAssistant from '../components/StudyAssistant/StudyAssistant';
 import { NotificationProvider, useNotification } from '../components/BadgeNotification/BadgeNotification';
@@ -58,10 +49,6 @@ const navItems = [
       { href: '/dashboard/leaderboard', icon: Star, label: 'Leaderboard' },
     ],
   },
-  {
-    section: 'Account',
-    items: [{ href: '/dashboard/profile', icon: UserCircle, label: 'Profile & Settings' }],
-  },
 ];
 
 export default function DashboardLayout({ children }) {
@@ -74,7 +61,6 @@ export default function DashboardLayout({ children }) {
 
 function DashboardInner({ children }) {
   const pathname = usePathname();
-  const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { notify } = useNotification();
@@ -163,26 +149,26 @@ function DashboardInner({ children }) {
             </div>
           ))}
 
+          <ThemePicker isSidebar />
+
           <div>
             <div className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Settings
+              Account
             </div>
             <div className="space-y-0.5">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors w-full cursor-pointer outline-none">
-                    <Palette className="h-4 w-4" />
-                    Theme: {theme ? theme.charAt(0).toUpperCase() + theme.slice(1) : 'Dark'}
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
-                  <DropdownMenuItem onClick={() => setTheme('light')}>Light</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setTheme('dark')}>Dark</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setTheme('punchy')}>Cyberpunk</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setTheme('gradient')}>Cosmic</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setTheme('simple-white')}>Minimal White</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Link
+                href="/dashboard/profile"
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
+                  pathname === '/dashboard/profile'
+                    ? 'bg-indigo-500/10 text-indigo-400 font-medium'
+                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                )}
+                onClick={() => setSidebarOpen(false)}
+              >
+                <UserCircle className="h-4 w-4" />
+                Profile & Settings
+              </Link>
               <button
                 className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors w-full cursor-pointer"
                 onClick={() => signOut({ callbackUrl: '/' })}
