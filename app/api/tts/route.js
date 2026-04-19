@@ -41,7 +41,8 @@ export async function POST(request) {
                 try {
                     const errorBody = JSON.parse(rawError);
                     bodyMessage = errorBody?.error || errorBody?.message || '';
-                } catch {
+                } catch (e) {
+                    console.warn('TTS: Failed to parse error response as JSON:', e.message);
                     bodyMessage = rawError;
                 }
             }
@@ -74,8 +75,9 @@ export async function POST(request) {
             try {
                 const payload = await response.json();
                 if (payload?.error) details = payload.error;
-            } catch {
-                // Keep default details if the payload is not JSON.
+            } catch (e) {
+                // Not JSON — keep default details.
+                console.warn('TTS: Non-JSON response body when expecting audio:', e.message);
             }
             throw new Error(details);
         }

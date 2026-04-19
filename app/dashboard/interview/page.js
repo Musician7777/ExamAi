@@ -170,7 +170,7 @@ export default function InterviewPage() {
                     handleConfigGenerate(config);
                 }
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) { console.warn('Failed to read examConfigModalResult from sessionStorage:', e.message); }
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     /* ─── Open config modal for a template ─── */
@@ -617,7 +617,6 @@ export default function InterviewPage() {
             const totalQs = interviewConfig?.questionCount || 10;
             const totalEarned = data.reduce((s, r) => s + (r.score || 0), 0);
             const totalPossible = totalQs * 10;
-            const pct = Math.round((totalEarned / totalPossible) * 100);
             const res = await fetch('/api/activities', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

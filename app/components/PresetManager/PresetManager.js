@@ -251,7 +251,7 @@ export function useSavedPresets(storageKey) {
         try {
             const stored = localStorage.getItem(storageKey);
             if (stored) setPresets(JSON.parse(stored));
-        } catch { /* ignore */ }
+        } catch (e) { console.warn('Failed to load presets from localStorage:', e.message); }
     }, [storageKey]);
 
     function savePreset(data) {

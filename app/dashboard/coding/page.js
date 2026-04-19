@@ -47,7 +47,7 @@ export default function CodingPage() {
         try {
             const stored = localStorage.getItem('examai_solved_problems');
             if (stored) setSolvedIds(new Set(JSON.parse(stored)));
-        } catch { /* ignore */ }
+        } catch (e) { console.warn('Failed to load solved problems from localStorage:', e.message); }
     }, []);
 
     // Listen for solved events from the coding editor page
@@ -58,7 +58,7 @@ export default function CodingPage() {
                 setSolvedIds(prev => {
                     const next = new Set(prev);
                     next.add(String(problemId));
-                    try { localStorage.setItem('examai_solved_problems', JSON.stringify([...next])); } catch { /* ignore */ }
+                    try { localStorage.setItem('examai_solved_problems', JSON.stringify([...next])); } catch (e) { console.warn('Failed to save solved problems to localStorage:', e.message); }
                     return next;
                 });
             }
@@ -78,7 +78,7 @@ export default function CodingPage() {
                     router.push('/dashboard/coding/1');
                 }
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) { console.warn('Failed to read examConfigModalResult from sessionStorage:', e.message); }
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     function openConfigForPreset(preset) {

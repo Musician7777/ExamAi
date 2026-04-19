@@ -132,7 +132,8 @@ export function useSpeechSynthesis() {
 
             setIsSpeaking(true);
             await audio.play();
-        } catch {
+        } catch (e) {
+            console.warn('TTS API failed, falling back to browser speech:', e.message);
             speakWithBrowserFallback(clean);
         }
     }, [fireOnEnd, speakWithBrowserFallback, stop]);

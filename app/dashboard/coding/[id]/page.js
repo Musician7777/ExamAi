@@ -252,7 +252,7 @@ export default function CodingEditorPage() {
             if (stored) {
                 try {
                     setAiProblem(JSON.parse(stored));
-                } catch { /* ignore parse errors */ }
+                } catch (e) { console.warn('Failed to parse AI-generated problem from sessionStorage:', e.message); }
             }
         }
         setProblemLoading(false);
@@ -330,7 +330,8 @@ export default function CodingEditorPage() {
                 // Got raw execution output
                 setExecutionOutput(result);
             }
-        } catch {
+        } catch (e) {
+            console.error('Code execution error:', e.message);
             setOutput({ passed: false, score: 0, testResults: [], feedback: 'Error running code. Check your syntax.' });
         }
         setRunning(false);
@@ -374,9 +375,10 @@ export default function CodingEditorPage() {
             if (result.passed) {
                 try {
                     window.dispatchEvent(new CustomEvent('coding-problem-solved', { detail: { problemId: params.id } }));
-                } catch { /* ignore */ }
+                } catch (e) { console.warn('Failed to dispatch coding-problem-solved event:', e.message); }
             }
-        } catch {
+        } catch (e) {
+            console.error('Code submission error:', e.message);
             setOutput({ passed: false, score: 0, testResults: [], feedback: 'Error submitting code.' });
         }
         setSubmitting(false);

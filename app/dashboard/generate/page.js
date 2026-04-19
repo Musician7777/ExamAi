@@ -48,7 +48,7 @@ export default function GeneratePage() {
                 sessionStorage.removeItem('examConfigModalResult');
                 if (mode === 'exam' && config) handleGenerateFromModal(config);
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) { console.warn('Failed to read examConfigModalResult from sessionStorage:', e.message); }
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     function openConfigForPreset(preset) {

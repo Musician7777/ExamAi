@@ -176,10 +176,10 @@ export default function Home() {
       <section className="py-16 px-6 bg-secondary/30">
         <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
           {[
-            { value: '50K+', label: 'Exams Generated' },
-            { value: '120K+', label: 'Users Worldwide' },
-            { value: '15+', label: 'Exam Categories' },
-            { value: '92%', label: 'Success Rate' },
+            { value: 'AI', label: 'Powered Exam Engine' },
+            { value: '6+', label: 'Exam Categories' },
+            { value: '4', label: 'Assessment Types' },
+            { value: '∞', label: 'Practice Sessions' },
           ].map((stat, i) => (
             <div key={i} className="text-center space-y-1">
               <h3 className="text-3xl font-bold gradient-text">{stat.value}</h3>

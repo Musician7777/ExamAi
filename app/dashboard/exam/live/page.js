@@ -53,7 +53,7 @@ export default function LiveExamPage() {
                         const { session } = await res.json();
                         setSavedSessionId(session._id);
                     }
-                } catch { /* non-critical */ }
+                } catch (e) { console.warn('Failed to save exam session to DB:', e.message); }
             } else {
                 // No exam in sessionStorage — check for resumable session in DB
                 try {
@@ -68,7 +68,8 @@ export default function LiveExamPage() {
                     } else {
                         router.push('/dashboard/generate');
                     }
-                } catch {
+                } catch (e) {
+                    console.warn('Failed to check for resumable exam session:', e.message);
                     router.push('/dashboard/generate');
                 }
             }
@@ -92,7 +93,7 @@ export default function LiveExamPage() {
                         timeRemaining: timeLeft,
                     }),
                 });
-            } catch { /* non-critical */ }
+            } catch (e) { console.warn('Auto-save failed:', e.message); }
         }, 30000);
         return () => clearInterval(autoSaveTimerRef.current);
     }, [savedSessionId, exam, answers, marked, currentQ, timeLeft]);
@@ -134,7 +135,7 @@ export default function LiveExamPage() {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ sessionId: savedSessionId, status: 'completed', answers: currentAnswers, timeRemaining: currentTimeLeft }),
-            }).catch(() => {});
+            }).catch((e) => console.warn('Failed to mark exam session as completed:', e.message));
         }
 
         sessionStorage.setItem('examResults', JSON.stringify({
@@ -183,7 +184,7 @@ export default function LiveExamPage() {
                     return;
                 }
             }
-        } catch { /* fall through */ }
+        } catch (e) { console.warn('Failed to resume exam session:', e.message); }
         router.push('/dashboard/generate');
     }
 
@@ -201,7 +202,7 @@ export default function LiveExamPage() {
                     });
                 }
             }
-        } catch { /* non-critical */ }
+        } catch (e) { console.warn('Failed to discard exam session:', e.message); }
         setResumePrompt(false);
         router.push('/dashboard/generate');
     }
