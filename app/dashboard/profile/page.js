@@ -39,10 +39,12 @@ import {
   CheckCircle2,
   Camera,
   Loader2,
+  Cookie,
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RefreshShimmer } from '@/components/ui/refresh-shimmer';
 import ThemePicker from '../../components/ThemePicker/ThemePicker';
+import CookiePreferences from '../../components/CookiePreferences/CookiePreferences';
 
 /* ─── Animated count-up hook ─── */
 function useCountUp(target, duration = 900) {
@@ -955,6 +957,16 @@ function ProfilePageInner() {
         <div className="mb-8">
           <Label className="text-sm font-semibold mb-3 block">Appearance</Label>
           <ThemePicker isSidebar />
+        </div>
+
+        <Separator className="my-6" />
+
+        {/* Cookie Preferences */}
+        <div id="cookie-preferences" className="mb-8 scroll-mt-24">
+          <Label className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <Cookie className="h-4 w-4" /> Cookie Preferences
+          </Label>
+          <CookiePreferences />
         </div>
 
         <Separator className="my-6" />

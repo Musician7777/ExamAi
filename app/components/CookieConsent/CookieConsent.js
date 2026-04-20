@@ -1,13 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { Shield, Cookie, X, Settings, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useConsent } from '@/app/providers/ConsentProvider';
 
 export default function CookieConsent() {
-  const { showBanner, accept, reject } = useConsent();
+  const { showBanner, accept, reject, resetConsent } = useConsent();
+  const { data: session } = useSession();
+  const router = useRouter();
   const [showDetails, setShowDetails] = useState(false);
   const [exiting, setExiting] = useState(false);
 
@@ -51,7 +55,20 @@ export default function CookieConsent() {
             </h3>
             <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
               We use cookies to analyze site traffic and improve your experience. Your data is never sold to third
-              parties.
+              parties.{' '}
+              <button
+                type="button"
+                className="text-brand hover:underline focus-visible:outline-none focus-visible:underline cursor-pointer"
+                onClick={() => {
+                  if (session) {
+                    router.push('/dashboard/profile#cookie-preferences');
+                  } else {
+                    resetConsent();
+                  }
+                }}
+              >
+                Manage cookies
+              </button>
             </p>
           </div>
           <button

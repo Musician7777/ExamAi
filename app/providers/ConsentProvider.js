@@ -2,12 +2,13 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-const CONSENT_KEY = 'examai_cookie_consent';
+import { CONSENT_KEY } from '@/lib/constants';
 
 const ConsentContext = createContext({
   consent: null, // 'granted' | 'denied' | null (not yet decided)
   accept: () => {},
   reject: () => {},
+  resetConsent: () => {},
   showBanner: false,
 });
 
@@ -69,11 +70,28 @@ export function ConsentProvider({ children }) {
     }
   }, []);
 
+  const resetConsent = useCallback(() => {
+    try {
+      localStorage.removeItem(CONSENT_KEY);
+    } catch {
+      /* ignore */
+    }
+    setConsent(null);
+    // Reset Google Consent Mode to defaults
+    if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+      window.gtag('consent', 'update', {
+        analytics_storage: 'denied',
+        ad_storage: 'denied',
+      });
+    }
+  }, []);
+
   // Don't render context value until mounted (avoids hydration mismatch)
   const value = {
     consent: mounted ? consent : null,
     accept,
     reject,
+    resetConsent,
     showBanner: mounted && consent === null,
   };
 

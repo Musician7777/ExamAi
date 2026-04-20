@@ -1,6 +1,7 @@
 import { FaGithub, FaTwitter, FaLinkedin, FaDiscord } from 'react-icons/fa';
 import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
+import ManageCookiesLink from './ManageCookiesLink';
 export default function Footer() {
   const socialLinks = [
     { icon: FaGithub, label: 'GitHub', href: 'https://github.com/examai' },
@@ -111,6 +112,7 @@ export default function Footer() {
           <Link href="/terms" className="hover:text-foreground transition-colors">
             Terms
           </Link>
+          <ManageCookiesLink />
         </div>
       </div>
     </footer>

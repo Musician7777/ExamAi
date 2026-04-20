@@ -5,6 +5,7 @@ import { ThemeProvider } from './providers/ThemeProvider';
 import AuthProvider from './providers/AuthProvider';
 import { ConsentProvider } from './providers/ConsentProvider';
 import CookieConsent from './components/CookieConsent/CookieConsent';
+import FloatingCookieButton from './components/FloatingCookieButton/FloatingCookieButton';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -53,6 +54,7 @@ export default function RootLayout({ children }) {
           <ConsentProvider>
             <ThemeProvider>{children}</ThemeProvider>
             <CookieConsent />
+            <FloatingCookieButton />
           </ConsentProvider>
         </AuthProvider>
         {/* Google Consent Mode v2 — default denied, updated on user consent */}
