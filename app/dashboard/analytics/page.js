@@ -6,6 +6,7 @@ import DeepTopicAnalytics from './DeepTopicAnalytics';
 import InsightCards from './InsightCards';
 import { useAnalytics } from './hooks/useAnalytics';
 import { RefreshShimmer } from '@/components/ui/refresh-shimmer';
+import AdBanner from '@/app/components/AdBanner/AdBanner';
 
 export default function AnalyticsPage() {
   const {
@@ -82,6 +83,9 @@ export default function AnalyticsPage() {
       />
 
       <InsightCards insights={insights} />
+
+      {/* Non-intrusive ad placement — only shows when slot is configured */}
+      <AdBanner slot={process.env.NEXT_PUBLIC_AD_SLOT_ANALYTICS || ''} format="auto" className="mt-6" />
     </div>
   );
 }

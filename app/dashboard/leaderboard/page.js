@@ -9,6 +9,7 @@ import { RefreshShimmer } from '@/components/ui/refresh-shimmer';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import AdBanner from '@/app/components/AdBanner/AdBanner';
 
 export default function LeaderboardPage() {
   const [page, setPage] = useState(1);
@@ -135,6 +136,9 @@ export default function LeaderboardPage() {
           </Button>
         </div>
       )}
+
+      {/* Non-intrusive ad placement — only shows when slot is configured */}
+      <AdBanner slot={process.env.NEXT_PUBLIC_AD_SLOT_LEADERBOARD || ''} format="auto" className="mt-6" />
     </div>
   );
 }

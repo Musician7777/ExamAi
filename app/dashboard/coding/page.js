@@ -11,6 +11,7 @@ import {
   useSavedPresets,
 } from '../../components/PresetManager/PresetManager';
 import ExamConfigModal from '../../components/ExamConfigModal/ExamConfigModal';
+import AdBanner from '../../components/AdBanner/AdBanner';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -262,6 +263,9 @@ export default function CodingPage() {
           </Link>
         ))}
       </div>
+
+      {/* Non-intrusive ad placement — only shows when slot is configured */}
+      <AdBanner slot={process.env.NEXT_PUBLIC_AD_SLOT_CODING || ''} format="auto" className="mt-6" />
 
       <FetchExamModal
         isOpen={showFetchModal}
