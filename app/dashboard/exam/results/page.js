@@ -29,6 +29,7 @@ import {
 } from 'react-icons/hi';
 import { BarChart3, RotateCcw, Share2, Copy, CheckCircle2, ListChecks } from 'lucide-react';
 import QuestionTypeBadge from '@/app/components/QuestionTypeBadge/QuestionTypeBadge';
+import AdBanner from '@/app/components/AdBanner/AdBanner';
 
 /* ─── Format answer display by question type ─── */
 function formatAnswer(question, answer, isCorrect) {
@@ -585,6 +586,9 @@ export default function ResultsPage() {
           <Link href="/dashboard/generate">Generate New Exam</Link>
         </Button>
       </div>
+
+      {/* Non-intrusive ad placement — only shows when ad slots are configured */}
+      <AdBanner slot={process.env.NEXT_PUBLIC_AD_SLOT_EXAM_RESULTS || ''} format="auto" className="mt-6" />
 
       {/* Share Dialog */}
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>

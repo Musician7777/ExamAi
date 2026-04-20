@@ -4,8 +4,10 @@ import Script from 'next/script';
 import { ThemeProvider } from './providers/ThemeProvider';
 import AuthProvider from './providers/AuthProvider';
 import { ConsentProvider } from './providers/ConsentProvider';
+import { AdsProvider } from './providers/AdsProvider';
 import CookieConsent from './components/CookieConsent/CookieConsent';
 import FloatingCookieButton from './components/FloatingCookieButton/FloatingCookieButton';
+import AdSenseScript from './components/AdBanner/AdSenseScript';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -52,9 +54,12 @@ export default function RootLayout({ children }) {
       <body className={inter.variable}>
         <AuthProvider>
           <ConsentProvider>
-            <ThemeProvider>{children}</ThemeProvider>
-            <CookieConsent />
-            <FloatingCookieButton />
+            <AdsProvider>
+              <ThemeProvider>{children}</ThemeProvider>
+              <AdSenseScript />
+              <CookieConsent />
+              <FloatingCookieButton />
+            </AdsProvider>
           </ConsentProvider>
         </AuthProvider>
         {/* Google Consent Mode v2 — default denied, updated on user consent */}

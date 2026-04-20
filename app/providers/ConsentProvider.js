@@ -33,7 +33,7 @@ export function ConsentProvider({ children }) {
     if (consent === 'granted' && typeof window !== 'undefined' && typeof window.gtag === 'function') {
       window.gtag('consent', 'update', {
         analytics_storage: 'granted',
-        ad_storage: 'denied',
+        ad_storage: 'granted',
       });
     }
   }, [consent]);
@@ -49,7 +49,7 @@ export function ConsentProvider({ children }) {
     if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
       window.gtag('consent', 'update', {
         analytics_storage: 'granted',
-        ad_storage: 'denied',
+        ad_storage: 'granted',
       });
     }
   }, []);

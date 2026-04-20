@@ -12,6 +12,7 @@ const userProfileSchema = new mongoose.Schema(
     totalCoding: { type: Number, default: 0 },
     totalInterviews: { type: Number, default: 0 },
     bestScore: { type: Number, default: 0 },
+    showAds: { type: Boolean, default: true },
   },
   {
     timestamps: true,

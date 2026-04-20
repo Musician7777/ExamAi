@@ -30,8 +30,9 @@ export async function GET() {
         const user = await User.findOne({ email: session.user.email })
           .select('name email image authProvider createdAt')
           .lean();
+        const profile = await UserProfile.findOne({ userId: session.user.email }).select('showAds').lean();
         if (!user) return null;
-        return { user };
+        return { user: { ...user, showAds: profile?.showAds ?? true } };
       },
       60_000
     );
@@ -58,7 +59,7 @@ export async function PATCH(request) {
 
     await connectDB();
     const body = await request.json();
-    const { name, image, currentPassword, newPassword, newEmail } = body;
+    const { name, image, currentPassword, newPassword, newEmail, showAds } = body;
 
     const user = await User.findOne({ email: session.user.email });
     if (!user) {
@@ -77,6 +78,11 @@ export async function PATCH(request) {
     // Update image
     if (image !== undefined) {
       user.image = image;
+    }
+
+    // Update showAds preference
+    if (showAds !== undefined) {
+      await UserProfile.updateOne({ userId: session.user.email }, { $set: { showAds: Boolean(showAds) } });
     }
 
     // Change password

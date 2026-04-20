@@ -40,11 +40,14 @@ import {
   Camera,
   Loader2,
   Cookie,
+  Heart,
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
 import { RefreshShimmer } from '@/components/ui/refresh-shimmer';
 import ThemePicker from '../../components/ThemePicker/ThemePicker';
 import CookiePreferences from '../../components/CookiePreferences/CookiePreferences';
+import { useAds } from '../../providers/AdsProvider';
 
 /* ─── Animated count-up hook ─── */
 function useCountUp(target, duration = 900) {
@@ -278,6 +281,9 @@ function ProfilePageInner() {
   const [shareUrl, setShareUrl] = useState('');
   const [sharing, setSharing] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Ads preference
+  const { showAds, toggleAds, loading: adsLoading } = useAds();
 
   // Detect email changed via verification redirect
   const emailChangedParam = searchParams.get('emailChanged');
@@ -967,6 +973,29 @@ function ProfilePageInner() {
             <Cookie className="h-4 w-4" /> Cookie Preferences
           </Label>
           <CookiePreferences />
+        </div>
+
+        <Separator className="my-6" />
+
+        {/* Support Developer */}
+        <div className="mb-8">
+          <Label className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <Heart className="h-4 w-4 text-rose-400" /> Support Developer
+          </Label>
+          <p className="text-sm text-muted-foreground mb-3">
+            Ads help keep ExamAI free for everyone. Turn them off anytime — no hard feelings.
+          </p>
+          <div className="flex items-center gap-3">
+            <Switch
+              checked={showAds}
+              onCheckedChange={(checked) => toggleAds(checked)}
+              disabled={adsLoading}
+              aria-label="Show ads to support the developer"
+            />
+            <span className={cn('text-sm', showAds ? 'text-foreground' : 'text-muted-foreground')}>
+              {showAds ? 'Showing ads — thanks for your support! 💜' : 'Ads hidden'}
+            </span>
+          </div>
         </div>
 
         <Separator className="my-6" />

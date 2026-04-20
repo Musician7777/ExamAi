@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { RefreshShimmer } from '@/components/ui/refresh-shimmer';
 import ExamConfigModal from '../components/ExamConfigModal/ExamConfigModal';
+import AdBanner from '../components/AdBanner/AdBanner';
 import { cn } from '@/lib/utils';
 
 const quickActions = [
@@ -317,6 +318,9 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
+
+      {/* Non-intrusive ad placement — only shows when ad slots are configured */}
+      <AdBanner slot={process.env.NEXT_PUBLIC_AD_SLOT_DASHBOARD || ''} format="auto" className="mt-6" />
 
       <ExamConfigModal
         isOpen={configModalOpen}

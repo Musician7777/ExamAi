@@ -23,6 +23,7 @@ import { Separator } from '@/components/ui/separator';
 import StudyAssistant from '../components/StudyAssistant/StudyAssistant';
 import { NotificationProvider, useNotification } from '../components/BadgeNotification/BadgeNotification';
 import ErrorBoundary from '../components/ErrorBoundary/ErrorBoundary';
+import AdBanner from '../components/AdBanner/AdBanner';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -194,6 +195,16 @@ function DashboardInner({ children }) {
               <div className="text-xs text-muted-foreground truncate">{session?.user?.email || ''}</div>
             </div>
           </div>
+        </div>
+
+        {/* Sidebar ad — only shows when slot is configured */}
+        <div className="px-3 pb-3 mt-auto">
+          <AdBanner
+            slot={process.env.NEXT_PUBLIC_AD_SLOT_SIDEBAR || ''}
+            format="auto"
+            className="w-full"
+            style={{ minHeight: '90px' }}
+          />
         </div>
       </aside>
 
