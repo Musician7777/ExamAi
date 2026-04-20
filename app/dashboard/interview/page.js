@@ -34,6 +34,7 @@ import { useSpeechRecognition } from './hooks/useSpeechRecognition';
 import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
 import { cacheInvalidate } from '@/lib/clientCache';
 import clientLogger from '@/lib/client-logger';
+import { trackInterviewStart, trackInterviewComplete } from '@/lib/ga';
 import { BarVisualizer } from '@/components/ui/bar-visualizer';
 import {
   Conversation,
@@ -510,6 +511,14 @@ export default function InterviewPage() {
       setQuestionCount(1);
       setMessages([{ role: 'ai', text: greeting }]);
       setIsThinking(false);
+      // Track interview start in GA4
+      trackInterviewStart({
+        interviewType: config.interviewType || 'technical',
+        role: config.role || 'Candidate',
+        difficulty: config.difficulty || 'Medium',
+        questionCount: config.questionCount || 10,
+        tone: config.tone || 'Professional',
+      });
 
       if (useVoice) {
         speak(greeting, () => {
@@ -742,6 +751,16 @@ export default function InterviewPage() {
     if (isListening) stopListening();
     sendingRef.current = false;
     if (reviewData.length > 0) {
+      // Track interview early-exit in GA4
+      const totalQs = interviewConfig?.questionCount || 10;
+      const avgScore = Math.round((reviewData.reduce((s, r) => s + (r.score || 0), 0) / (totalQs * 10)) * 100);
+      trackInterviewComplete({
+        avgScore,
+        questionsAnswered: reviewData.length,
+        totalQuestions: totalQs,
+        interviewType: interviewConfig?.interviewType || 'technical',
+        role: interviewConfig?.role || 'Candidate',
+      });
       saveInterviewActivity(reviewData);
       setPhase('summary');
     } else {
@@ -755,6 +774,16 @@ export default function InterviewPage() {
     if (isListening) stopListening();
     sendingRef.current = false;
     if (reviewData.length > 0) {
+      // Track interview completion in GA4
+      const totalQs = interviewConfig?.questionCount || 10;
+      const avgScore = Math.round((reviewData.reduce((s, r) => s + (r.score || 0), 0) / (totalQs * 10)) * 100);
+      trackInterviewComplete({
+        avgScore,
+        questionsAnswered: reviewData.length,
+        totalQuestions: totalQs,
+        interviewType: interviewConfig?.interviewType || 'technical',
+        role: interviewConfig?.role || 'Candidate',
+      });
       saveInterviewActivity(reviewData);
       setPhase('summary');
     } else {

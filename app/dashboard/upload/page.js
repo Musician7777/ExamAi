@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import clientLogger from '@/lib/client-logger';
+import { trackPdfUpload } from '@/lib/ga';
 
 const steps = ['Upload File', 'Extract Text', 'Detect Sections', 'Analyze Pattern', 'Generate Exam'];
 
@@ -48,7 +49,13 @@ export default function UploadPage() {
       if (!res.ok) throw new Error(data.error || 'Upload failed');
       setCurrentStep(3);
       await new Promise((r) => setTimeout(r, 800));
-      if (data.analysis) setAnalysis(data.analysis);
+      if (data.analysis) {
+        setAnalysis(data.analysis);
+        trackPdfUpload({
+          pageCount: data.analysis.pageCount || 0,
+          detectedQuestions: data.analysis.detectedQuestions || 0,
+        });
+      }
       setCurrentStep(4);
       await new Promise((r) => setTimeout(r, 500));
       if (data.exam) {

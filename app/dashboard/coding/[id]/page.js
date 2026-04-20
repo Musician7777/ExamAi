@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
 import { cacheInvalidate } from '@/lib/clientCache';
 import clientLogger from '@/lib/client-logger';
+import { trackCodingSubmit } from '@/lib/ga';
 
 const Editor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
@@ -516,6 +517,13 @@ export default function CodingEditorPage() {
         }
       }
 
+      // Track coding submission in GA4
+      trackCodingSubmit({
+        problemTitle: problem.title,
+        language,
+        score: result.score || 0,
+        passed: result.passed || false,
+      });
       setSubmitted(true);
 
       // Dispatch solved event for the coding page tracker

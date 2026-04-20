@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import clientLogger from '@/lib/client-logger';
+import { trackUserSignUp } from '@/lib/ga';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -43,6 +44,7 @@ export default function RegisterPage() {
         setError('Account created! But auto-login failed. Please sign in manually.');
         router.push('/login');
       } else {
+        trackUserSignUp({ method: 'credentials' });
         router.push('/dashboard');
         router.refresh();
       }
@@ -105,7 +107,10 @@ export default function RegisterPage() {
             <Button
               variant="outline"
               className="w-full gap-2"
-              onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
+              onClick={() => {
+                trackUserSignUp({ method: 'google' });
+                signIn('google', { callbackUrl: '/dashboard' });
+              }}
               type="button"
             >
               <FaGoogle className="h-4 w-4" /> Continue with Google

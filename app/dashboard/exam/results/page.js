@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
 import { cacheInvalidate } from '@/lib/clientCache';
 import clientLogger from '@/lib/client-logger';
+import { trackShareResult } from '@/lib/ga';
 import {
   HiOutlineCheckCircle,
   HiOutlineXCircle,
@@ -259,6 +260,7 @@ export default function ResultsPage() {
     setShareOpen(true);
     setCopied(false);
     try {
+      trackShareResult({ resultType: 'exam' });
       const res = await fetch('/api/share', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

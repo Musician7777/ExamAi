@@ -18,6 +18,7 @@ import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import clientLogger from '@/lib/client-logger';
+import { trackExamSubmit } from '@/lib/ga';
 import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
 import QuestionTypeBadge from '@/app/components/QuestionTypeBadge/QuestionTypeBadge';
 
@@ -265,6 +266,19 @@ export default function LiveExamPage() {
       }).catch((e) => clientLogger.warn('Failed to mark exam session as completed:', e.message));
     }
 
+    const timeTaken = (exam.duration || 60) * 60 - currentTimeLeft;
+    const percent = totalMarks > 0 ? Math.round((Math.max(0, score) / totalMarks) * 100) : 0;
+    // Track exam submission in GA4
+    trackExamSubmit({
+      score: Math.max(0, score),
+      totalMarks,
+      percent,
+      correct,
+      wrong,
+      unanswered,
+      timeTaken,
+      questionType: exam.questionType || 'MCQ',
+    });
     sessionStorage.setItem(
       'examResults',
       JSON.stringify({
@@ -275,7 +289,7 @@ export default function LiveExamPage() {
         correct,
         wrong,
         unanswered,
-        timeTaken: (exam.duration || 60) * 60 - currentTimeLeft,
+        timeTaken,
         questionTimes: currentQuestionTimes,
       })
     );

@@ -1,7 +1,10 @@
 import './globals.css';
 import { Inter } from 'next/font/google';
+import Script from 'next/script';
 import { ThemeProvider } from './providers/ThemeProvider';
 import AuthProvider from './providers/AuthProvider';
+import { ConsentProvider } from './providers/ConsentProvider';
+import CookieConsent from './components/CookieConsent/CookieConsent';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -47,8 +50,49 @@ export default function RootLayout({ children }) {
     <html lang="en" suppressHydrationWarning>
       <body className={inter.variable}>
         <AuthProvider>
-          <ThemeProvider>{children}</ThemeProvider>
+          <ConsentProvider>
+            <ThemeProvider>{children}</ThemeProvider>
+            <CookieConsent />
+          </ConsentProvider>
         </AuthProvider>
+        {/* Google Consent Mode v2 — default denied, updated on user consent */}
+        {!!process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+          <>
+            <Script
+              id="gtag-consent-default"
+              strategy="beforeInteractive"
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('consent', 'default', {
+                    'analytics_storage': 'denied',
+                    'ad_storage': 'denied',
+                    'wait_for_update': 500
+                  });
+                `,
+              }}
+            />
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script
+              id="gtag-config"
+              strategy="afterInteractive"
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('js', new Date());
+                  gtag('config', '${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}', {
+                    send_page_view: true
+                  });
+                `,
+              }}
+            />
+          </>
+        )}
       </body>
     </html>
   );

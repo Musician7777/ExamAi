@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import clientLogger from '@/lib/client-logger';
+import { trackUserSignIn } from '@/lib/ga';
 
 function LoginContent() {
   const router = useRouter();
@@ -31,6 +32,7 @@ function LoginContent() {
       if (result?.error) {
         setError(result.error);
       } else {
+        trackUserSignIn({ method: 'credentials' });
         router.push(callbackUrl);
         router.refresh();
       }
@@ -96,7 +98,10 @@ function LoginContent() {
             <Button
               variant="outline"
               className="w-full gap-2"
-              onClick={() => signIn('google', { callbackUrl })}
+              onClick={() => {
+                trackUserSignIn({ method: 'google' });
+                signIn('google', { callbackUrl });
+              }}
               type="button"
             >
               <FaGoogle className="h-4 w-4" /> Continue with Google

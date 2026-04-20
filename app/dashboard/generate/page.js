@@ -19,6 +19,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import clientLogger from '@/lib/client-logger';
+import { trackExamGenerate } from '@/lib/ga';
 import { examProfiles } from '@/lib/prompts/examPrompts';
 import SubjectManager from '@/app/components/SubjectManager/SubjectManager';
 
@@ -109,6 +110,15 @@ export default function GeneratePage() {
         return;
       }
       sessionStorage.setItem('currentExam', JSON.stringify(exam));
+      trackExamGenerate({
+        examType: config.examType || 'Custom',
+        questionCount: config.totalQuestions || 20,
+        questionType: config.questionTypes || 'MCQ',
+        difficulty: config.difficulty || 'Medium',
+        hasSubjects: !!(config.subjects && config.subjects.length > 0),
+        subjectCount: config.subjects?.length || 0,
+        timeLimit: config.timeLimit || 60,
+      });
       router.push('/dashboard/exam/live');
     } catch (error) {
       clientLogger.error('Error generating exam:', error);
@@ -263,6 +273,15 @@ export default function GeneratePage() {
         return;
       }
       sessionStorage.setItem('currentExam', JSON.stringify(exam));
+      trackExamGenerate({
+        examType: config.examType || 'Custom',
+        questionCount: config.totalQuestions || 20,
+        questionType: config.questionTypes || 'MCQ',
+        difficulty: config.difficulty || 'Medium',
+        hasSubjects: !!(config.subjects && config.subjects.length > 0),
+        subjectCount: config.subjects?.length || 0,
+        timeLimit: config.timeLimit || 60,
+      });
       router.push('/dashboard/exam/live');
     } catch (error) {
       clientLogger.error('Error generating exam:', error);
