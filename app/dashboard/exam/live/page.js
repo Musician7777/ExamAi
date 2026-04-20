@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { HiOutlineClock, HiOutlineFlag, HiOutlineArrowLeft, HiOutlineArrowRight, HiOutlineX } from 'react-icons/hi';
+import { CheckCircle2, Hash, AlignLeft } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,9 +15,60 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import clientLogger from '@/lib/client-logger';
 import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
+import QuestionTypeBadge from '@/app/components/QuestionTypeBadge/QuestionTypeBadge';
+
+/* ─── Answer checking helpers (outside component to avoid stale closures) ─── */
+function isAnswerCorrect(question, userAnswer) {
+  const qType = question.type || 'MCQ';
+
+  if (userAnswer === null || userAnswer === undefined || userAnswer === '') return false;
+
+  if (qType === 'MCQ') {
+    return userAnswer === question.correct;
+  }
+  if (qType === 'MSQ') {
+    if (!Array.isArray(userAnswer) || !Array.isArray(question.correct)) return false;
+    if (userAnswer.length !== question.correct.length) return false;
+    const sortedUser = [...userAnswer].sort();
+    const sortedCorrect = [...question.correct].sort();
+    return sortedUser.every((v, i) => v === sortedCorrect[i]);
+  }
+  if (qType === 'NAT') {
+    const tolerance = question.tolerance || 0;
+    const correctVal = typeof question.correct === 'string' ? parseFloat(question.correct) : question.correct;
+    const userVal = typeof userAnswer === 'string' ? parseFloat(userAnswer) : userAnswer;
+    if (isNaN(userVal) || isNaN(correctVal)) return false;
+    return Math.abs(userVal - correctVal) <= tolerance;
+  }
+  if (qType === 'Descriptive') {
+    const keywords = question.keywords || [];
+    if (keywords.length === 0) return false;
+    const answerLower = (userAnswer || '').toLowerCase();
+    const matchedKeywords = keywords.filter((k) => answerLower.includes(k.toLowerCase()));
+    return matchedKeywords.length / keywords.length >= 0.6;
+  }
+  return false;
+}
+
+function isQuestionAnswered(answer, type) {
+  if (answer === null || answer === undefined || answer === '') return false;
+  if (type === 'MSQ') return Array.isArray(answer) && answer.length > 0;
+  return true; // MCQ, NAT, Descriptive with non-empty answer
+}
+
+function getDescriptiveMatchInfo(question, userAnswer) {
+  const keywords = question.keywords || [];
+  if (keywords.length === 0) return { matched: [], unmatched: [], coverage: 0 };
+  const answerLower = (userAnswer || '').toLowerCase();
+  const matched = keywords.filter((k) => answerLower.includes(k.toLowerCase()));
+  const unmatched = keywords.filter((k) => !answerLower.includes(k.toLowerCase()));
+  const coverage = Math.round((matched.length / keywords.length) * 100);
+  return { matched, unmatched, coverage };
+}
 
 export default function LiveExamPage() {
   const router = useRouter();
@@ -34,7 +86,7 @@ export default function LiveExamPage() {
 
   // Time-per-question tracking
   const [questionTimes, setQuestionTimes] = useState({});
-  const questionStartRef = useRef(0); // initialized in useEffect, not at module scope
+  const questionStartRef = useRef(0);
   const currentQRef = useRef(0);
 
   // Refs to avoid stale closures when handleSubmit is called from timer
@@ -58,7 +110,7 @@ export default function LiveExamPage() {
   // Track time when switching questions
   const trackQuestionTime = useCallback((fromQ) => {
     const now = Date.now();
-    const elapsed = Math.round((now - questionStartRef.current) / 1000); // seconds
+    const elapsed = Math.round((now - questionStartRef.current) / 1000);
     setQuestionTimes((prev) => ({
       ...prev,
       [fromQ]: (prev[fromQ] || 0) + elapsed,
@@ -159,26 +211,42 @@ export default function LiveExamPage() {
     // Track time for the last question
     trackQuestionTime(currentQRef.current);
 
-    // Use refs to always get the latest values (avoids stale closure on auto-submit)
+    // Use refs to always get the latest values
     const currentAnswers = answersRef.current;
     const currentTimeLeft = timeLeftRef.current;
     const currentQuestionTimes = questionTimesRef.current;
 
     const questions = getAllQuestions();
-    const results = questions.map((q, i) => ({
-      ...q,
-      userAnswer: currentAnswers[i] ?? null,
-      isCorrect: currentAnswers[i] === q.correct,
-      timeSpent: currentQuestionTimes[i] || 0,
-    }));
+    const results = questions.map((q, i) => {
+      const userAnswer = currentAnswers[i] ?? null;
+      const qType = q.type || 'MCQ';
+      const correct = isAnswerCorrect(q, userAnswer);
+
+      const result = {
+        ...q,
+        type: qType,
+        userAnswer,
+        isCorrect: correct,
+        timeSpent: currentQuestionTimes[i] || 0,
+      };
+
+      // For descriptive, include keyword match info
+      if (qType === 'Descriptive' && userAnswer) {
+        result.keywordMatch = getDescriptiveMatchInfo(q, userAnswer);
+      }
+
+      return result;
+    });
 
     const correct = results.filter((r) => r.isCorrect).length;
-    const wrong = results.filter((r) => r.userAnswer !== null && !r.isCorrect).length;
-    const unanswered = results.filter((r) => r.userAnswer === null).length;
+    const answered = results.filter((r) => isQuestionAnswered(r.userAnswer, r.type || 'MCQ')).length;
+    const wrong = results.filter((r) => isQuestionAnswered(r.userAnswer, r.type || 'MCQ') && !r.isCorrect).length;
+    const unanswered = results.length - answered;
     const totalMarks = questions.reduce((s, q) => s + (q.marks || 4), 0);
-    // Deduct negative marks proportional to each wrong question's marks
+    // Deduct negative marks only for answered-but-wrong questions (not unanswered ones like empty MSQ [])
     const negativePenalty = results.reduce((s, r) => {
-      if (r.userAnswer !== null && !r.isCorrect) return s + (r.marks || 4) * (exam.negativeMarking || 0);
+      if (isQuestionAnswered(r.userAnswer, r.type || 'MCQ') && !r.isCorrect)
+        return s + (r.marks || 4) * (exam.negativeMarking || 0);
       return s;
     }, 0);
     const score = results.reduce((s, r) => s + (r.isCorrect ? r.marks || 4 : 0), 0) - negativePenalty;
@@ -214,7 +282,7 @@ export default function LiveExamPage() {
     router.push('/dashboard/exam/results');
   }, [exam, getAllQuestions, savedSessionId, router, trackQuestionTime]);
 
-  // Timer effect — uses handleSubmitRef to avoid stale closure
+  // Timer effect
   useEffect(() => {
     if (!timerReady.current || !exam || timeLeft < 0) return;
     if (timeLeft === 0) {
@@ -225,7 +293,7 @@ export default function LiveExamPage() {
     return () => clearInterval(timer);
   }, [timeLeft, exam]);
 
-  // Keep handleSubmit ref in sync so timer always calls the latest version
+  // Keep handleSubmit ref in sync
   useEffect(() => {
     handleSubmitRef.current = handleSubmit;
   }, [handleSubmit]);
@@ -236,7 +304,6 @@ export default function LiveExamPage() {
     const questions = exam.sections.flatMap((s) => s.questions);
 
     function handleKeyDown(e) {
-      // Don't capture when user is typing in an input or interacting with a radio/button
       const interactiveTags = ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'];
       const isInteractive = e.target.tagName && interactiveTags.includes(e.target.tagName);
       const isRadio = e.target.getAttribute('role') === 'radio';
@@ -257,52 +324,24 @@ export default function LiveExamPage() {
         case '2':
         case '3':
         case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
-        case '9': {
-          const optIdx = parseInt(e.key) - 1;
+        case '5': {
           const q = questions[currentQRef.current];
-          if (q && optIdx < q.options.length) {
+          const qType = q?.type || 'MCQ';
+          const optIdx = parseInt(e.key) - 1;
+          if (qType === 'MCQ' && q && optIdx < q.options.length) {
             e.preventDefault();
             setAnswers((prev) => ({ ...prev, [currentQRef.current]: optIdx }));
-          }
-          break;
-        }
-        case 'a':
-        case 'A': {
-          const q = questions[currentQRef.current];
-          if (q && 0 < q.options.length) {
+          } else if (qType === 'MSQ' && q && optIdx < q.options.length) {
             e.preventDefault();
-            setAnswers((prev) => ({ ...prev, [currentQRef.current]: 0 }));
-          }
-          break;
-        }
-        case 'b':
-        case 'B': {
-          const q = questions[currentQRef.current];
-          if (q && 1 < q.options.length) {
-            e.preventDefault();
-            setAnswers((prev) => ({ ...prev, [currentQRef.current]: 1 }));
-          }
-          break;
-        }
-        case 'c':
-        case 'C': {
-          const q = questions[currentQRef.current];
-          if (q && 2 < q.options.length) {
-            e.preventDefault();
-            setAnswers((prev) => ({ ...prev, [currentQRef.current]: 2 }));
-          }
-          break;
-        }
-        case 'd':
-        case 'D': {
-          const q = questions[currentQRef.current];
-          if (q && 3 < q.options.length) {
-            e.preventDefault();
-            setAnswers((prev) => ({ ...prev, [currentQRef.current]: 3 }));
+            setAnswers((prev) => {
+              const current = prev[currentQRef.current] || [];
+              const arr = Array.isArray(current) ? [...current] : [];
+              const idx = arr.indexOf(optIdx);
+              if (idx >= 0) arr.splice(idx, 1);
+              else arr.push(optIdx);
+              arr.sort();
+              return { ...prev, [currentQRef.current]: arr };
+            });
           }
           break;
         }
@@ -370,7 +409,7 @@ export default function LiveExamPage() {
     router.push('/dashboard/generate');
   }
 
-  // Discard resumable session and start fresh
+  // Discard resumable session
   async function handleDiscardResume() {
     try {
       const res = await fetch('/api/exam-session');
@@ -391,7 +430,7 @@ export default function LiveExamPage() {
     router.push('/dashboard/generate');
   }
 
-  // Show resume prompt if there's a resumable session
+  // Show resume prompt
   if (resumePrompt && !exam) {
     return (
       <div className="max-w-md mx-auto py-20">
@@ -418,11 +457,205 @@ export default function LiveExamPage() {
 
   const questions = getAllQuestions();
   const q = questions[currentQ];
+  const qType = q.type || 'MCQ';
   const displayTime = Math.max(0, timeLeft);
   const mins = Math.floor(displayTime / 60);
   const secs = displayTime % 60;
   const isUrgent = timeLeft > 0 && timeLeft < 300;
   const progress = ((currentQ + 1) / questions.length) * 100;
+
+  /* ─── Question type-specific answer UIs ─── */
+  function renderAnswerArea() {
+    if (qType === 'MCQ') {
+      return (
+        <div className="space-y-3" role="radiogroup" aria-label="Answer options">
+          {q.options.map((opt, i) => (
+            <div
+              key={i}
+              role="radio"
+              aria-checked={answers[currentQ] === i}
+              tabIndex={0}
+              className={cn(
+                'flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all',
+                answers[currentQ] === i
+                  ? 'border-primary bg-primary/5 shadow-sm'
+                  : 'border-transparent bg-secondary/50 hover:bg-secondary'
+              )}
+              onClick={() => setAnswers({ ...answers, [currentQ]: i })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setAnswers({ ...answers, [currentQ]: i });
+                }
+              }}
+            >
+              <div
+                className={cn(
+                  'w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 transition-colors',
+                  answers[currentQ] === i
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-background border text-muted-foreground'
+                )}
+              >
+                {String.fromCharCode(65 + i)}
+              </div>
+              <span
+                className={cn(
+                  'text-base font-medium',
+                  answers[currentQ] === i ? 'text-foreground' : 'text-muted-foreground'
+                )}
+              >
+                {opt}
+              </span>
+              <span className="ml-auto text-xs text-muted-foreground font-mono opacity-50">{i + 1}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (qType === 'MSQ') {
+      const selected = Array.isArray(answers[currentQ]) ? answers[currentQ] : [];
+      return (
+        <div className="space-y-3" role="group" aria-label="Select all correct options">
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-xs text-purple-300">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Select all correct answers (multiple options can be correct)
+          </div>
+          {q.options.map((opt, i) => {
+            const isSelected = selected.includes(i);
+            return (
+              <div
+                key={i}
+                role="checkbox"
+                aria-checked={isSelected}
+                tabIndex={0}
+                className={cn(
+                  'flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all',
+                  isSelected
+                    ? 'border-purple-500/50 bg-purple-500/5 shadow-sm'
+                    : 'border-transparent bg-secondary/50 hover:bg-secondary'
+                )}
+                onClick={() => {
+                  const current = Array.isArray(answers[currentQ]) ? [...answers[currentQ]] : [];
+                  const idx = current.indexOf(i);
+                  if (idx >= 0) current.splice(idx, 1);
+                  else current.push(i);
+                  current.sort();
+                  setAnswers({ ...answers, [currentQ]: current });
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    const current = Array.isArray(answers[currentQ]) ? [...answers[currentQ]] : [];
+                    const idx = current.indexOf(i);
+                    if (idx >= 0) current.splice(idx, 1);
+                    else current.push(i);
+                    current.sort();
+                    setAnswers({ ...answers, [currentQ]: current });
+                  }
+                }}
+              >
+                <div
+                  className={cn(
+                    'w-8 h-8 rounded-md flex items-center justify-center shrink-0 transition-colors',
+                    isSelected
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-background border-2 border-border text-muted-foreground'
+                  )}
+                >
+                  {isSelected ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : (
+                    <span className="text-xs font-bold">{String.fromCharCode(65 + i)}</span>
+                  )}
+                </div>
+                <span className={cn('text-base font-medium', isSelected ? 'text-foreground' : 'text-muted-foreground')}>
+                  {opt}
+                </span>
+                <span className="ml-auto text-xs text-muted-foreground font-mono opacity-50">{i + 1}</span>
+              </div>
+            );
+          })}
+          {selected.length > 0 && (
+            <p className="text-xs text-purple-300 mt-2">
+              {selected.length} option{selected.length !== 1 ? 's' : ''} selected
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    if (qType === 'NAT') {
+      return (
+        <div className="space-y-4" role="group" aria-label="Numerical answer input">
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300">
+            <Hash className="h-3.5 w-3.5" />
+            Enter a numerical value (integer or decimal)
+          </div>
+          <div className="flex items-center gap-3">
+            <div
+              className={cn(
+                'flex-1 relative rounded-xl border-2 transition-all',
+                answers[currentQ] !== undefined && answers[currentQ] !== ''
+                  ? 'border-emerald-500/50 bg-emerald-500/5'
+                  : 'border-border bg-secondary/50'
+              )}
+            >
+              <Input
+                type="number"
+                step="any"
+                placeholder="Enter your numerical answer..."
+                value={answers[currentQ] ?? ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setAnswers({ ...answers, [currentQ]: val === '' ? '' : val });
+                }}
+                className="text-lg font-mono h-14 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Enter the exact numerical value. For integer answers, enter a whole number (e.g., 42). For decimals, use
+            decimal point (e.g., 3.14).
+          </p>
+        </div>
+      );
+    }
+
+    if (qType === 'Descriptive') {
+      const charCount = (answers[currentQ] || '').length;
+      return (
+        <div className="space-y-4" role="group" aria-label="Descriptive answer input">
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300">
+            <AlignLeft className="h-3.5 w-3.5" />
+            Write a detailed answer in your own words
+          </div>
+          <div
+            className={cn(
+              'relative rounded-xl border-2 transition-all',
+              charCount > 0 ? 'border-amber-500/50 bg-amber-500/5' : 'border-border bg-secondary/50'
+            )}
+          >
+            <textarea
+              placeholder="Type your answer here... Include key concepts and explanations."
+              value={answers[currentQ] || ''}
+              onChange={(e) => setAnswers({ ...answers, [currentQ]: e.target.value })}
+              rows={6}
+              className="w-full p-4 bg-transparent text-base leading-relaxed resize-y rounded-xl focus:outline-none min-h-[150px]"
+            />
+          </div>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>{charCount} characters</span>
+            <span>Tip: Include relevant keywords and concepts for better scoring</span>
+          </div>
+        </div>
+      );
+    }
+
+    // Fallback to MCQ
+    return null;
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -447,7 +680,8 @@ export default function LiveExamPage() {
       {/* Keyboard shortcuts hint */}
       <div className="flex flex-wrap gap-2 text-xs text-muted-foreground" role="note" aria-label="Keyboard shortcuts">
         <span className="px-2 py-1 rounded bg-secondary/50 border">← → Navigate</span>
-        <span className="px-2 py-1 rounded bg-secondary/50 border">1-4 / A-D Select option</span>
+        {qType === 'MCQ' && <span className="px-2 py-1 rounded bg-secondary/50 border">1-4 Select option</span>}
+        {qType === 'MSQ' && <span className="px-2 py-1 rounded bg-secondary/50 border">1-5 Toggle option</span>}
         <span className="px-2 py-1 rounded bg-secondary/50 border">M Mark for review</span>
         <span className="px-2 py-1 rounded bg-secondary/50 border">X Clear answer</span>
         <span className="px-2 py-1 rounded bg-secondary/50 border">Enter Submit</span>
@@ -458,10 +692,13 @@ export default function LiveExamPage() {
         <div className="lg:col-span-3 space-y-4">
           <Card className="p-6">
             <div className="flex items-center justify-between mb-6">
-              <span className="font-semibold text-lg">
-                Question {currentQ + 1}{' '}
-                <span className="text-muted-foreground text-sm font-normal">of {questions.length}</span>
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="font-semibold text-lg">
+                  Question {currentQ + 1}{' '}
+                  <span className="text-muted-foreground text-sm font-normal">of {questions.length}</span>
+                </span>
+                <QuestionTypeBadge type={qType} />
+              </div>
               <div className="flex items-center gap-2">
                 {questionTimes[currentQ] > 0 && (
                   <span
@@ -477,6 +714,11 @@ export default function LiveExamPage() {
                 >
                   {q.difficulty}
                 </Badge>
+                {q.marks && (
+                  <Badge variant="outline" className="text-xs">
+                    {q.marks} marks
+                  </Badge>
+                )}
               </div>
             </div>
 
@@ -488,49 +730,7 @@ export default function LiveExamPage() {
 
             <p className="text-lg mb-8 leading-relaxed whitespace-pre-wrap">{q.text}</p>
 
-            <div className="space-y-3" role="radiogroup" aria-label="Answer options">
-              {q.options.map((opt, i) => (
-                <div
-                  key={i}
-                  role="radio"
-                  aria-checked={answers[currentQ] === i}
-                  tabIndex={0}
-                  className={cn(
-                    'flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all',
-                    answers[currentQ] === i
-                      ? 'border-primary bg-primary/5 shadow-sm'
-                      : 'border-transparent bg-secondary/50 hover:bg-secondary'
-                  )}
-                  onClick={() => setAnswers({ ...answers, [currentQ]: i })}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      setAnswers({ ...answers, [currentQ]: i });
-                    }
-                  }}
-                >
-                  <div
-                    className={cn(
-                      'w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 transition-colors',
-                      answers[currentQ] === i
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-background border text-muted-foreground'
-                    )}
-                  >
-                    {String.fromCharCode(65 + i)}
-                  </div>
-                  <span
-                    className={cn(
-                      'text-base font-medium',
-                      answers[currentQ] === i ? 'text-foreground' : 'text-muted-foreground'
-                    )}
-                  >
-                    {opt}
-                  </span>
-                  <span className="ml-auto text-xs text-muted-foreground font-mono opacity-50">{i + 1}</span>
-                </div>
-              ))}
-            </div>
+            {renderAnswerArea()}
           </Card>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -595,9 +795,10 @@ export default function LiveExamPage() {
               role="navigation"
               aria-label="Question navigator"
             >
-              {questions.map((_, i) => {
+              {questions.map((qItem, i) => {
                 const isCurrent = i === currentQ;
-                const isAnswered = answers[i] !== undefined;
+                const qItemType = qItem.type || 'MCQ';
+                const isAnswered = isQuestionAnswered(answers[i], qItemType);
                 const isMarked = marked.has(i);
 
                 return (
@@ -651,7 +852,9 @@ export default function LiveExamPage() {
 
           <div className="grid grid-cols-3 gap-4 py-4">
             <div className="text-center p-4 bg-secondary/50 rounded-xl">
-              <div className="text-2xl font-bold text-success">{Object.keys(answers).length}</div>
+              <div className="text-2xl font-bold text-success">
+                {questions.filter((qItem, i) => isQuestionAnswered(answers[i], qItem.type || 'MCQ')).length}
+              </div>
               <div className="text-xs text-muted-foreground mt-1">Answered</div>
             </div>
             <div className="text-center p-4 bg-secondary/50 rounded-xl">
@@ -660,7 +863,8 @@ export default function LiveExamPage() {
             </div>
             <div className="text-center p-4 bg-secondary/50 rounded-xl">
               <div className="text-2xl font-bold text-muted-foreground">
-                {questions.length - Object.keys(answers).length}
+                {questions.length -
+                  questions.filter((qItem, i) => isQuestionAnswered(answers[i], qItem.type || 'MCQ')).length}
               </div>
               <div className="text-xs text-muted-foreground mt-1">Unanswered</div>
             </div>

@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { Play, X } from 'lucide-react';
+import { Play } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -10,15 +10,15 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import SubjectManager from '@/app/components/SubjectManager/SubjectManager';
 
 /* ─── AI RECOMMENDED DEFAULTS ─── */
 const RECOMMENDATIONS = {
-  exam: { difficulty: 'Medium', time: 60, questions: 20, questionType: 'MCQ', negativeMarking: 0.25 },
+  exam: { difficulty: 'Medium', time: 60, questions: 20, questionType: 'MCQ', negativeMarking: 0.25, subjects: [] },
   coding: { difficulty: 'Medium', time: 45, questions: 5, language: 'JavaScript' },
   interview: { difficulty: 'Medium', time: 10, questions: 10, tone: 'Professional' },
 };
@@ -26,13 +26,21 @@ const RECOMMENDATIONS = {
 const DIFFICULTY_OPTIONS = ['Easy', 'Medium', 'Hard', 'Expert'];
 const EXAM_TIME_OPTIONS = [15, 30, 45, 60, 90, 120, 180];
 const EXAM_QUESTION_OPTIONS = [10, 15, 20, 30, 50, 75, 100];
-const EXAM_TYPE_OPTIONS = ['MCQ', 'Descriptive', 'Mixed'];
+const EXAM_TYPE_OPTIONS = ['MCQ', 'MSQ', 'NAT', 'Descriptive', 'Mixed'];
 const EXAM_NEG_OPTIONS = [0, 0.25, 0.33, 0.5, 1];
 const CODING_TIME_OPTIONS = [15, 30, 45, 60, 90];
 const CODING_QUESTION_OPTIONS = [1, 3, 5, 8, 10];
 const CODING_LANG_OPTIONS = ['JavaScript', 'Python', 'Java', 'C++', 'Go'];
 const INTERVIEW_Q_OPTIONS = [5, 8, 10, 15, 20];
 const INTERVIEW_TONE_OPTIONS = ['Friendly', 'Professional', 'Challenging', 'Formal'];
+
+const QUESTION_TYPE_DESCRIPTIONS = {
+  MCQ: 'Single correct answer from 4 options',
+  MSQ: 'Multiple correct answers from 4-5 options',
+  NAT: 'Numerical answer (integer or decimal)',
+  Descriptive: 'Free-text answer with keyword matching',
+  Mixed: 'Mix of MCQ, MSQ, NAT & Descriptive',
+};
 
 function Pill({ label, active, recommended, onClick }) {
   return (
@@ -82,6 +90,7 @@ export default function ExamConfigModal({
   presetName = '',
   presetEmoji = '',
   initialConfig = {},
+  examType = '',
 }) {
   const rec = RECOMMENDATIONS[mode] || RECOMMENDATIONS.exam;
 
@@ -101,6 +110,12 @@ export default function ExamConfigModal({
     initialConfig.micEnabled !== undefined ? initialConfig.micEnabled : true
   );
 
+  // Dynamic subjects — managed by SubjectManager component
+  const [subjects, setSubjects] = useState(initialConfig.subjects || []);
+
+  // Compute total questions from subjects when subjects are defined
+  const totalFromSubjects = subjects.reduce((sum, s) => sum + (s.questionCount || 0), 0);
+
   useEffect(() => {
     if (isOpen) {
       /* eslint-disable react-hooks/set-state-in-effect -- reset state when modal opens */
@@ -115,9 +130,18 @@ export default function ExamConfigModal({
       setTone(initialConfig.tone || rec.tone || 'Professional');
       setVoiceEnabled(initialConfig.voiceEnabled !== undefined ? initialConfig.voiceEnabled : true);
       setMicEnabled(initialConfig.micEnabled !== undefined ? initialConfig.micEnabled : true);
+      setSubjects(initialConfig.subjects || []);
       /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync total questions with sum from subjects when subjects exist
+  useEffect(() => {
+    if (mode === 'exam' && subjects.length > 0) {
+      /* eslint-disable-next-line react-hooks/set-state-in-effect -- derived state sync from subjects */
+      setQuestions(totalFromSubjects || questions);
+    }
+  }, [totalFromSubjects, subjects.length, mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleGenerate = useCallback(() => {
     const config = { difficulty, questions, time };
@@ -125,7 +149,12 @@ export default function ExamConfigModal({
       config.questionType = questionType;
       config.negativeMarking = negativeMarking;
       config.timeLimit = time;
-      config.totalQuestions = questions;
+      config.totalQuestions = subjects.length > 0 ? totalFromSubjects : questions;
+      // Include subjects with question counts
+      if (subjects.length > 0) {
+        config.subjects = subjects.map((s) => ({ name: s.name, questionCount: s.questionCount }));
+        config.sections = subjects.map((s) => s.name);
+      }
     } else if (mode === 'coding') {
       config.language = language;
       config.timeLimit = time;
@@ -148,6 +177,8 @@ export default function ExamConfigModal({
     micEnabled,
     mode,
     onGenerate,
+    subjects,
+    totalFromSubjects,
   ]);
 
   const info = MODE_INFO[mode] || MODE_INFO.exam;
@@ -161,7 +192,7 @@ export default function ExamConfigModal({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3 text-lg">
             <span className="text-2xl">{displayEmoji}</span>
@@ -207,27 +238,42 @@ export default function ExamConfigModal({
             </div>
           )}
 
-          {/* Questions */}
+          {/* Questions (only show when no subjects added, or as computed total) */}
           <div className="space-y-2">
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-              {mode === 'interview' ? 'Number of Questions' : mode === 'coding' ? 'Problems' : 'Total Questions'}
-            </Label>
-            <div className="flex flex-wrap gap-2">
-              {(mode === 'exam'
-                ? EXAM_QUESTION_OPTIONS
+              {mode === 'interview'
+                ? 'Number of Questions'
                 : mode === 'coding'
-                  ? CODING_QUESTION_OPTIONS
-                  : INTERVIEW_Q_OPTIONS
-              ).map((opt) => (
-                <Pill
-                  key={opt}
-                  label={`${opt}`}
-                  active={questions === opt}
-                  recommended={opt === rec.questions}
-                  onClick={() => setQuestions(opt)}
-                />
-              ))}
-            </div>
+                  ? 'Problems'
+                  : subjects.length > 0
+                    ? `Total Questions (from subjects: ${totalFromSubjects})`
+                    : 'Total Questions'}
+            </Label>
+            {subjects.length > 0 ? (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 border">
+                <span className="text-2xl font-bold text-primary">{totalFromSubjects}</span>
+                <span className="text-sm text-muted-foreground">
+                  Total from {subjects.length} subject{subjects.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {(mode === 'exam'
+                  ? EXAM_QUESTION_OPTIONS
+                  : mode === 'coding'
+                    ? CODING_QUESTION_OPTIONS
+                    : INTERVIEW_Q_OPTIONS
+                ).map((opt) => (
+                  <Pill
+                    key={opt}
+                    label={`${opt}`}
+                    active={questions === opt}
+                    recommended={opt === rec.questions}
+                    onClick={() => setQuestions(opt)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Question Type (exam) */}
@@ -245,6 +291,9 @@ export default function ExamConfigModal({
                   />
                 ))}
               </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {QUESTION_TYPE_DESCRIPTIONS[questionType] || 'Select a question type'}
+              </p>
             </div>
           )}
 
@@ -264,6 +313,11 @@ export default function ExamConfigModal({
                 ))}
               </div>
             </div>
+          )}
+
+          {/* Subject Management (exam only) — uses SubjectManager component */}
+          {mode === 'exam' && (
+            <SubjectManager subjects={subjects} onSubjectsChange={setSubjects} examName={examType || presetName} />
           )}
 
           {/* Language (coding) */}
@@ -337,12 +391,18 @@ export default function ExamConfigModal({
             )}
             <div className="flex justify-between p-2 rounded-md bg-secondary/50">
               <span className="text-muted-foreground">{mode === 'coding' ? 'Problems' : 'Questions'}</span>
-              <span className="font-medium">{questions}</span>
+              <span className="font-medium">{subjects.length > 0 ? totalFromSubjects : questions}</span>
             </div>
             {mode === 'exam' && (
               <div className="flex justify-between p-2 rounded-md bg-secondary/50">
                 <span className="text-muted-foreground">Type</span>
                 <span className="font-medium">{questionType}</span>
+              </div>
+            )}
+            {mode === 'exam' && subjects.length > 0 && (
+              <div className="flex justify-between p-2 rounded-md bg-secondary/50 col-span-2">
+                <span className="text-muted-foreground">Subjects</span>
+                <span className="font-medium">{subjects.map((s) => s.name).join(', ')}</span>
               </div>
             )}
             {mode === 'interview' && (
@@ -364,7 +424,13 @@ export default function ExamConfigModal({
           <Button variant="outline" onClick={onClose} id="config-modal-cancel">
             Cancel
           </Button>
-          <Button variant="brand" onClick={handleGenerate} id="config-modal-generate" className="gap-2">
+          <Button
+            variant="brand"
+            onClick={handleGenerate}
+            id="config-modal-generate"
+            className="gap-2"
+            disabled={mode === 'exam' && subjects.length > 0 && totalFromSubjects === 0}
+          >
             <Play className="h-4 w-4" />
             {mode === 'interview' ? 'Start Interview' : mode === 'coding' ? 'Start Challenge' : 'Generate Exam'}
           </Button>

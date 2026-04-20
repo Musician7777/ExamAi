@@ -6,7 +6,7 @@ import {
   isRateLimitError,
   isServiceUnavailableError,
 } from '@/lib/services/geminiService';
-import { buildExamPrompt, buildFetchExamConfigPrompt } from '@/lib/prompts/examPrompts';
+import { buildExamPrompt, buildFetchExamConfigPrompt, buildSubjectOverviewPrompt } from '@/lib/prompts/examPrompts';
 import {
   buildInterviewPrompt,
   buildInterviewRespondPrompt,
@@ -114,6 +114,7 @@ const PROMPT_BUILDERS = {
   'interview-analysis': (config) => buildInterviewAnalysisPrompt(config),
   'evaluate-code': (config) => buildCodeEvaluationPrompt(config),
   'fetch-exam-config': (config) => buildFetchExamConfigPrompt(config),
+  'fetch-subject-overview': (config) => buildSubjectOverviewPrompt(config),
   'fetch-interview-config': (config) => buildFetchInterviewConfigPrompt(config),
   'fetch-coding-config': (config) => buildFetchCodingConfigPrompt(config),
   chat: (config) => buildChatPrompt(config),

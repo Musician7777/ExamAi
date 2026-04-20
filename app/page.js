@@ -79,7 +79,7 @@ export default function Home() {
       name: 'Free',
       desc: 'Get started with basics',
       price: '0',
-      features: ['3 exams per month', 'Preset exam types', 'Basic analytics', 'MCQ questions only'],
+      features: ['3 exams per month', 'Preset exam types', 'Basic analytics', 'MCQ, MSQ, NAT & Descriptive'],
       popular: false,
     },
     {

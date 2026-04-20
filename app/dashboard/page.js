@@ -325,6 +325,7 @@ export default function DashboardPage() {
         mode={configModalMode}
         presetName={configModalPreset.name}
         presetEmoji={configModalPreset.emoji}
+        examType=""
       />
     </div>
   );

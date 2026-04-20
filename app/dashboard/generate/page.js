@@ -19,6 +19,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import clientLogger from '@/lib/client-logger';
+import { examProfiles } from '@/lib/prompts/examPrompts';
+import SubjectManager from '@/app/components/SubjectManager/SubjectManager';
 
 const governmentPresets = [
   { id: 'upsc', emoji: '🏛️', name: 'UPSC CSE', desc: 'Civil Services Prelims' },
@@ -47,6 +49,7 @@ export default function GeneratePage() {
 
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [configModalPreset, setConfigModalPreset] = useState({ name: '', emoji: '' });
+  const [configModalInitialConfig, setConfigModalInitialConfig] = useState({});
 
   // Define before useEffect so it's available (fixes immutability error)
   const handleGenerateFromModalRef = useRef(null);
@@ -55,6 +58,16 @@ export default function GeneratePage() {
     setSelectedPreset(preset.id);
     setFetchedConfig(null);
     setConfigModalPreset({ name: preset.name, emoji: preset.emoji });
+    // Auto-populate subjects from profile sections
+    const profile = examProfiles[preset.id];
+    const initialSubjects = profile
+      ? profile.sections.map((name) => ({
+          name,
+          questionCount: Math.max(1, Math.floor(20 / profile.sections.length)),
+          aiOverview: null,
+        }))
+      : [];
+    setConfigModalInitialConfig({ subjects: initialSubjects });
     setConfigModalOpen(true);
   }
 
@@ -70,6 +83,15 @@ export default function GeneratePage() {
         negativeMarking: modalConfig.negativeMarking ?? 0.25,
         timeLimit: modalConfig.timeLimit || modalConfig.time || 60,
       };
+      // Pass user-defined subjects and sections if provided
+      if (modalConfig.subjects && modalConfig.subjects.length > 0) {
+        config.subjects = modalConfig.subjects;
+        config.sections = modalConfig.sections || modalConfig.subjects.map((s) => s.name);
+        // Always use subject sum when subjects exist, ignoring the old pill-based totalQuestions
+        config.totalQuestions = modalConfig.subjects.reduce((s, sub) => s + sub.questionCount, 0);
+      } else if (modalConfig.sections) {
+        config.sections = modalConfig.sections;
+      }
       const res = await fetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -114,7 +136,6 @@ export default function GeneratePage() {
 
   const [custom, setCustom] = useState({
     totalQuestions: 50,
-    sections: 'Quant, Reasoning, English, GK',
     negativeMarking: 0.25,
     timeLimit: 120,
     easy: 30,
@@ -122,12 +143,25 @@ export default function GeneratePage() {
     hard: 20,
     questionType: 'MCQ',
   });
+  const [customSubjects, setCustomSubjects] = useState([]);
 
   function handleUseFetchedConfig(config) {
     setFetchedConfig(config);
+    // Populate subjects from fetched config sections
+    const sections = Array.isArray(config.sections)
+      ? config.sections
+      : (config.sections || 'General')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+    const subjects = sections.map((name) => ({
+      name,
+      questionCount: Math.max(1, Math.floor((config.totalQuestions || 50) / sections.length)),
+      aiOverview: null,
+    }));
+    setCustomSubjects(subjects);
     setCustom({
       totalQuestions: config.totalQuestions || 50,
-      sections: Array.isArray(config.sections) ? config.sections.join(', ') : config.sections || 'General',
       negativeMarking: config.negativeMarking || 0,
       timeLimit: config.timeLimit || 60,
       easy: 30,
@@ -141,9 +175,21 @@ export default function GeneratePage() {
 
   function handleSelectSavedPreset(preset) {
     setFetchedConfig(preset);
+    // Populate subjects from saved preset sections
+    const sections = Array.isArray(preset.sections)
+      ? preset.sections
+      : (preset.sections || 'General')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+    const subjects = sections.map((name) => ({
+      name,
+      questionCount: Math.max(1, Math.floor((preset.totalQuestions || 50) / sections.length)),
+      aiOverview: null,
+    }));
+    setCustomSubjects(subjects);
     setCustom({
       totalQuestions: preset.totalQuestions || 50,
-      sections: Array.isArray(preset.sections) ? preset.sections.join(', ') : preset.sections || 'General',
       negativeMarking: preset.negativeMarking || 0,
       timeLimit: preset.timeLimit || 60,
       easy: 30,
@@ -180,14 +226,26 @@ export default function GeneratePage() {
               totalQuestions: 20,
               difficulty: '30% Easy, 50% Medium, 20% Hard',
             }
-          : {
-              examType: fetchedConfig?.examName || 'Custom',
-              totalQuestions: custom.totalQuestions,
-              sections: custom.sections.split(',').map((s) => s.trim()),
-              negativeMarking: custom.negativeMarking,
-              difficulty: `${custom.easy}% Easy, ${custom.medium}% Medium, ${custom.hard}% Hard`,
-              questionTypes: custom.questionType,
-            };
+          : (() => {
+              const cfg = {
+                examType: fetchedConfig?.examName || 'Custom',
+                totalQuestions:
+                  customSubjects.length > 0
+                    ? customSubjects.reduce((s, sub) => s + sub.questionCount, 0)
+                    : custom.totalQuestions,
+                negativeMarking: custom.negativeMarking,
+                timeLimit: custom.timeLimit,
+                difficulty: `${custom.easy}% Easy, ${custom.medium}% Medium, ${custom.hard}% Hard`,
+                questionTypes: custom.questionType,
+              };
+              if (customSubjects.length > 0) {
+                cfg.subjects = customSubjects.map((s) => ({ name: s.name, questionCount: s.questionCount }));
+                cfg.sections = customSubjects.map((s) => s.name);
+              } else {
+                cfg.sections = ['General'];
+              }
+              return cfg;
+            })();
       const res = await fetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -331,12 +389,23 @@ export default function GeneratePage() {
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Total Questions</Label>
-                <Input
-                  type="number"
-                  value={custom.totalQuestions}
-                  onChange={(e) => setCustom({ ...custom, totalQuestions: parseInt(e.target.value) || 0 })}
-                />
+                <Label>{customSubjects.length > 0 ? 'Total Questions (from subjects)' : 'Total Questions'}</Label>
+                {customSubjects.length > 0 ? (
+                  <div className="flex items-center gap-3 p-2.5 rounded-lg bg-secondary/50 border">
+                    <span className="text-xl font-bold text-primary">
+                      {customSubjects.reduce((s, sub) => s + sub.questionCount, 0)}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      from {customSubjects.length} subject{customSubjects.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                ) : (
+                  <Input
+                    type="number"
+                    value={custom.totalQuestions}
+                    onChange={(e) => setCustom({ ...custom, totalQuestions: parseInt(e.target.value) || 0 })}
+                  />
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Time Limit (minutes)</Label>
@@ -344,14 +413,6 @@ export default function GeneratePage() {
                   type="number"
                   value={custom.timeLimit}
                   onChange={(e) => setCustom({ ...custom, timeLimit: parseInt(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Sections (comma-separated)</Label>
-                <Input
-                  value={custom.sections}
-                  onChange={(e) => setCustom({ ...custom, sections: e.target.value })}
-                  placeholder="Quant, Reasoning, English, GK"
                 />
               </div>
               <div className="space-y-2">
@@ -371,8 +432,10 @@ export default function GeneratePage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="MCQ">MCQ (Multiple Choice)</SelectItem>
+                    <SelectItem value="MSQ">MSQ (Multiple Select)</SelectItem>
+                    <SelectItem value="NAT">NAT (Numerical Answer)</SelectItem>
                     <SelectItem value="Descriptive">Descriptive</SelectItem>
-                    <SelectItem value="Mixed">Mixed (MCQ + Descriptive)</SelectItem>
+                    <SelectItem value="Mixed">Mixed (All Types)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -423,6 +486,13 @@ export default function GeneratePage() {
               </div>
             </div>
 
+            {/* Subject Management — uses SubjectManager component */}
+            <SubjectManager
+              subjects={customSubjects}
+              onSubjectsChange={setCustomSubjects}
+              examName={fetchedConfig?.examName || 'Custom Exam'}
+            />
+
             <Button
               variant="brand"
               size="lg"
@@ -449,6 +519,8 @@ export default function GeneratePage() {
         mode="exam"
         presetName={configModalPreset.name}
         presetEmoji={configModalPreset.emoji}
+        examType={selectedPreset || ''}
+        initialConfig={configModalInitialConfig}
       />
     </div>
   );
