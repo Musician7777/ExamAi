@@ -3,7 +3,21 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import LazyChartCanvas from '@/app/components/ChartCanvas/LazyChartCanvas';
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
+
+import { CustomTooltipStyle } from './chartTheme';
 
 const PALETTE = [
   '#6366f1',
@@ -19,101 +33,113 @@ const PALETTE = [
 ];
 
 export default function DeepTopicAnalytics({
-  chartColors,
   deepTopicEntries,
   deepTopicLabels,
   deepTopicValues,
   deepTopicCounts,
   weakTopics,
   strongTopics,
+  resolvedColors,
 }) {
   if (deepTopicEntries.length === 0) return null;
+
+  // Build Recharts data arrays
+  const topicAccuracyData = deepTopicLabels.map((label, i) => ({
+    topic: label.length > 20 ? label.slice(0, 18) + '…' : label,
+    accuracy: deepTopicValues[i],
+    fill: deepTopicValues[i] >= 75 ? '#4ade80' : deepTopicValues[i] >= 50 ? '#fbbf24' : '#f87171',
+  }));
+
+  const practiceDistData = deepTopicLabels.map((label, i) => ({
+    name: label.length > 15 ? label.slice(0, 13) + '…' : label,
+    value: deepTopicCounts[i],
+    fill: PALETTE[i % PALETTE.length],
+  }));
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold">
-          🎯 Topic-wise <span className="gradient-text">Deep Analytics</span>
+        <h2 className="text-lg font-semibold">
+          Topic-wise <span className="gradient-text">Deep Analytics</span>
         </h2>
-        <p className="text-muted-foreground mt-1">Breakdown by specific topics for actionable insights.</p>
+        <p className="text-sm text-muted-foreground mt-1">Breakdown by specific topics for actionable insights.</p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
+        {/* Topic Accuracy Horizontal Bar */}
         <Card className="p-6">
-          <h3 className="font-semibold mb-4">📊 Topic Accuracy</h3>
-          <div className="h-64">
-            <LazyChartCanvas
-              config={{
-                type: 'bar',
-                data: {
-                  labels: deepTopicLabels.length > 0 ? deepTopicLabels : ['No data'],
-                  datasets: [
-                    {
-                      label: 'Accuracy %',
-                      data: deepTopicValues.length > 0 ? deepTopicValues : [0],
-                      backgroundColor: deepTopicValues.map((v) =>
-                        v >= 75 ? '#4ade80' : v >= 50 ? '#fbbf24' : '#f87171'
-                      ),
-                      borderRadius: 6,
-                    },
-                  ],
-                },
-                options: {
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  indexAxis: 'y',
-                  plugins: { legend: { display: false } },
-                  scales: {
-                    x: {
-                      min: 0,
-                      max: 100,
-                      ticks: { color: chartColors.tick },
-                      grid: { color: chartColors.grid },
-                    },
-                    y: {
-                      ticks: { color: chartColors.tick, font: { size: 11 } },
-                      grid: { display: false },
-                    },
-                  },
-                },
-              }}
-            />
+          <div className="mb-4">
+            <h3 className="font-semibold text-base">Topic Accuracy</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Accuracy percentage per topic</p>
+          </div>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={topicAccuracyData} layout="vertical" margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={resolvedColors?.border || 'rgba(99, 102, 241, 0.12)'}
+                  opacity={0.3}
+                  horizontal={false}
+                />
+                <XAxis
+                  type="number"
+                  domain={[0, 100]}
+                  tick={{ fontSize: 11, fill: resolvedColors?.mutedFg || '#64748b' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="topic"
+                  tick={{ fontSize: 11, fill: resolvedColors?.mutedFg || '#64748b' }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={100}
+                />
+                <Tooltip contentStyle={CustomTooltipStyle} formatter={(value) => [`${value}%`, 'Accuracy']} />
+                <Bar dataKey="accuracy" name="Accuracy" radius={[0, 6, 6, 0]} maxBarSize={24}>
+                  {topicAccuracyData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </Card>
+
+        {/* Practice Distribution Pie */}
         <Card className="p-6">
-          <h3 className="font-semibold mb-4">📈 Practice Distribution</h3>
-          <div className="h-64">
-            <LazyChartCanvas
-              config={{
-                type: 'doughnut',
-                data: {
-                  labels: deepTopicLabels.length > 0 ? deepTopicLabels : ['No data'],
-                  datasets: [
-                    {
-                      data: deepTopicCounts.length > 0 ? deepTopicCounts : [1],
-                      backgroundColor:
-                        deepTopicLabels.length > 0
-                          ? deepTopicLabels.map((_, i) => PALETTE[i % PALETTE.length])
-                          : ['#334155'],
-                      borderWidth: 0,
-                      spacing: 3,
-                      borderRadius: 4,
-                    },
-                  ],
-                },
-                options: {
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      position: 'right',
-                      labels: { color: chartColors.label, padding: 12, font: { size: 11 } },
-                    },
-                  },
-                  cutout: '60%',
-                },
-              }}
-            />
+          <div className="mb-4">
+            <h3 className="font-semibold text-base">Practice Distribution</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Activity count per topic</p>
+          </div>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={practiceDistData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={45}
+                  outerRadius={80}
+                  paddingAngle={3}
+                  dataKey="value"
+                  nameKey="name"
+                  strokeWidth={0}
+                >
+                  {practiceDistData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={CustomTooltipStyle} formatter={(value, name) => [`${value} activities`, name]} />
+                <Legend
+                  verticalAlign="bottom"
+                  iconType="circle"
+                  iconSize={8}
+                  formatter={(value) => <span className="text-xs text-muted-foreground">{value}</span>}
+                />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
         </Card>
       </div>
@@ -127,7 +153,10 @@ export default function DeepTopicAnalytics({
           return (
             <Card
               key={topic}
-              className={cn('p-4 space-y-2', isWeak ? 'border-destructive/20' : isStrong ? 'border-success/20' : '')}
+              className={cn(
+                'p-4 space-y-2 transition-all hover:shadow-md',
+                isWeak ? 'border-red-500/20' : isStrong ? 'border-emerald-500/20' : ''
+              )}
             >
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-sm">{topic}</span>
@@ -146,38 +175,6 @@ export default function DeepTopicAnalytics({
           );
         })}
       </div>
-
-      {/* Actionable Insights */}
-      {(weakTopics.length > 0 || strongTopics.length > 0) && (
-        <div className="grid sm:grid-cols-2 gap-4">
-          {weakTopics.length > 0 && (
-            <Card className="p-5 border-destructive/20">
-              <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">🔴 Needs Improvement</h3>
-              <div className="space-y-2">
-                {weakTopics.map((t) => (
-                  <div key={t.name} className="flex items-center justify-between text-sm">
-                    <span>{t.name}</span>
-                    <span className="text-destructive font-semibold">{t.avg}%</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-          {strongTopics.length > 0 && (
-            <Card className="p-5 border-success/20">
-              <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">🟢 Your Strengths</h3>
-              <div className="space-y-2">
-                {strongTopics.map((t) => (
-                  <div key={t.name} className="flex items-center justify-between text-sm">
-                    <span>{t.name}</span>
-                    <span className="text-success font-semibold">{t.avg}%</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-        </div>
-      )}
     </div>
   );
 }

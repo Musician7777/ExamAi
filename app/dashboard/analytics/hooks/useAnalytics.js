@@ -1,30 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { useTheme } from '@/app/providers/ThemeProvider';
 import { useCachedFetch } from '@/hooks/useCachedFetch';
-
-/**
- * Reads theme-aware CSS variable values from the document root
- * and returns a chartColors object suitable for Chart.js configs.
- */
-function getThemeChartColors() {
-  if (typeof document === 'undefined') {
-    return {
-      primary: '#6366f1',
-      primaryBg: 'rgba(99,102,241,0.1)',
-      grid: 'rgba(99,102,241,0.08)',
-      tick: '#64748b',
-      label: '#94a3b8',
-    };
-  }
-  const style = getComputedStyle(document.documentElement);
-  const primary = style.getPropertyValue('--color-primary')?.trim() || '#6366f1';
-  const muted = style.getPropertyValue('--color-muted-foreground')?.trim() || '#64748b';
-  const border = style.getPropertyValue('--color-border')?.trim() || 'rgba(99,102,241,0.08)';
-  const primaryBg = primary.startsWith('#') ? `${primary}1a` : primary.replace(/[\d.]+\)$/, '0.1)');
-  const gridBg = border.startsWith('#') ? `${border}14` : border.replace(/[\d.]+\)$/, '0.08)');
-  return { primary, primaryBg, grid: gridBg, tick: muted, label: muted };
-}
 
 /**
  * Builds type-wise score aggregates from activities.
@@ -121,30 +97,14 @@ function getPresetDates(presetKey) {
   };
 }
 
-/** Shared tooltip style for all Chart.js configs */
-const TOOLTIP_STYLE = {
-  backgroundColor: 'rgba(15, 23, 42, 0.9)',
-  titleColor: '#e2e8f0',
-  bodyColor: '#cbd5e1',
-  borderColor: 'rgba(99, 102, 241, 0.3)',
-  borderWidth: 1,
-  padding: 10,
-  cornerRadius: 8,
-  titleFont: { size: 12, weight: '600' },
-  bodyFont: { size: 11 },
-};
-
 /**
  * Custom hook that fetches activities and computes all analytics data.
- * Returns loading state, derived metrics, chart configs, and insight cards data.
+ * Returns loading state, derived metrics, Recharts-ready data arrays, and insight cards data.
  */
 export function useAnalytics() {
   const [datePreset, setDatePreset] = useState('30d');
   const { dateFrom, dateTo } = useMemo(() => getPresetDates(datePreset), [datePreset]);
 
-  // Build the URL with date range params.
-  // NOTE: limit=1000 is a pragmatic cap — for very active users this may still truncate.
-  // A proper fix would be server-side aggregation or paginated fetching.
   const activitiesUrl = useMemo(() => {
     const params = new URLSearchParams({ limit: '1000', page: '1' });
     if (dateFrom) params.set('dateFrom', dateFrom);
@@ -170,20 +130,15 @@ export function useAnalytics() {
     loading: analyticsLoading,
     revalidating: analyticsRevalidating,
   } = useCachedFetch('/api/analytics', {
-    ttl: 120_000, // Longer TTL for aggregated data
+    ttl: 120_000,
     selector: (json) => json,
   });
 
-  // Deep analytics data
   const funnelData = useMemo(() => analyticsData?.funnel || null, [analyticsData]);
   const questionPerformance = useMemo(() => analyticsData?.questionPerformance || [], [analyticsData]);
   const difficultyPerformance = useMemo(() => analyticsData?.difficultyPerformance || [], [analyticsData]);
   const weeklyRetention = useMemo(() => analyticsData?.weeklyRetention || [], [analyticsData]);
   const recommendations = useMemo(() => analyticsData?.recommendations || null, [analyticsData]);
-
-  const { theme } = useTheme();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const chartColors = useMemo(() => getThemeChartColors(), [theme]);
 
   const hasData = activities.length > 0;
 
@@ -198,20 +153,10 @@ export function useAnalytics() {
           type: a.type,
           date: a.createdAt,
         }))
-        .reverse(), // oldest first (chronological)
+        .reverse(),
     [activities]
   );
   const scores = useMemo(() => scoredActivities.map((a) => a.score), [scoredActivities]);
-
-  // Short date labels like "Jan 5", "Feb 12" — avoids generic "Activity N"
-  const labels = useMemo(
-    () =>
-      scoredActivities.map((a) => {
-        const d = new Date(a.date);
-        return `${d.toLocaleDateString('en-US', { month: 'short' })} ${d.getDate()}`;
-      }),
-    [scoredActivities]
-  );
 
   // Type-wise scores
   const typeScores = useMemo(() => buildTypeScores(activities), [activities]);
@@ -254,19 +199,19 @@ export function useAnalytics() {
     [deepTopicEntries]
   );
 
-  // Difficulty-based breakdown — uses ONLY the explicit difficulty field
+  // Difficulty-based breakdown
   const easyScores = useMemo(() => activities.filter((a) => a.difficulty === 'easy'), [activities]);
   const medScores = useMemo(() => activities.filter((a) => a.difficulty === 'medium'), [activities]);
   const hardScores = useMemo(() => activities.filter((a) => a.difficulty === 'hard'), [activities]);
   const mixedScores = useMemo(() => activities.filter((a) => a.difficulty === 'mixed'), [activities]);
   const unratedScores = useMemo(() => activities.filter((a) => !a.difficulty), [activities]);
 
-  // Score-based performance bands (independent of difficulty)
+  // Score-based performance bands
   const highScoreCount = useMemo(() => scores.filter((s) => s >= 80).length, [scores]);
   const midScoreCount = useMemo(() => scores.filter((s) => s >= 50 && s < 80).length, [scores]);
   const lowScoreCount = useMemo(() => scores.filter((s) => s < 50).length, [scores]);
 
-  // Duration analytics — time-based metrics from the duration field (seconds)
+  // Duration analytics
   const activitiesWithDuration = useMemo(
     () => activities.filter((a) => a.duration != null && a.duration > 0 && a.totalMarks > 0),
     [activities]
@@ -288,97 +233,85 @@ export function useAnalytics() {
     );
   }, [activitiesWithDuration]);
 
-  // Scatter: time vs accuracy — each point is { x: duration (seconds), y: score % }
-  const scatterConfig = useMemo(
-    () => ({
-      type: 'scatter',
-      data: {
-        datasets: [
-          {
-            label: 'Time vs Accuracy',
-            data: activitiesWithDuration.map((a) => ({
-              x: a.duration,
-              y: Math.round((a.score / a.totalMarks) * 100),
-              title: a.title || 'Untitled',
-              type: a.type,
-            })),
-            backgroundColor: chartColors.primaryBg,
-            borderColor: chartColors.primary,
-            pointRadius: 6,
-            pointHoverRadius: 8,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            ...TOOLTIP_STYLE,
-            callbacks: {
-              title: () => '',
-              label: (ctx) => {
-                const raw = ctx.raw;
-                const mins = Math.floor(ctx.parsed.x / 60);
-                const secs = ctx.parsed.x % 60;
-                const typeLabel = raw.type ? raw.type.charAt(0).toUpperCase() + raw.type.slice(1) : '';
-                const title = raw.title || '';
-                const lines = [`Time: ${mins}m ${secs}s  ·  Score: ${ctx.parsed.y}%`];
-                if (title) lines.push(`Title: ${title.length > 40 ? title.slice(0, 40) + '…' : title}`);
-                if (typeLabel) lines.push(`Type: ${typeLabel}`);
-                return lines;
-              },
-            },
-          },
-        },
-        scales: {
-          x: {
-            title: { display: true, text: 'Time (seconds)', color: chartColors.label, font: { size: 11 } },
-            ticks: {
-              color: chartColors.tick,
-              callback: (val) => {
-                const m = Math.floor(val / 60);
-                const s = val % 60;
-                return m > 0 ? `${m}m` : `${s}s`;
-              },
-            },
-            grid: { color: chartColors.grid },
-          },
-          y: {
-            min: 0,
-            max: 100,
-            title: { display: true, text: 'Score %', color: chartColors.label, font: { size: 11 } },
-            ticks: { color: chartColors.tick },
-            grid: { color: chartColors.grid },
-          },
-        },
-      },
-    }),
-    [activitiesWithDuration, chartColors]
+  // ── Recharts-ready data arrays ──
+
+  const scoreTrendData = useMemo(
+    () =>
+      scoredActivities.map((a) => {
+        const d = new Date(a.date);
+        return {
+          date: `${d.toLocaleDateString('en-US', { month: 'short' })} ${d.getDate()}`,
+          fullDate: d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+          score: a.score,
+          title: a.title,
+          type: a.type,
+        };
+      }),
+    [scoredActivities]
+  );
+
+  const topicData = useMemo(
+    () =>
+      topicLabels.map((label, i) => ({
+        subject: label,
+        accuracy: topicValues[i],
+        count: typeScores[label]?.count || 0,
+        fullMark: 100,
+      })),
+    [topicLabels, topicValues, typeScores]
+  );
+
+  const scoreDistribution = useMemo(
+    () =>
+      hasData
+        ? [
+            { range: '0-20%', count: scores.filter((s) => s <= 20).length, fill: '#ef4444' },
+            { range: '21-40%', count: scores.filter((s) => s > 20 && s <= 40).length, fill: '#f59e0b' },
+            { range: '41-60%', count: scores.filter((s) => s > 40 && s <= 60).length, fill: '#6366f1' },
+            { range: '61-80%', count: scores.filter((s) => s > 60 && s <= 80).length, fill: '#22c55e' },
+            { range: '81-100%', count: scores.filter((s) => s > 80).length, fill: '#4ade80' },
+          ]
+        : [],
+    [hasData, scores]
+  );
+
+  const scoreRangeData = useMemo(() => {
+    if (!hasData) return [];
+    return [
+      { name: 'High (80%+)', value: highScoreCount, fill: '#4ade80' },
+      { name: 'Medium (50-79%)', value: midScoreCount, fill: '#fbbf24' },
+      { name: 'Low (<50%)', value: lowScoreCount, fill: '#f87171' },
+    ];
+  }, [hasData, highScoreCount, midScoreCount, lowScoreCount]);
+
+  const scatterData = useMemo(
+    () =>
+      activitiesWithDuration.map((a) => ({
+        duration: a.duration,
+        score: Math.round((a.score / a.totalMarks) * 100),
+        title: a.title || 'Untitled',
+        type: a.type,
+      })),
+    [activitiesWithDuration]
   );
 
   // Streak tracking — daily and weekly practice streaks from activity timestamps
   const streak = useMemo(() => {
     if (activities.length === 0) return null;
 
-    // Helper: format a Date as YYYY-MM-DD in local timezone
     const toDayStr = (d) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-    // Helper: check if two YYYY-MM-DD strings are consecutive calendar days (DST-safe)
     const areConsecutiveDays = (a, b) => {
-      const dA = new Date(a + 'T12:00:00'); // noon to avoid DST boundary
+      const dA = new Date(a + 'T12:00:00');
       const dB = new Date(b + 'T12:00:00');
       const diffDays = Math.round((dB - dA) / 86_400_000);
       return diffDays === 1;
     };
 
-    // Group activities by local calendar day
     const daySet = new Set(activities.map((a) => toDayStr(new Date(a.createdAt))));
-    const uniqueDays = [...daySet].sort(); // ascending
+    const uniqueDays = [...daySet].sort();
 
-    // Current daily streak: count consecutive days ending today or yesterday
     const today = new Date();
     const todayStr = toDayStr(today);
     const yesterday = new Date(today);
@@ -395,7 +328,6 @@ export function useAnalytics() {
       }
     }
 
-    // Longest daily streak across all time (DST-safe: compare calendar days, not ms)
     let longestStreak = 0;
     let runLen = 1;
     for (let i = 1; i < uniqueDays.length; i++) {
@@ -408,20 +340,17 @@ export function useAnalytics() {
     }
     longestStreak = Math.max(longestStreak, runLen, currentStreak);
 
-    // Helper: get the Monday of the week containing a date (as YYYY-MM-DD)
     const getWeekMonday = (d) => {
-      const day = d.getDay(); // 0=Sun, 1=Mon, ...
+      const day = d.getDay();
       const diffToMonday = day === 0 ? -6 : 1 - day;
       const monday = new Date(d);
       monday.setDate(monday.getDate() + diffToMonday);
       return toDayStr(monday);
     };
 
-    // Weekly streak: consecutive weeks (Mon–Sun) with at least 1 activity
     const weekSet = new Set(activities.map((a) => getWeekMonday(new Date(a.createdAt))));
-    const uniqueWeeks = [...weekSet].sort(); // ascending by Monday
+    const uniqueWeeks = [...weekSet].sort();
 
-    // Current weekly streak: consecutive weeks ending this week or last week
     const thisWeekMonday = getWeekMonday(today);
     const lastWeekMonday = new Date(today);
     lastWeekMonday.setDate(lastWeekMonday.getDate() - 7);
@@ -437,7 +366,6 @@ export function useAnalytics() {
       }
     }
 
-    // Longest weekly streak
     let longestWeeklyStreak = 0;
     let weekRun = 1;
     for (let i = 1; i < uniqueWeeks.length; i++) {
@@ -453,17 +381,15 @@ export function useAnalytics() {
     }
     longestWeeklyStreak = Math.max(longestWeeklyStreak, weekRun, weeklyStreak);
 
-    // 28-day calendar heatmap aligned to day-of-week columns
     const activityCountsByDay = {};
     activities.forEach((a) => {
       const dayStr = toDayStr(new Date(a.createdAt));
       activityCountsByDay[dayStr] = (activityCountsByDay[dayStr] || 0) + 1;
     });
 
-    // Grid always starts on a Monday 3 weeks before this week — no leading empty cells needed
     const thisMonday = getWeekMonday(today);
     const gridStart = new Date(thisMonday + 'T12:00:00');
-    gridStart.setDate(gridStart.getDate() - 21); // 3 weeks before this week's Monday
+    gridStart.setDate(gridStart.getDate() - 21);
 
     const calendarDays = [];
     for (let offset = 0; offset < 28; offset++) {
@@ -487,7 +413,7 @@ export function useAnalytics() {
     };
   }, [activities]);
 
-  // Trend indicators — compare recent half vs earlier half of activities
+  // Trend indicators
   const trend = useMemo(() => {
     if (scores.length < 4) return null;
     const mid = Math.floor(scores.length / 2);
@@ -497,7 +423,6 @@ export function useAnalytics() {
     const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length;
     const diff = recentAvg - earlierAvg;
     const pctChange = earlierAvg > 0 ? Math.round((diff / earlierAvg) * 100) : 0;
-    // ±2% threshold to avoid labeling minor noise as trending
     return {
       direction: diff > 2 ? 'up' : diff < -2 ? 'down' : 'stable',
       diff: Math.round(diff),
@@ -506,197 +431,6 @@ export function useAnalytics() {
       earlierAvg: Math.round(earlierAvg),
     };
   }, [scores]);
-
-  // Chart configs
-  const lineConfig = useMemo(
-    () => ({
-      type: 'line',
-      data: {
-        labels: hasData ? labels : ['No data'],
-        datasets: [
-          {
-            label: 'Score %',
-            data: hasData ? scores : [0],
-            borderColor: chartColors.primary,
-            backgroundColor: chartColors.primaryBg,
-            fill: true,
-            tension: 0.4,
-            pointBackgroundColor: chartColors.primary,
-            pointRadius: 5,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            ...TOOLTIP_STYLE,
-            callbacks: {
-              title: (items) => {
-                if (!hasData || !items.length) return '';
-                const idx = items[0].dataIndex;
-                const sa = scoredActivities[idx];
-                if (!sa) return labels[idx] || '';
-                const d = new Date(sa.date);
-                return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-              },
-              label: (ctx) => {
-                if (!hasData) return '';
-                const sa = scoredActivities[ctx.dataIndex];
-                const typeLabel = sa?.type ? sa.type.charAt(0).toUpperCase() + sa.type.slice(1) : '';
-                const lines = [`Score: ${ctx.parsed.y}%`];
-                if (sa?.title) lines.push(`Title: ${sa.title.length > 40 ? sa.title.slice(0, 40) + '…' : sa.title}`);
-                if (typeLabel) lines.push(`Type: ${typeLabel}`);
-                return lines;
-              },
-            },
-          },
-        },
-        scales: {
-          y: { min: 0, max: 100, ticks: { color: chartColors.tick }, grid: { color: chartColors.grid } },
-          x: {
-            ticks: { color: chartColors.tick, maxRotation: 45, autoSkipPadding: 12 },
-            grid: { display: false },
-          },
-        },
-      },
-    }),
-    [hasData, labels, scores, scoredActivities, chartColors]
-  );
-
-  const radarConfig = useMemo(
-    () => ({
-      type: 'radar',
-      data: {
-        labels: topicLabels,
-        datasets: [
-          {
-            label: 'Accuracy',
-            data: topicValues,
-            borderColor: chartColors.primary,
-            backgroundColor: chartColors.primaryBg,
-            pointBackgroundColor: chartColors.primary,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            ...TOOLTIP_STYLE,
-            callbacks: {
-              label: (ctx) => {
-                const topic = topicLabels[ctx.dataIndex];
-                const count = typeScores[topic]?.count || 0;
-                return [`Accuracy: ${ctx.parsed.r}%`, `Activities: ${count}`];
-              },
-            },
-          },
-        },
-        scales: {
-          r: {
-            min: 0,
-            max: 100,
-            ticks: { color: chartColors.tick, stepSize: 25 },
-            grid: { color: chartColors.grid },
-            pointLabels: { color: chartColors.label, font: { size: 12 } },
-          },
-        },
-      },
-    }),
-    [topicLabels, topicValues, typeScores, chartColors]
-  );
-
-  const barConfig = useMemo(
-    () => ({
-      type: 'bar',
-      data: {
-        labels: hasData ? ['0-20%', '21-40%', '41-60%', '61-80%', '81-100%'] : ['No data'],
-        datasets: [
-          {
-            label: 'Activities',
-            data: hasData
-              ? [
-                  scores.filter((s) => s <= 20).length,
-                  scores.filter((s) => s > 20 && s <= 40).length,
-                  scores.filter((s) => s > 40 && s <= 60).length,
-                  scores.filter((s) => s > 60 && s <= 80).length,
-                  scores.filter((s) => s > 80).length,
-                ]
-              : [0],
-            backgroundColor: ['#ef4444', '#f59e0b', '#6366f1', '#22c55e', '#4ade80'],
-            borderRadius: 8,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            ...TOOLTIP_STYLE,
-            callbacks: {
-              label: (ctx) => {
-                const count = ctx.parsed.y;
-                return [`${count} activit${count === 1 ? 'y' : 'ies'} in this range`];
-              },
-            },
-          },
-        },
-        scales: {
-          y: { ticks: { color: chartColors.tick, stepSize: 1 }, grid: { color: chartColors.grid } },
-          x: { ticks: { color: chartColors.tick }, grid: { display: false } },
-        },
-      },
-    }),
-    [hasData, scores, chartColors]
-  );
-
-  const doughnutConfig = useMemo(
-    () => ({
-      type: 'doughnut',
-      data: {
-        labels: ['High (80%+)', 'Medium (50-79%)', 'Low (<50%)'],
-        datasets: [
-          {
-            data: hasData ? [highScoreCount, midScoreCount, lowScoreCount] : [1, 1, 1],
-            backgroundColor: hasData ? ['#4ade80', '#fbbf24', '#f87171'] : ['#334155', '#334155', '#334155'],
-            borderWidth: 0,
-            spacing: 4,
-            borderRadius: 6,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'bottom',
-            labels: { color: chartColors.label, padding: 16, font: { size: 12 } },
-          },
-          tooltip: {
-            ...TOOLTIP_STYLE,
-            callbacks: {
-              label: (ctx) => {
-                const total = highScoreCount + midScoreCount + lowScoreCount;
-                const count = ctx.parsed;
-                const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-                return [`${count} activit${count === 1 ? 'y' : 'ies'} (${pct}%)`];
-              },
-            },
-          },
-        },
-        cutout: '65%',
-      },
-    }),
-    [hasData, highScoreCount, midScoreCount, lowScoreCount, chartColors]
-  );
 
   // Insights
   const insights = useMemo(() => {
@@ -749,38 +483,40 @@ export function useAnalytics() {
     loading: loading || analyticsLoading,
     revalidating: revalidating || analyticsRevalidating,
     hasData,
-    chartColors,
-    lineConfig,
-    radarConfig,
-    barConfig,
-    doughnutConfig,
+    // Recharts-ready data
+    scoreTrendData,
+    topicData,
+    scoreDistribution,
+    scoreRangeData,
+    scatterData,
+    // Raw data
+    activities,
+    scoredActivities,
+    scores,
+    // Deep topic analytics
     deepTopicEntries,
     deepTopicLabels,
     deepTopicValues,
     deepTopicCounts,
     weakTopics,
     strongTopics,
+    // Insights
     insights,
-    revalidating,
+    // Controls
     error,
     refetch,
     datePreset,
     setDatePreset,
-    // Difficulty breakdown (explicit field only)
+    // Difficulty breakdown
     easyScores,
     medScores,
     hardScores,
     mixedScores,
     unratedScores,
-    // Score bands
-    highScoreCount,
-    midScoreCount,
-    lowScoreCount,
     // Duration analytics
     avgDuration,
     avgDurationByType,
     activitiesWithDuration,
-    scatterConfig,
     // Trend
     trend,
     // Streak
