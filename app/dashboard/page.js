@@ -10,6 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { RefreshShimmer } from '@/components/ui/refresh-shimmer';
 import ExamConfigModal from '../components/ExamConfigModal/ExamConfigModal';
+import EmptyState from '../components/EmptyState/EmptyState';
+import { useToast } from '../components/Toast/ToastProvider';
 import { setUserProperties, trackFeatureUsed } from '@/lib/ga';
 import AdBanner from '../components/AdBanner/AdBanner';
 import { cn } from '@/lib/utils';
@@ -304,13 +306,15 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <div className="py-8 text-center">
-                <p className="text-2xl mb-2">🚀</p>
-                <p className="text-muted-foreground text-sm mb-1">No activity yet</p>
-                <p className="text-xs text-muted-foreground">
-                  Take an exam, solve a coding challenge, or try an interview to see your progress here.
-                </p>
-              </div>
+              <EmptyState
+                emoji="🚀"
+                title="No activity yet"
+                description="Take an exam, solve a coding challenge, or try an interview to see your progress here."
+                action={{
+                  label: 'Start an Activity',
+                  href: '/dashboard/generate'
+                }}
+              />
             )}
           </Card>
         </div>

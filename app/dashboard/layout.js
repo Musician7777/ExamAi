@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import ThemePicker from '../components/ThemePicker/ThemePicker';
@@ -112,7 +113,16 @@ function DashboardInner({ children }) {
       >
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 px-5 py-4 font-bold text-lg" aria-label="ExamAI Home">
-          <img src="/Logo.png" alt="ExamAI Logo" className="h-12 w-auto" style={{ mixBlendMode: 'screen' }} />
+          <Image
+            src="/Logo.png"
+            alt="ExamAI Logo"
+            width={48}
+            height={48}
+            className="h-12 w-auto"
+            style={{ mixBlendMode: 'screen' }}
+            sizes="48px"
+            priority
+          />
         </Link>
 
         <Separator />

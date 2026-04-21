@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useSession, signOut } from 'next-auth/react';
 import ThemePicker from '../ThemePicker/ThemePicker';
 import { Menu, X, LogOut } from 'lucide-react';
@@ -40,7 +41,16 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 font-bold text-lg">
-            <img src="/Logo.png" alt="ExamAI" className="h-12 w-auto" style={{ mixBlendMode: 'screen' }} />
+            <Image
+              src="/Logo.png"
+              alt="ExamAI"
+              width={48}
+              height={48}
+              className="h-12 w-auto"
+              style={{ mixBlendMode: 'screen' }}
+              sizes="48px"
+              priority
+            />
           </Link>
 
           {/* Desktop Nav Links */}
@@ -77,7 +87,7 @@ export default function Navbar() {
                   className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
                 >
                   <Avatar className="h-6 w-6">
-                    <AvatarImage src={session.user?.image} />
+                    <AvatarImage src={session.user?.image || undefined} />
                     <AvatarFallback className="text-[10px]">{getInitials(session.user?.name)}</AvatarFallback>
                   </Avatar>
                   <span className="text-sm font-medium">{session.user?.name?.split(' ')[0]}</span>

@@ -164,6 +164,23 @@ export function useAnalytics() {
   });
   const activities = useMemo(() => activitiesData || [], [activitiesData]);
 
+  // ── Deep Analytics (Funnel, Question Performance, Cohort) ──
+  const {
+    data: analyticsData,
+    loading: analyticsLoading,
+    revalidating: analyticsRevalidating,
+  } = useCachedFetch('/api/analytics', {
+    ttl: 120_000, // Longer TTL for aggregated data
+    selector: (json) => json,
+  });
+
+  // Deep analytics data
+  const funnelData = useMemo(() => analyticsData?.funnel || null, [analyticsData]);
+  const questionPerformance = useMemo(() => analyticsData?.questionPerformance || [], [analyticsData]);
+  const difficultyPerformance = useMemo(() => analyticsData?.difficultyPerformance || [], [analyticsData]);
+  const weeklyRetention = useMemo(() => analyticsData?.weeklyRetention || [], [analyticsData]);
+  const recommendations = useMemo(() => analyticsData?.recommendations || null, [analyticsData]);
+
   const { theme } = useTheme();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const chartColors = useMemo(() => getThemeChartColors(), [theme]);
@@ -729,7 +746,8 @@ export function useAnalytics() {
   }, [hasData, scores, typeScores, activities.length]);
 
   return {
-    loading,
+    loading: loading || analyticsLoading,
+    revalidating: revalidating || analyticsRevalidating,
     hasData,
     chartColors,
     lineConfig,
@@ -767,5 +785,11 @@ export function useAnalytics() {
     trend,
     // Streak
     streak,
+    // Deep analytics
+    funnelData,
+    questionPerformance,
+    difficultyPerformance,
+    weeklyRetention,
+    recommendations,
   };
 }

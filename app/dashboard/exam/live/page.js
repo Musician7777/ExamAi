@@ -80,10 +80,14 @@ export default function LiveExamPage() {
   const [marked, setMarked] = useState(new Set());
   const [timeLeft, setTimeLeft] = useState(-1);
   const [showSubmit, setShowSubmit] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [resumePrompt, setResumePrompt] = useState(false);
   const [savedSessionId, setSavedSessionId] = useState(null);
   const timerReady = useRef(false);
   const autoSaveTimerRef = useRef(null);
+
+  // Track if we've tracked exam start (avoid duplicates)
+  const examStartTrackedRef = useRef(false);
 
   // Time-per-question tracking
   const [questionTimes, setQuestionTimes] = useState({});
@@ -147,6 +151,24 @@ export default function LiveExamPage() {
           questionCount: parsed.sections?.reduce((n, s) => n + s.questions.length, 0) || 0,
           duration: parsed.duration || 60,
         });
+
+        // Track exam start event for analytics funnel
+        if (!examStartTrackedRef.current) {
+          examStartTrackedRef.current = true;
+          fetch('/api/analytics', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              eventType: 'exam_start',
+              sessionId: parsed.sessionId || `session_${Date.now()}`,
+              data: {
+                examType: parsed.examType || 'custom',
+                questionType: parsed.questionType || 'MCQ',
+                questionCount: parsed.sections?.reduce((n, s) => n + s.questions.length, 0) || 0,
+              },
+            }),
+          }).catch((e) => clientLogger.warn('Failed to track exam start:', e.message));
+        }
 
         // Save session to DB for resume capability
         try {
@@ -226,6 +248,46 @@ export default function LiveExamPage() {
     const currentQuestionTimes = questionTimesRef.current;
 
     const questions = getAllQuestions();
+    // Track exam completion and individual question performance
+    Promise.all(
+      questions.map((q, i) => {
+        const userAnswer = currentAnswers[i] ?? null;
+        const qType = q.type || 'MCQ';
+        const correct = isAnswerCorrect(q, userAnswer);
+        const timeSpent = currentQuestionTimes[i] || 0;
+
+        // Track question-level analytics
+        return fetch('/api/analytics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            eventType: correct ? 'question_correct' : 'question_incorrect',
+            questionIndex: i,
+            questionType: qType,
+            timeSpent,
+            isCorrect: correct,
+            selectedAnswer: userAnswer,
+            correctAnswer: q.correct,
+            topic: q.topic || q.category || null,
+            difficulty: q.difficulty || null,
+            sessionId: savedSessionId || null,
+            data: { questionText: q.text?.slice(0, 100) },
+          }),
+        }).catch((e) => clientLogger.warn('Failed to track question analytics:', e.message));
+      })
+    ).catch((e) => clientLogger.warn('Failed to track question analytics batch:', e.message));
+
+    // Track exam completion
+    fetch('/api/analytics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventType: 'exam_complete',
+        sessionId: savedSessionId || null,
+        data: { correct, wrong, unanswered, percent },
+      }),
+    }).catch((e) => clientLogger.warn('Failed to track exam complete:', e.message));
+
     const results = questions.map((q, i) => {
       const userAnswer = currentAnswers[i] ?? null;
       const qType = q.type || 'MCQ';
@@ -396,6 +458,11 @@ export default function LiveExamPage() {
         case 'Escape': {
           e.preventDefault();
           setShowSubmit(false);
+          break;
+        }
+        case '?': {
+          e.preventDefault();
+          setShowShortcuts(true);
           break;
         }
       }
@@ -709,7 +776,7 @@ export default function LiveExamPage() {
       </div>
 
       {/* Keyboard shortcuts hint */}
-      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground" role="note" aria-label="Keyboard shortcuts">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" role="note" aria-label="Keyboard shortcuts">
         <span className="px-2 py-1 rounded bg-secondary/50 border">← → Navigate</span>
         {qType === 'MCQ' && <span className="px-2 py-1 rounded bg-secondary/50 border">1-4 Select option</span>}
         {qType === 'MSQ' && <span className="px-2 py-1 rounded bg-secondary/50 border">1-5 Toggle option</span>}
@@ -717,6 +784,7 @@ export default function LiveExamPage() {
         <span className="px-2 py-1 rounded bg-secondary/50 border">X Clear answer</span>
         <span className="px-2 py-1 rounded bg-secondary/50 border">Enter Submit</span>
         <span className="px-2 py-1 rounded bg-secondary/50 border">Esc Cancel</span>
+        <Button variant='ghost' size='sm' onClick={() => setShowShortcuts(true)} className='text-xs h-6 px-2'>? Help</Button>
       </div>
 
       <div className="grid lg:grid-cols-4 gap-6">
@@ -906,6 +974,47 @@ export default function LiveExamPage() {
               Cancel
             </Button>
             <Button onClick={handleSubmit}>Confirm Submit</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Keyboard Shortcuts Help Modal */}
+      <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
+        <DialogContent className='max-w-md'>
+          <DialogHeader>
+            <DialogTitle>⌨️ Keyboard Shortcuts</DialogTitle>
+            <DialogDescription>
+              Navigate faster using these keyboard shortcuts during the exam.
+            </DialogDescription>
+          </DialogHeader>
+          <div className='space-y-4 py-4'>
+            <div className='grid gap-3'>
+              {[
+                { key: '← →', desc: 'Navigate between questions' },
+                { key: '↑ ↓', desc: 'Also navigate between questions' },
+                { key: '1-5', desc: 'Select or toggle answer options' },
+                { key: 'M', desc: 'Mark/Unmark question for review' },
+                { key: 'X', desc: 'Clear your answer' },
+                { key: 'Enter', desc: 'Open submit dialog' },
+                { key: 'Esc', desc: 'Close dialogs' },
+                { key: '?', desc: 'Show this help dialog' },
+              ].map((shortcut) => (
+                <div key={shortcut.key} className='flex items-center justify-between'>
+                  <kbd className='px-3 py-1.5 rounded bg-secondary text-sm font-mono font-semibold min-w-[60px] text-center'>
+                    {shortcut.key}
+                  </kbd>
+                  <span className='text-sm text-muted-foreground'>{shortcut.desc}</span>
+                </div>
+              ))}
+            </div>
+            <div className='pt-4 border-t'>
+              <p className='text-xs text-muted-foreground text-center'>
+                Shortcuts are disabled when typing in input fields.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant='outline' onClick={() => setShowShortcuts(false)}>Got it!</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

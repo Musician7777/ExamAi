@@ -9,6 +9,7 @@ import { RefreshShimmer } from '@/components/ui/refresh-shimmer';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import EmptyState from '@/app/components/EmptyState/EmptyState';
 import AdBanner from '@/app/components/AdBanner/AdBanner';
 
 export default function LeaderboardPage() {
@@ -85,10 +86,16 @@ export default function LeaderboardPage() {
               ))
             ) : leaderboard.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-16">
-                  <span className="text-4xl">🏆</span>
-                  <h3 className="text-lg font-semibold mt-4">No rankings yet</h3>
-                  <p className="text-muted-foreground mt-1">Complete activities to appear on the leaderboard!</p>
+                <TableCell colSpan={6}>
+                  <EmptyState
+                    emoji="🏆"
+                    title="No rankings yet"
+                    description="Complete activities to appear on the leaderboard!"
+                    action={{
+                      label: 'Start an Activity',
+                      href: '/dashboard/generate'
+                    }}
+                  />
                 </TableCell>
               </TableRow>
             ) : (

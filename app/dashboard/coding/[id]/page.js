@@ -539,7 +539,9 @@ export default function CodingEditorPage() {
       // Dispatch solved event for the coding page tracker
       if (result.passed) {
         try {
-          window.dispatchEvent(new CustomEvent('coding-problem-solved', { detail: { problemId: params.id } }));
+          window.dispatchEvent(new CustomEvent('coding-problem-solved', { 
+            detail: { problemId: params.id, problemTitle: problem.title } 
+          }));
         } catch (e) {
           clientLogger.warn('Failed to dispatch coding-problem-solved event:', e.message);
         }

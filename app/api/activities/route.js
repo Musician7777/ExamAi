@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import connectDB from '@/lib/mongodb';
 import Activity from '@/models/Activity';
 import { awardXP } from '@/lib/services/gamificationService';
+import { updateStudyPlanProgress } from '@/lib/studyPlanService';
 import { rateLimit } from '@/lib/rateLimit';
 import { cacheWrap, cacheDelete, cacheInvalidatePrefix } from '@/lib/services/cacheService';
 import logger from '@/lib/logger';
@@ -121,6 +122,14 @@ export async function POST(request) {
     } catch (xpError) {
       logger.warn({ err: xpError }, 'XP award failed (non-critical)');
     }
+
+    // Update study plan progress automatically (non-blocking)
+    updateStudyPlanProgress(session.user.email, {
+      type,
+      title,
+      tags: tags || [],
+      difficulty,
+    }).catch((err) => logger.warn({ err }, 'Study plan update failed (non-critical)'));
 
     // Invalidate activity & dashboard caches for this user
     const email = session.user.email;

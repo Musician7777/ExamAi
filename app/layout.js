@@ -6,6 +6,7 @@ import AuthProvider from './providers/AuthProvider';
 import { ConsentProvider } from './providers/ConsentProvider';
 import { AdsProvider } from './providers/AdsProvider';
 import CookieConsent from './components/CookieConsent/CookieConsent';
+import { ToastProvider } from './components/Toast/ToastProvider';
 import FloatingCookieButton from './components/FloatingCookieButton/FloatingCookieButton';
 import AdSenseScript from './components/AdBanner/AdSenseScript';
 import PageViewTracker from './components/PageViewTracker/PageViewTracker';
@@ -78,9 +79,11 @@ export default function RootLayout({ children }) {
           <ConsentProvider>
             <AdsProvider>
               <ThemeProvider>
-                <UserIdTracker />
-                <PageViewTracker />
-                {children}
+                <ToastProvider position="top-right">
+                  <UserIdTracker />
+                  <PageViewTracker />
+                  {children}
+                </ToastProvider>
               </ThemeProvider>
               <AdSenseScript />
               <CookieConsent />
@@ -107,6 +110,8 @@ export default function RootLayout({ children }) {
                     'url_passthrough': true,
                     'ads_data_redaction': true
                   });
+                  // eslint-disable-next-line no-console
+                  console.log('[GA4] Consent defaults configured');
                 `,
               }}
             />
@@ -125,6 +130,8 @@ export default function RootLayout({ children }) {
                   gtag('config', '${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}', {
                     send_page_view: true
                   });
+                  // eslint-disable-next-line no-console
+                  console.log('[GA4] Consent Mode v2 initialized');
                 `,
               }}
             />

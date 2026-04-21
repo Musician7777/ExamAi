@@ -10,9 +10,18 @@ import {
   SavedPresetsSection,
 } from '../../components/PresetManager/PresetManager';
 import { useExamPresets } from '@/hooks/useExamPresets';
-import ExamConfigModal from '../../components/ExamConfigModal/ExamConfigModal';
+// Lazy load ExamConfigModal - only needed when user opens config dialog
+import dynamic from 'next/dynamic';
+const ExamConfigModal = dynamic(
+  () => import('../../components/ExamConfigModal/ExamConfigModal'),
+  {
+    loading: () => <div className="fixed inset-0 bg-background/80 backdrop-blur-sm animate-pulse" />,
+    ssr: false,
+  }
+);
 import AdBanner from '../../components/AdBanner/AdBanner';
 import { Card } from '@/components/ui/card';
+import { useToast } from '@/app/components/Toast/ToastProvider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -43,6 +52,7 @@ const diffBadgeVariant = { easy: 'success', medium: 'warning', hard: 'destructiv
 
 export default function CodingPage() {
   const router = useRouter();
+  const toast = useToast();
   const [showFetchModal, setShowFetchModal] = useState(false);
   const [activePreset, setActivePreset] = useState(null);
   const [difficultyFilter, setDifficultyFilter] = useState('all');
@@ -64,7 +74,9 @@ export default function CodingPage() {
       setActivePreset(null);
     },
   });
+  // State to track if modal has been rendered (triggers lazy load)
   const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [modalMounted, setModalMounted] = useState(false);
   const [configModalPreset, setConfigModalPreset] = useState({ name: '', emoji: '' });
 
   // Load solved problem IDs from localStorage
@@ -80,7 +92,7 @@ export default function CodingPage() {
   // Listen for solved events from the coding editor page
   useEffect(() => {
     function handleSolved(e) {
-      const { problemId } = e.detail || {};
+      const { problemId, problemTitle } = e.detail || {};
       if (problemId != null) {
         setSolvedIds((prev) => {
           const next = new Set(prev);
@@ -92,11 +104,13 @@ export default function CodingPage() {
           }
           return next;
         });
+        // Show success toast
+        toast.success('Problem Solved! 🎉', `You solved "${problemTitle || 'Problem ' + problemId}"`);
       }
     }
     window.addEventListener('coding-problem-solved', handleSolved);
     return () => window.removeEventListener('coding-problem-solved', handleSolved);
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     try {
@@ -118,6 +132,7 @@ export default function CodingPage() {
     setActivePreset(preset.id);
     setFetchedProblems(null);
     setConfigModalPreset({ name: preset.name, emoji: preset.emoji });
+    setModalMounted(true); // Trigger lazy mount
     setConfigModalOpen(true);
   }
 
@@ -282,14 +297,16 @@ export default function CodingPage() {
         onSavePreset={handleSavePresetWithFields}
         mode="coding"
       />
-      <ExamConfigModal
-        isOpen={configModalOpen}
-        onClose={() => setConfigModalOpen(false)}
-        onGenerate={handleConfigGenerate}
-        mode="coding"
-        presetName={configModalPreset.name}
-        presetEmoji={configModalPreset.emoji}
-      />
+      {modalMounted && (
+        <ExamConfigModal
+          isOpen={configModalOpen}
+          onClose={() => setConfigModalOpen(false)}
+          onGenerate={handleConfigGenerate}
+          mode="coding"
+          presetName={configModalPreset.name}
+          presetEmoji={configModalPreset.emoji}
+        />
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import ChartCanvas from '@/app/components/ChartCanvas/ChartCanvas';
+import LazyChartCanvas from '@/app/components/ChartCanvas/LazyChartCanvas';
 
 const PALETTE = [
   '#6366f1',
@@ -42,7 +42,7 @@ export default function DeepTopicAnalytics({
         <Card className="p-6">
           <h3 className="font-semibold mb-4">📊 Topic Accuracy</h3>
           <div className="h-64">
-            <ChartCanvas
+            <LazyChartCanvas
               config={{
                 type: 'bar',
                 data: {
@@ -83,7 +83,7 @@ export default function DeepTopicAnalytics({
         <Card className="p-6">
           <h3 className="font-semibold mb-4">📈 Practice Distribution</h3>
           <div className="h-64">
-            <ChartCanvas
+            <LazyChartCanvas
               config={{
                 type: 'doughnut',
                 data: {
