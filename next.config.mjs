@@ -34,9 +34,9 @@ const securityHeaders = [
 const isDev = process.env.NODE_ENV !== 'production';
 const ContentSecurityPolicy = `
   default-src 'self';
-  script-src 'self' ${isDev ? "'unsafe-eval'" : ''} 'unsafe-inline' https://www.googletagmanager.com https://www.google.com;
+  script-src 'self' ${isDev ? "'unsafe-eval'" : ''} 'unsafe-inline' https://www.googletagmanager.com https://www.google.com https://pagead2.googlesyndication.com;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-  img-src 'self' blob: data: https://www.googletagmanager.com https://www.google.com https://www.google-analytics.com https://fonts.gstatic.com;
+  img-src 'self' blob: data: https://www.googletagmanager.com https://www.google.com https://www.google-analytics.com https://fonts.gstatic.com https://lh3.googleusercontent.com https://*.googleusercontent.com;
   font-src 'self' https://fonts.gstatic.com;
   connect-src 'self' https://www.google-analytics.com https://analytics.google.com https://www.google.com;
   frame-src 'self' https://www.google.com;
