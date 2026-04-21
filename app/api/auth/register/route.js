@@ -2,25 +2,25 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
+import { registerSchema, validateRequest } from '@/lib/validation';
 import logger from '@/lib/logger';
 
 export async function POST(request) {
   try {
-    const { name, email, password } = await request.json();
+    const body = await request.json();
 
-    // Validate input
-    if (!name || !email || !password) {
-      return NextResponse.json({ error: 'Name, email, and password are required' }, { status: 400 });
+    // Validate input with Zod
+    const validation = validateRequest(registerSchema, body);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    if (password.length < 8) {
-      return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
-    }
+    const { name, email, password } = validation.data;
 
     await connectDB();
 
     // Check if user already exists
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const existingUser = await User.findOne({ email });
 
     if (existingUser) {
       return NextResponse.json({ error: 'An account with this email already exists' }, { status: 409 });
@@ -31,7 +31,7 @@ export async function POST(request) {
 
     const user = await User.create({
       name,
-      email: email.toLowerCase(),
+      email,
       password: hashedPassword,
       authProvider: 'credentials',
     });
