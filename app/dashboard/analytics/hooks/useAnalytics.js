@@ -301,6 +301,135 @@ export function useAnalytics() {
     [activitiesWithDuration, chartColors]
   );
 
+  // Streak tracking — daily and weekly practice streaks from activity timestamps
+  const streak = useMemo(() => {
+    if (activities.length === 0) return null;
+
+    // Helper: format a Date as YYYY-MM-DD in local timezone
+    const toDayStr = (d) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    // Helper: check if two YYYY-MM-DD strings are consecutive calendar days (DST-safe)
+    const areConsecutiveDays = (a, b) => {
+      const dA = new Date(a + 'T12:00:00'); // noon to avoid DST boundary
+      const dB = new Date(b + 'T12:00:00');
+      const diffDays = Math.round((dB - dA) / 86_400_000);
+      return diffDays === 1;
+    };
+
+    // Group activities by local calendar day
+    const daySet = new Set(activities.map((a) => toDayStr(new Date(a.createdAt))));
+    const uniqueDays = [...daySet].sort(); // ascending
+
+    // Current daily streak: count consecutive days ending today or yesterday
+    const today = new Date();
+    const todayStr = toDayStr(today);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = toDayStr(yesterday);
+
+    let currentStreak = 0;
+    const lastDay = uniqueDays[uniqueDays.length - 1];
+    if (lastDay === todayStr || lastDay === yesterdayStr) {
+      const checkDate = new Date(lastDay + 'T12:00:00');
+      while (daySet.has(toDayStr(checkDate))) {
+        currentStreak++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
+    }
+
+    // Longest daily streak across all time (DST-safe: compare calendar days, not ms)
+    let longestStreak = 0;
+    let runLen = 1;
+    for (let i = 1; i < uniqueDays.length; i++) {
+      if (areConsecutiveDays(uniqueDays[i - 1], uniqueDays[i])) {
+        runLen++;
+      } else {
+        longestStreak = Math.max(longestStreak, runLen);
+        runLen = 1;
+      }
+    }
+    longestStreak = Math.max(longestStreak, runLen, currentStreak);
+
+    // Helper: get the Monday of the week containing a date (as YYYY-MM-DD)
+    const getWeekMonday = (d) => {
+      const day = d.getDay(); // 0=Sun, 1=Mon, ...
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      const monday = new Date(d);
+      monday.setDate(monday.getDate() + diffToMonday);
+      return toDayStr(monday);
+    };
+
+    // Weekly streak: consecutive weeks (Mon–Sun) with at least 1 activity
+    const weekSet = new Set(activities.map((a) => getWeekMonday(new Date(a.createdAt))));
+    const uniqueWeeks = [...weekSet].sort(); // ascending by Monday
+
+    // Current weekly streak: consecutive weeks ending this week or last week
+    const thisWeekMonday = getWeekMonday(today);
+    const lastWeekMonday = new Date(today);
+    lastWeekMonday.setDate(lastWeekMonday.getDate() - 7);
+    const lastWeekMondayStr = getWeekMonday(lastWeekMonday);
+
+    let weeklyStreak = 0;
+    const lastWeek = uniqueWeeks[uniqueWeeks.length - 1];
+    if (lastWeek === thisWeekMonday || lastWeek === lastWeekMondayStr) {
+      const checkWeek = new Date(lastWeek + 'T12:00:00');
+      while (weekSet.has(toDayStr(checkWeek))) {
+        weeklyStreak++;
+        checkWeek.setDate(checkWeek.getDate() - 7);
+      }
+    }
+
+    // Longest weekly streak
+    let longestWeeklyStreak = 0;
+    let weekRun = 1;
+    for (let i = 1; i < uniqueWeeks.length; i++) {
+      const prevMonday = new Date(uniqueWeeks[i - 1] + 'T12:00:00');
+      const currMonday = new Date(uniqueWeeks[i] + 'T12:00:00');
+      const diffDays = Math.round((currMonday - prevMonday) / 86_400_000);
+      if (diffDays === 7) {
+        weekRun++;
+      } else {
+        longestWeeklyStreak = Math.max(longestWeeklyStreak, weekRun);
+        weekRun = 1;
+      }
+    }
+    longestWeeklyStreak = Math.max(longestWeeklyStreak, weekRun, weeklyStreak);
+
+    // 28-day calendar heatmap aligned to day-of-week columns
+    const activityCountsByDay = {};
+    activities.forEach((a) => {
+      const dayStr = toDayStr(new Date(a.createdAt));
+      activityCountsByDay[dayStr] = (activityCountsByDay[dayStr] || 0) + 1;
+    });
+
+    // Grid always starts on a Monday 3 weeks before this week — no leading empty cells needed
+    const thisMonday = getWeekMonday(today);
+    const gridStart = new Date(thisMonday + 'T12:00:00');
+    gridStart.setDate(gridStart.getDate() - 21); // 3 weeks before this week's Monday
+
+    const calendarDays = [];
+    for (let offset = 0; offset < 28; offset++) {
+      const d = new Date(gridStart);
+      d.setDate(d.getDate() + offset);
+      const dayStr = toDayStr(d);
+      calendarDays.push({
+        date: dayStr,
+        count: activityCountsByDay[dayStr] || 0,
+        isToday: dayStr === todayStr,
+      });
+    }
+
+    return {
+      currentStreak,
+      longestStreak,
+      weeklyStreak,
+      longestWeeklyStreak,
+      totalActiveDays: uniqueDays.length,
+      calendarDays,
+    };
+  }, [activities]);
+
   // Trend indicators — compare recent half vs earlier half of activities
   const trend = useMemo(() => {
     if (scores.length < 4) return null;
@@ -535,5 +664,7 @@ export function useAnalytics() {
     scatterConfig,
     // Trend
     trend,
+    // Streak
+    streak,
   };
 }

@@ -2,7 +2,7 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertCircle, RotateCw, TrendingUp, TrendingDown, Minus, Clock } from 'lucide-react';
+import { AlertCircle, RotateCw, TrendingUp, TrendingDown, Minus, Clock, Flame } from 'lucide-react';
 import ChartCanvas from '@/app/components/ChartCanvas/ChartCanvas';
 import AnalyticsLoadingSkeleton from './AnalyticsLoadingSkeleton';
 import DeepTopicAnalytics from './DeepTopicAnalytics';
@@ -43,6 +43,7 @@ export default function AnalyticsPage() {
     avgDurationByType,
     activitiesWithDuration,
     scatterConfig,
+    streak,
   } = useAnalytics();
 
   // Date range picker rendered in both error and success states
@@ -182,6 +183,95 @@ export default function AnalyticsPage() {
           </div>
         </Card>
       </div>
+
+      {/* Streak tracking — only shown when there is streak data */}
+      {streak && (
+        <Card className="p-6">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+            <div>
+              <h3 className="font-semibold flex items-center gap-2">
+                <Flame className="h-5 w-5 text-orange-500" /> Practice Streak
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">Keep your streak alive by practicing every day!</p>
+            </div>
+            <div className="flex gap-3 flex-wrap">
+              <div className="rounded-lg bg-orange-500/10 px-4 py-2 text-center">
+                <p className="text-2xl font-bold text-orange-500">{streak.currentStreak}</p>
+                <p className="text-xs text-muted-foreground">Current Day</p>
+              </div>
+              <div className="rounded-lg bg-amber-500/10 px-4 py-2 text-center">
+                <p className="text-2xl font-bold text-amber-500">{streak.longestStreak}</p>
+                <p className="text-xs text-muted-foreground">Best Day</p>
+              </div>
+              <div className="rounded-lg bg-violet-500/10 px-4 py-2 text-center">
+                <p className="text-2xl font-bold text-violet-500">{streak.weeklyStreak}</p>
+                <p className="text-xs text-muted-foreground">Current Week</p>
+              </div>
+              <div className="rounded-lg bg-purple-500/10 px-4 py-2 text-center">
+                <p className="text-2xl font-bold text-purple-500">{streak.longestWeeklyStreak}</p>
+                <p className="text-xs text-muted-foreground">Best Week</p>
+              </div>
+              <div className="rounded-lg bg-sky-500/10 px-4 py-2 text-center">
+                <p className="text-2xl font-bold text-sky-500">{streak.totalActiveDays}</p>
+                <p className="text-xs text-muted-foreground">Total Days</p>
+              </div>
+            </div>
+          </div>
+
+          {/* 28-day mini heatmap */}
+          <div className="mt-2">
+            <div className="flex items-center gap-1 mb-2">
+              <span className="text-xs text-muted-foreground">Last 28 days</span>
+              <div className="flex items-center gap-1 ml-auto">
+                <span className="text-[10px] text-muted-foreground">Less</span>
+                {[0, 1, 2, 3].map((level) => (
+                  <div
+                    key={level}
+                    className={`h-3 w-3 rounded-sm ${
+                      level === 0
+                        ? 'bg-muted/50'
+                        : level === 1
+                          ? 'bg-orange-500/25'
+                          : level === 2
+                            ? 'bg-orange-500/50'
+                            : 'bg-orange-500/80'
+                    }`}
+                  />
+                ))}
+                <span className="text-[10px] text-muted-foreground">More</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-7 gap-1.5">
+              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+                <div key={i} className="text-[10px] text-muted-foreground text-center">
+                  {d}
+                </div>
+              ))}
+              {streak.calendarDays.map((day) => {
+                const level = day.count === 0 ? 0 : day.count <= 1 ? 1 : day.count <= 3 ? 2 : 3;
+                return (
+                  <div
+                    key={day.date}
+                    title={`${day.date}: ${day.count} activit${day.count === 1 ? 'y' : 'ies'}`}
+                    aria-label={`${day.date}: ${day.count} activit${day.count === 1 ? 'y' : 'ies'}`}
+                    className={`h-5 w-full rounded-sm transition-colors cursor-default ${
+                      day.isToday ? 'ring-1 ring-orange-500/50' : ''
+                    } ${
+                      level === 0
+                        ? 'bg-muted/50'
+                        : level === 1
+                          ? 'bg-orange-500/25'
+                          : level === 2
+                            ? 'bg-orange-500/50'
+                            : 'bg-orange-500/80'
+                    }`}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Difficulty breakdown — only shown when at least one activity has a difficulty set */}
       {easyScores.length + medScores.length + hardScores.length + mixedScores.length > 0 && (
