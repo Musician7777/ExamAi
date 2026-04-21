@@ -34,7 +34,7 @@ import { useSpeechRecognition } from './hooks/useSpeechRecognition';
 import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
 import { cacheInvalidate } from '@/lib/clientCache';
 import clientLogger from '@/lib/client-logger';
-import { trackInterviewStart, trackInterviewComplete } from '@/lib/ga';
+import { trackInterviewStart, trackInterviewComplete, trackFeatureUsed } from '@/lib/ga';
 import { BarVisualizer } from '@/components/ui/bar-visualizer';
 import {
   Conversation,
@@ -276,6 +276,10 @@ export default function InterviewPage() {
 
   /* ─── Handle AI-fetched interview config ─── */
   function handleUseFetchedConfig(config) {
+    trackFeatureUsed({
+      featureName: 'preset_use',
+      context: `interview_fetch:${config.title || config.name || 'unknown'}`,
+    });
     setFetchedConfig(config);
     setSelectedTemplate(config.interviewType || 'technical');
     setShowCustom(false);
@@ -283,6 +287,7 @@ export default function InterviewPage() {
 
   /* ─── Handle saved preset selection ─── */
   function handleSelectSavedPreset(preset) {
+    trackFeatureUsed({ featureName: 'preset_use', context: `interview:${preset.name}` });
     setFetchedConfig(preset);
     setSelectedTemplate(preset.interviewType || preset.id || 'technical');
     setShowCustom(false);

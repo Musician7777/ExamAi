@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 
 import { cn } from '@/lib/utils';
 import clientLogger from '@/lib/client-logger';
+import { trackFeatureUsed } from '@/lib/ga';
 
 export default function StudyAssistant({ notify } = {}) {
   const [isOpen, setIsOpen] = useState(false);
@@ -30,6 +31,7 @@ export default function StudyAssistant({ notify } = {}) {
     setInput('');
     setMessages((prev) => [...prev, { role: 'user', text: userMsg }]);
     setLoading(true);
+    trackFeatureUsed({ featureName: 'study_assistant', context: 'send_message' });
 
     try {
       const history = messages.slice(-10).map((m) => ({ role: m.role, text: m.text }));
@@ -62,7 +64,11 @@ export default function StudyAssistant({ notify } = {}) {
           'fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white transition-all duration-300 hover:scale-110',
           isOpen ? 'bg-muted text-foreground rotate-0' : 'bg-gradient-to-br from-indigo-500 to-indigo-600'
         )}
-        onClick={() => setIsOpen((v) => !v)}
+        onClick={() => {
+          const opening = !isOpen;
+          setIsOpen((v) => !v);
+          if (opening) trackFeatureUsed({ featureName: 'study_assistant', context: 'open' });
+        }}
         aria-label="Study Assistant"
       >
         {isOpen ? <X className="h-5 w-5" /> : <MessageCircle className="h-6 w-6" />}

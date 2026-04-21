@@ -20,7 +20,7 @@ export function ConsentProvider({ children }) {
     try {
       const stored = localStorage.getItem(CONSENT_KEY);
       if (stored === 'granted' || stored === 'denied') {
-        setConsent(stored); // eslint-disable-line react-hooks/set-state-in-effect -- hydrate consent from localStorage on mount
+        setConsent(stored);
       }
     } catch {
       // localStorage unavailable (SSR / private browsing)
@@ -29,13 +29,38 @@ export function ConsentProvider({ children }) {
   }, []);
 
   // Sync stored consent to gtag on mount (so returning users who already accepted get analytics)
+  // Retries up to 5 times because the gtag script may not have loaded yet when this effect first runs.
   useEffect(() => {
-    if (consent === 'granted' && typeof window !== 'undefined' && typeof window.gtag === 'function') {
-      window.gtag('consent', 'update', {
-        analytics_storage: 'granted',
-        ad_storage: 'granted',
-      });
+    if (consent !== 'granted') return;
+
+    let attempts = 0;
+    const maxAttempts = 5;
+    const delay = 500; // ms between retries
+
+    function syncConsent() {
+      if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+        window.gtag('consent', 'update', {
+          analytics_storage: 'granted',
+          ad_storage: 'granted',
+          ad_user_data: 'granted',
+          ad_personalization: 'granted',
+          ads_data_redaction: false,
+        });
+        return true;
+      }
+      return false;
     }
+
+    if (syncConsent()) return;
+
+    const interval = setInterval(() => {
+      attempts++;
+      if (syncConsent() || attempts >= maxAttempts) {
+        clearInterval(interval);
+      }
+    }, delay);
+
+    return () => clearInterval(interval);
   }, [consent]);
 
   const accept = useCallback(() => {
@@ -50,6 +75,9 @@ export function ConsentProvider({ children }) {
       window.gtag('consent', 'update', {
         analytics_storage: 'granted',
         ad_storage: 'granted',
+        ad_user_data: 'granted',
+        ad_personalization: 'granted',
+        ads_data_redaction: false,
       });
     }
   }, []);
@@ -66,6 +94,9 @@ export function ConsentProvider({ children }) {
       window.gtag('consent', 'update', {
         analytics_storage: 'denied',
         ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+        ads_data_redaction: true,
       });
     }
   }, []);
@@ -82,6 +113,9 @@ export function ConsentProvider({ children }) {
       window.gtag('consent', 'update', {
         analytics_storage: 'denied',
         ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+        ads_data_redaction: true,
       });
     }
   }, []);

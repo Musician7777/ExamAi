@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { RefreshShimmer } from '@/components/ui/refresh-shimmer';
 import ExamConfigModal from '../components/ExamConfigModal/ExamConfigModal';
+import { setUserProperties, trackFeatureUsed } from '@/lib/ga';
 import AdBanner from '../components/AdBanner/AdBanner';
 import { cn } from '@/lib/utils';
 
@@ -163,11 +164,26 @@ export default function DashboardPage() {
   const loading = dashLoading || gamLoading;
   const revalidating = !loading && (dashRevalidating || gamRevalidating);
 
+  // Enrich GA4 user_properties with gamification data when it becomes available.
+  // UserIdTracker sets the minimal set (auth_provider) on session change;
+  // this augments it with level, streak, and activity counts — all non-PII.
+  useEffect(() => {
+    if (!gamData) return;
+    setUserProperties({
+      user_level: String(gamData.levelInfo?.level ?? ''),
+      user_streak: String(gamData.currentStreak ?? 0),
+      total_exams: String(gamData.totalExams ?? 0),
+      total_coding: String(gamData.totalCoding ?? 0),
+      total_interviews: String(gamData.totalInterviews ?? 0),
+    });
+  }, [gamData]);
+
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [configModalMode, setConfigModalMode] = useState('exam');
   const [configModalPreset, setConfigModalPreset] = useState({ name: '', emoji: '' });
 
   function handleQuickAction(action) {
+    trackFeatureUsed({ featureName: 'quick_action', context: action.title });
     if (!action.mode) {
       router.push(action.href);
       return;

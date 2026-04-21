@@ -1,6 +1,7 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import clientLogger from '@/lib/client-logger';
+import { trackFeatureUsed } from '@/lib/ga';
 
 /**
  * Text-to-Speech hook with Kokoro TTS API + browser fallback.
@@ -114,6 +115,7 @@ export function useSpeechSynthesis() {
       }
 
       try {
+        trackFeatureUsed({ featureName: 'tts', context: 'kokoro_api' });
         const res = await fetch('/api/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -121,6 +123,7 @@ export function useSpeechSynthesis() {
         });
 
         if (!res.ok) {
+          trackFeatureUsed({ featureName: 'tts', context: 'browser_fallback' });
           speakWithBrowserFallback(clean);
           return;
         }
@@ -147,6 +150,7 @@ export function useSpeechSynthesis() {
               objectUrlRef.current = null;
             }
             audioRef.current = null;
+            trackFeatureUsed({ featureName: 'tts', context: 'browser_fallback' });
             speakWithBrowserFallback(clean);
           }
         };
@@ -155,6 +159,7 @@ export function useSpeechSynthesis() {
         await audio.play();
       } catch (e) {
         clientLogger.warn('TTS API failed, falling back to browser speech:', e.message);
+        trackFeatureUsed({ featureName: 'tts', context: 'browser_fallback' });
         speakWithBrowserFallback(clean);
       }
     },

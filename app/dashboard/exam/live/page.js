@@ -18,7 +18,7 @@ import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import clientLogger from '@/lib/client-logger';
-import { trackExamSubmit } from '@/lib/ga';
+import { trackExamSubmit, trackExamStart } from '@/lib/ga';
 import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
 import QuestionTypeBadge from '@/app/components/QuestionTypeBadge/QuestionTypeBadge';
 
@@ -139,6 +139,14 @@ export default function LiveExamPage() {
         setTimeLeft(duration);
         timerReady.current = true;
         questionStartRef.current = Date.now();
+
+        // Track exam start (user actually began the exam)
+        trackExamStart({
+          examType: parsed.examType || 'custom',
+          questionType: parsed.questionType || 'MCQ',
+          questionCount: parsed.sections?.reduce((n, s) => n + s.questions.length, 0) || 0,
+          duration: parsed.duration || 60,
+        });
 
         // Save session to DB for resume capability
         try {
@@ -414,6 +422,15 @@ export default function LiveExamPage() {
           timerReady.current = true;
           setResumePrompt(false);
           questionStartRef.current = Date.now();
+
+          // Track exam start for resumed exams (same as fresh start)
+          trackExamStart({
+            examType: latestSession.examData.examType || 'custom',
+            questionType: latestSession.examData.questionType || 'MCQ',
+            questionCount: latestSession.examData.sections?.reduce((n, s) => n + s.questions.length, 0) || 0,
+            duration: latestSession.examData.duration || 60,
+          });
+
           return;
         }
       }

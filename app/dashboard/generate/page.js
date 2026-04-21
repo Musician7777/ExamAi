@@ -19,7 +19,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import clientLogger from '@/lib/client-logger';
-import { trackExamGenerate } from '@/lib/ga';
+import { trackExamGenerate, trackFeatureUsed } from '@/lib/ga';
 import { examProfiles } from '@/lib/prompts/examPrompts';
 import SubjectManager from '@/app/components/SubjectManager/SubjectManager';
 
@@ -156,6 +156,10 @@ export default function GeneratePage() {
   const [customSubjects, setCustomSubjects] = useState([]);
 
   function handleUseFetchedConfig(config) {
+    trackFeatureUsed({
+      featureName: 'preset_use',
+      context: `exam_fetch:${config.examName || config.name || 'unknown'}`,
+    });
     setFetchedConfig(config);
     // Populate subjects from fetched config sections
     const sections = Array.isArray(config.sections)
@@ -184,6 +188,7 @@ export default function GeneratePage() {
   }
 
   function handleSelectSavedPreset(preset) {
+    trackFeatureUsed({ featureName: 'preset_use', context: `exam:${preset.name}` });
     setFetchedConfig(preset);
     // Populate subjects from saved preset sections
     const sections = Array.isArray(preset.sections)

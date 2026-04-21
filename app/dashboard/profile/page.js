@@ -4,6 +4,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { useCachedFetch } from '@/hooks/useCachedFetch';
 import clientLogger from '@/lib/client-logger';
+import { trackFeatureUsed } from '@/lib/ga';
 import { cacheInvalidate } from '@/lib/clientCache';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -427,6 +428,7 @@ function ProfilePageInner() {
 
   async function handleShareProfile() {
     setSharing(true);
+    trackFeatureUsed({ featureName: 'share_profile', context: 'profile_page' });
     try {
       const res = await fetch('/api/share', {
         method: 'POST',
@@ -459,6 +461,7 @@ function ProfilePageInner() {
   function handleCopyUrl() {
     if (shareUrl) {
       navigator.clipboard.writeText(shareUrl);
+      trackFeatureUsed({ featureName: 'share_profile', context: 'copy_link' });
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -519,6 +522,7 @@ function ProfilePageInner() {
 
     setUploadingAvatar(true);
     setMessage(null);
+    trackFeatureUsed({ featureName: 'avatar_upload', context: 'select' });
 
     try {
       // Client-side resize using Canvas
@@ -557,6 +561,7 @@ function ProfilePageInner() {
   async function handleRemoveAvatar() {
     setUploadingAvatar(true);
     setMessage(null);
+    trackFeatureUsed({ featureName: 'avatar_upload', context: 'remove' });
     try {
       const res = await fetch('/api/user', {
         method: 'PATCH',

@@ -67,15 +67,20 @@ const handler = NextAuth({
       }
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
+      }
+      // Persist auth provider so we can use it in session (no extra DB query)
+      if (account) {
+        token.authProvider = account.provider;
       }
       return token;
     },
     async session({ session, token }) {
       if (token) {
         session.user.id = token.id;
+        session.user.authProvider = token.authProvider;
       }
       return session;
     },

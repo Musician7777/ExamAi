@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import clientLogger from '@/lib/client-logger';
+import { trackFeatureUsed } from '@/lib/ga';
 
 const defaultProblems = [
   { id: 1, title: 'Two Sum', tags: ['Array', 'Hash Map'], difficulty: 'easy' },
@@ -120,10 +121,12 @@ export default function CodingPage() {
   const solvedCount = allProblems.filter((p) => solvedIds.has(String(p.id))).length;
 
   function handleUseFetchedConfig(config) {
+    trackFeatureUsed({ featureName: 'preset_use', context: `coding_fetch:${config.title || 'unknown'}` });
     setFetchedProblems(config);
     setActivePreset(null);
   }
   function handleSelectSavedPreset(preset) {
+    trackFeatureUsed({ featureName: 'preset_use', context: `coding:${preset.name}` });
     if (preset.problems) setFetchedProblems(preset);
     setActivePreset(preset.id);
   }

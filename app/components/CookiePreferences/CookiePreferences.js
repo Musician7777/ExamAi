@@ -5,6 +5,7 @@ import { Shield, Check, Info, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useConsent } from '@/app/providers/ConsentProvider';
+import { trackConsentDecision } from '@/lib/ga';
 
 export default function CookiePreferences() {
   const { consent, accept, reject, resetConsent } = useConsent();
@@ -22,17 +23,20 @@ export default function CookiePreferences() {
   const isDenied = consent === 'denied';
 
   function handleAccept() {
+    trackConsentDecision({ decision: 'accepted' });
     accept();
     setConfirmReset(false);
   }
 
   function handleReject() {
+    trackConsentDecision({ decision: 'rejected' });
     reject();
     setConfirmReset(false);
   }
 
   function handleReset() {
     if (confirmReset) {
+      trackConsentDecision({ decision: 'reset' });
       resetConsent(); // Clears localStorage, sets consent to null, re-shows banner
       setConfirmReset(false);
     } else {

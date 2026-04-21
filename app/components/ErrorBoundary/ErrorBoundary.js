@@ -3,6 +3,7 @@ import { Component } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import clientLogger from '@/lib/client-logger';
+import { trackError } from '@/lib/ga';
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -16,6 +17,12 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     clientLogger.error('ErrorBoundary caught:', error, errorInfo);
+    // Track error in GA4 for production visibility
+    trackError({
+      errorName: error?.name || 'UnknownError',
+      errorCategory: 'react_error_boundary',
+      fatal: true,
+    });
   }
 
   handleReset = () => {

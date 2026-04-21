@@ -8,6 +8,8 @@ import { AdsProvider } from './providers/AdsProvider';
 import CookieConsent from './components/CookieConsent/CookieConsent';
 import FloatingCookieButton from './components/FloatingCookieButton/FloatingCookieButton';
 import AdSenseScript from './components/AdBanner/AdSenseScript';
+import PageViewTracker from './components/PageViewTracker/PageViewTracker';
+import UserIdTracker from './components/UserIdTracker/UserIdTracker';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -55,7 +57,11 @@ export default function RootLayout({ children }) {
         <AuthProvider>
           <ConsentProvider>
             <AdsProvider>
-              <ThemeProvider>{children}</ThemeProvider>
+              <ThemeProvider>
+                <UserIdTracker />
+                <PageViewTracker />
+                {children}
+              </ThemeProvider>
               <AdSenseScript />
               <CookieConsent />
               <FloatingCookieButton />
@@ -75,7 +81,11 @@ export default function RootLayout({ children }) {
                   gtag('consent', 'default', {
                     'analytics_storage': 'denied',
                     'ad_storage': 'denied',
-                    'wait_for_update': 500
+                    'ad_user_data': 'denied',
+                    'ad_personalization': 'denied',
+                    'wait_for_update': 500,
+                    'url_passthrough': true,
+                    'ads_data_redaction': true
                   });
                 `,
               }}

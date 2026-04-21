@@ -5,6 +5,7 @@ import { useTheme } from '../../providers/ThemeProvider';
 import { Palette, Check } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { trackFeatureUsed } from '@/lib/ga';
 
 const themeCategories = [
   {
@@ -80,6 +81,7 @@ export default function ThemePicker({ side = 'right', align = 'end', isSidebar =
       const root = document.documentElement;
       root.classList.add('theme-transition');
       setTheme(themeId);
+      trackFeatureUsed({ featureName: 'theme_change', context: themeId });
       // Clear any previous timeout so rapid clicks don't remove
       // the transition class mid-animation
       if (transitionRef.current) clearTimeout(transitionRef.current);
