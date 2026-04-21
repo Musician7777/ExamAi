@@ -121,6 +121,19 @@ function getPresetDates(presetKey) {
   };
 }
 
+/** Shared tooltip style for all Chart.js configs */
+const TOOLTIP_STYLE = {
+  backgroundColor: 'rgba(15, 23, 42, 0.9)',
+  titleColor: '#e2e8f0',
+  bodyColor: '#cbd5e1',
+  borderColor: 'rgba(99, 102, 241, 0.3)',
+  borderWidth: 1,
+  padding: 10,
+  cornerRadius: 8,
+  titleFont: { size: 12, weight: '600' },
+  bodyFont: { size: 11 },
+};
+
 /**
  * Custom hook that fetches activities and computes all analytics data.
  * Returns loading state, derived metrics, chart configs, and insight cards data.
@@ -156,15 +169,32 @@ export function useAnalytics() {
   const chartColors = useMemo(() => getThemeChartColors(), [theme]);
 
   const hasData = activities.length > 0;
-  const scores = useMemo(
+
+  // Scored activities with metadata — preserved in chronological order for tooltips & labels
+  const scoredActivities = useMemo(
     () =>
       activities
         .filter((a) => a.totalMarks > 0)
-        .map((a) => Math.round((a.score / a.totalMarks) * 100))
-        .reverse(),
+        .map((a) => ({
+          score: Math.round((a.score / a.totalMarks) * 100),
+          title: a.title || 'Untitled',
+          type: a.type,
+          date: a.createdAt,
+        }))
+        .reverse(), // oldest first (chronological)
     [activities]
   );
-  const labels = useMemo(() => scores.map((_, i) => `Activity ${i + 1}`), [scores]);
+  const scores = useMemo(() => scoredActivities.map((a) => a.score), [scoredActivities]);
+
+  // Short date labels like "Jan 5", "Feb 12" — avoids generic "Activity N"
+  const labels = useMemo(
+    () =>
+      scoredActivities.map((a) => {
+        const d = new Date(a.date);
+        return `${d.toLocaleDateString('en-US', { month: 'short' })} ${d.getDate()}`;
+      }),
+    [scoredActivities]
+  );
 
   // Type-wise scores
   const typeScores = useMemo(() => buildTypeScores(activities), [activities]);
@@ -252,6 +282,8 @@ export function useAnalytics() {
             data: activitiesWithDuration.map((a) => ({
               x: a.duration,
               y: Math.round((a.score / a.totalMarks) * 100),
+              title: a.title || 'Untitled',
+              type: a.type,
             })),
             backgroundColor: chartColors.primaryBg,
             borderColor: chartColors.primary,
@@ -266,11 +298,19 @@ export function useAnalytics() {
         plugins: {
           legend: { display: false },
           tooltip: {
+            ...TOOLTIP_STYLE,
             callbacks: {
+              title: () => '',
               label: (ctx) => {
+                const raw = ctx.raw;
                 const mins = Math.floor(ctx.parsed.x / 60);
                 const secs = ctx.parsed.x % 60;
-                return `${mins}m ${secs}s → ${ctx.parsed.y}%`;
+                const typeLabel = raw.type ? raw.type.charAt(0).toUpperCase() + raw.type.slice(1) : '';
+                const title = raw.title || '';
+                const lines = [`Time: ${mins}m ${secs}s  ·  Score: ${ctx.parsed.y}%`];
+                if (title) lines.push(`Title: ${title.length > 40 ? title.slice(0, 40) + '…' : title}`);
+                if (typeLabel) lines.push(`Type: ${typeLabel}`);
+                return lines;
               },
             },
           },
@@ -472,14 +512,41 @@ export function useAnalytics() {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            ...TOOLTIP_STYLE,
+            callbacks: {
+              title: (items) => {
+                if (!hasData || !items.length) return '';
+                const idx = items[0].dataIndex;
+                const sa = scoredActivities[idx];
+                if (!sa) return labels[idx] || '';
+                const d = new Date(sa.date);
+                return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+              },
+              label: (ctx) => {
+                if (!hasData) return '';
+                const sa = scoredActivities[ctx.dataIndex];
+                const typeLabel = sa?.type ? sa.type.charAt(0).toUpperCase() + sa.type.slice(1) : '';
+                const lines = [`Score: ${ctx.parsed.y}%`];
+                if (sa?.title) lines.push(`Title: ${sa.title.length > 40 ? sa.title.slice(0, 40) + '…' : sa.title}`);
+                if (typeLabel) lines.push(`Type: ${typeLabel}`);
+                return lines;
+              },
+            },
+          },
+        },
         scales: {
           y: { min: 0, max: 100, ticks: { color: chartColors.tick }, grid: { color: chartColors.grid } },
-          x: { ticks: { color: chartColors.tick }, grid: { display: false } },
+          x: {
+            ticks: { color: chartColors.tick, maxRotation: 45, autoSkipPadding: 12 },
+            grid: { display: false },
+          },
         },
       },
     }),
-    [hasData, labels, scores, chartColors]
+    [hasData, labels, scores, scoredActivities, chartColors]
   );
 
   const radarConfig = useMemo(
@@ -500,7 +567,19 @@ export function useAnalytics() {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            ...TOOLTIP_STYLE,
+            callbacks: {
+              label: (ctx) => {
+                const topic = topicLabels[ctx.dataIndex];
+                const count = typeScores[topic]?.count || 0;
+                return [`Accuracy: ${ctx.parsed.r}%`, `Activities: ${count}`];
+              },
+            },
+          },
+        },
         scales: {
           r: {
             min: 0,
@@ -512,7 +591,7 @@ export function useAnalytics() {
         },
       },
     }),
-    [topicLabels, topicValues, chartColors]
+    [topicLabels, topicValues, typeScores, chartColors]
   );
 
   const barConfig = useMemo(
@@ -540,7 +619,18 @@ export function useAnalytics() {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            ...TOOLTIP_STYLE,
+            callbacks: {
+              label: (ctx) => {
+                const count = ctx.parsed.y;
+                return [`${count} activit${count === 1 ? 'y' : 'ies'} in this range`];
+              },
+            },
+          },
+        },
         scales: {
           y: { ticks: { color: chartColors.tick, stepSize: 1 }, grid: { color: chartColors.grid } },
           x: { ticks: { color: chartColors.tick }, grid: { display: false } },
@@ -572,6 +662,17 @@ export function useAnalytics() {
           legend: {
             position: 'bottom',
             labels: { color: chartColors.label, padding: 16, font: { size: 12 } },
+          },
+          tooltip: {
+            ...TOOLTIP_STYLE,
+            callbacks: {
+              label: (ctx) => {
+                const total = highScoreCount + midScoreCount + lowScoreCount;
+                const count = ctx.parsed;
+                const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                return [`${count} activit${count === 1 ? 'y' : 'ies'} (${pct}%)`];
+              },
+            },
           },
         },
         cutout: '65%',
