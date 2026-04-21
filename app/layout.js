@@ -53,6 +53,26 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      {/* Prevent dark mode flash — set theme class before React hydrates */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            (function() {
+              try {
+                var VALID_THEMES = ['light','dark','simple-white','punchy','gradient','aurora','sunset','ocean','glass-dark','glass-light','frosted'];
+                var stored = localStorage.getItem('examai-theme');
+                if (stored && VALID_THEMES.indexOf(stored) > -1) {
+                  document.documentElement.classList.add(stored);
+                } else {
+                  document.documentElement.classList.add('dark');
+                }
+              } catch(e) {
+                document.documentElement.classList.add('dark');
+              }
+            })();
+          `,
+        }}
+      />
       <body className={inter.variable}>
         <AuthProvider>
           <ConsentProvider>

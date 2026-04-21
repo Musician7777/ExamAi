@@ -5,6 +5,7 @@ import User from '@/models/User';
 import PasswordReset from '@/models/PasswordReset';
 import { rateLimit } from '@/lib/rateLimit';
 import { sendPasswordResetEmail } from '@/lib/services/emailService';
+import { forgotPasswordSchema, validateRequest } from '@/lib/validation';
 import logger from '@/lib/logger';
 
 export async function POST(request) {
@@ -14,16 +15,18 @@ export async function POST(request) {
     if (rateLimitResult) return rateLimitResult;
 
     await connectDB();
-    const { email } = await request.json();
+    const body = await request.json();
 
-    if (!email || !email.trim()) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    // Validate input with Zod
+    const validation = validateRequest(forgotPasswordSchema, body);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
+    const { email } = validation.data;
 
     // Always return success to prevent email enumeration
-    const user = await User.findOne({ email: normalizedEmail });
+    const user = await User.findOne({ email });
     if (!user) {
       // Still return success but don't create token
       return NextResponse.json({
@@ -39,19 +42,19 @@ export async function POST(request) {
     }
 
     // Invalidate any existing tokens for this email
-    await PasswordReset.updateMany({ email: normalizedEmail, used: false }, { used: true });
+    await PasswordReset.updateMany({ email, used: false }, { used: true });
 
     // Generate a secure token
     const token = crypto.randomBytes(32).toString('hex');
 
     await PasswordReset.create({
-      email: normalizedEmail,
+      email,
       token,
       expiresAt: new Date(Date.now() + 3600000), // 1 hour
     });
 
     // Send password reset email (falls back to dev mode if RESEND_API_KEY is not set)
-    const emailResult = await sendPasswordResetEmail({ to: normalizedEmail, token });
+    const emailResult = await sendPasswordResetEmail({ to: email, token });
 
     if (emailResult.sent) {
       // Production: email was sent successfully

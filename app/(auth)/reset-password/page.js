@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Lock, CheckCircle2, XCircle } from 'lucide-react';
+import { Lock, CheckCircle2, XCircle, Check, X } from 'lucide-react';
 import clientLogger from '@/lib/client-logger';
 
 function ResetPasswordForm() {
@@ -18,6 +18,16 @@ function ResetPasswordForm() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
+
+  const passwordRules = [
+    { label: 'At least 8 characters', met: newPassword.length >= 8 },
+    { label: 'One uppercase letter', met: /[A-Z]/.test(newPassword) },
+    { label: 'One lowercase letter', met: /[a-z]/.test(newPassword) },
+    { label: 'One number', met: /[0-9]/.test(newPassword) },
+  ];
+  const allPasswordRulesMet = passwordRules.every((r) => r.met);
+
   const [message, setMessage] = useState(() =>
     token ? null : { type: 'error', text: 'Invalid or missing reset token. Please request a new password reset.' }
   );
@@ -31,8 +41,8 @@ function ResetPasswordForm() {
       setMessage({ type: 'error', text: 'Passwords do not match' });
       return;
     }
-    if (newPassword.length < 8) {
-      setMessage({ type: 'error', text: 'Password must be at least 8 characters' });
+    if (!allPasswordRulesMet) {
+      setMessage({ type: 'error', text: 'Password does not meet all requirements' });
       return;
     }
 
@@ -105,6 +115,8 @@ function ResetPasswordForm() {
                     placeholder="Minimum 8 characters"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
+                    onFocus={() => setPasswordFocused(true)}
+                    onBlur={() => setPasswordFocused(false)}
                     className="pl-10"
                     required
                     minLength={8}
@@ -112,6 +124,19 @@ function ResetPasswordForm() {
                     autoFocus
                   />
                 </div>
+                {newPassword && (!allPasswordRulesMet || passwordFocused) && (
+                  <div className="space-y-1 pt-1">
+                    {passwordRules.map((rule) => (
+                      <div
+                        key={rule.label}
+                        className={`flex items-center gap-1.5 text-xs transition-colors ${rule.met ? 'text-emerald-500' : 'text-muted-foreground'}`}
+                      >
+                        {rule.met ? <Check className="h-3 w-3 shrink-0" /> : <X className="h-3 w-3 shrink-0" />}
+                        <span>{rule.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirm-password">Confirm New Password</Label>

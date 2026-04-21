@@ -2,24 +2,27 @@
 import { ThemeProvider as NextThemesProvider, useTheme as useNextTheme } from 'next-themes';
 import { useState, useEffect } from 'react';
 
+const THEMES = [
+  'light',
+  'dark',
+  'simple-white',
+  'punchy',
+  'gradient',
+  'aurora',
+  'sunset',
+  'ocean',
+  'glass-dark',
+  'glass-light',
+  'frosted',
+];
+
 export function ThemeProvider({ children }) {
   return (
     <NextThemesProvider
       attribute="class"
       defaultTheme="dark"
-      themes={[
-        'light',
-        'dark',
-        'simple-white',
-        'punchy',
-        'gradient',
-        'aurora',
-        'sunset',
-        'ocean',
-        'glass-dark',
-        'glass-light',
-        'frosted',
-      ]}
+      themes={THEMES}
+      storageKey="examai-theme"
       enableSystem={false}
       disableTransitionOnChange={false}
     >
@@ -33,14 +36,20 @@ export function useTheme() {
   const { theme, setTheme, resolvedTheme } = useNextTheme();
 
   useEffect(() => {
-    setMounted(true); // eslint-disable-line react-hooks/set-state-in-effect -- hydration guard, must start false
+    // Hydration guard — must start false to prevent SSR/client mismatch
+    setMounted(true); // eslint-disable-line react-hooks/set-state-in-effect
   }, []);
 
-  const currentTheme = mounted ? theme || resolvedTheme || 'dark' : 'dark';
+  // Get the current theme safely after mount
+  const currentTheme = mounted ? theme || resolvedTheme || 'dark' : undefined;
 
   return {
     theme: currentTheme,
+    themes: THEMES,
     setTheme,
-    toggleTheme: () => setTheme(currentTheme === 'dark' ? 'light' : 'dark'),
+    toggleTheme: () => {
+      const next = currentTheme === 'dark' ? 'light' : 'dark';
+      setTheme(next);
+    },
   };
 }

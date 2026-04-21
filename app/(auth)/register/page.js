@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Check, X } from 'lucide-react';
 import clientLogger from '@/lib/client-logger';
 import { trackUserSignUp } from '@/lib/ga';
 
@@ -18,10 +19,23 @@ export default function RegisterPage() {
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
+
+  const passwordRules = [
+    { label: 'At least 8 characters', met: form.password.length >= 8 },
+    { label: 'One uppercase letter', met: /[A-Z]/.test(form.password) },
+    { label: 'One lowercase letter', met: /[a-z]/.test(form.password) },
+    { label: 'One number', met: /[0-9]/.test(form.password) },
+  ];
+  const allPasswordRulesMet = passwordRules.every((r) => r.met);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (!allPasswordRulesMet) {
+      setError('Password does not meet all requirements');
+      return;
+    }
     if (form.password !== form.confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -155,10 +169,25 @@ export default function RegisterPage() {
                   placeholder="Min 8 characters"
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  onFocus={() => setPasswordFocused(true)}
+                  onBlur={() => setPasswordFocused(false)}
                   required
                   minLength={8}
                   disabled={loading}
                 />
+                {form.password && (!allPasswordRulesMet || passwordFocused) && (
+                  <div className="space-y-1 pt-1">
+                    {passwordRules.map((rule) => (
+                      <div
+                        key={rule.label}
+                        className={`flex items-center gap-1.5 text-xs transition-colors ${rule.met ? 'text-emerald-500' : 'text-muted-foreground'}`}
+                      >
+                        {rule.met ? <Check className="h-3 w-3 shrink-0" /> : <X className="h-3 w-3 shrink-0" />}
+                        <span>{rule.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm Password</Label>

@@ -3,20 +3,21 @@ import bcrypt from 'bcryptjs';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import PasswordReset from '@/models/PasswordReset';
+import { resetPasswordSchema, validateRequest } from '@/lib/validation';
 import logger from '@/lib/logger';
 
 export async function POST(request) {
   try {
     await connectDB();
-    const { token, newPassword } = await request.json();
+    const body = await request.json();
 
-    if (!token || !newPassword) {
-      return NextResponse.json({ error: 'Token and new password are required' }, { status: 400 });
+    // Validate input with Zod
+    const validation = validateRequest(resetPasswordSchema, body);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    if (newPassword.length < 8) {
-      return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
-    }
+    const { token, newPassword } = validation.data;
 
     // Find valid token
     const resetRecord = await PasswordReset.findOne({

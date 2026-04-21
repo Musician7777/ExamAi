@@ -47,6 +47,9 @@ const activitySchema = new mongoose.Schema(
   }
 );
 
+// Compound index for efficient queries by user with time-based sorting
+activitySchema.index({ userId: 1, createdAt: -1 });
+
 const Activity = mongoose.models.Activity || mongoose.model('Activity', activitySchema);
 
 export default Activity;

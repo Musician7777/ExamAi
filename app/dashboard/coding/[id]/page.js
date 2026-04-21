@@ -16,7 +16,17 @@ import { cacheInvalidate } from '@/lib/clientCache';
 import clientLogger from '@/lib/client-logger';
 import { trackCodingSubmit } from '@/lib/ga';
 
-const Editor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
+// Lazy-load Monaco Editor with skeleton loading state (~2MB savings on initial load)
+const Editor = dynamic(() => import('@monaco-editor/react'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 relative bg-[#1e1e1e] p-4 space-y-3">
+      {['40%', '70%', '55%', '65%', '45%', '60%', '50%', '35%', '68%', '42%', '58%', '33%'].map((w, i) => (
+        <div key={i} className="h-4 rounded bg-[#2d2d2d] animate-pulse" style={{ width: w }} />
+      ))}
+    </div>
+  ),
+});
 
 const problemsData = {
   1: {

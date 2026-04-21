@@ -8,8 +8,8 @@ import {
   AddPresetCard,
   SavedPresetCard,
   SavedPresetsSection,
-  useSavedPresets,
 } from '../../components/PresetManager/PresetManager';
+import { useExamPresets } from '@/hooks/useExamPresets';
 import ExamConfigModal from '../../components/ExamConfigModal/ExamConfigModal';
 import AdBanner from '../../components/AdBanner/AdBanner';
 import { Card } from '@/components/ui/card';
@@ -44,11 +44,26 @@ const diffBadgeVariant = { easy: 'success', medium: 'warning', hard: 'destructiv
 export default function CodingPage() {
   const router = useRouter();
   const [showFetchModal, setShowFetchModal] = useState(false);
-  const [fetchedProblems, setFetchedProblems] = useState(null);
   const [activePreset, setActivePreset] = useState(null);
   const [difficultyFilter, setDifficultyFilter] = useState('all');
   const [solvedIds, setSolvedIds] = useState(new Set());
-  const { presets: savedPresets, savePreset, deletePreset } = useSavedPresets('examai_coding_presets');
+
+  // Shared preset handling hook
+  const {
+    fetchedConfig: fetchedProblems,
+    savedPresets,
+    handleUseFetchedConfig: handleUseFetchedConfig,
+    handleSelectSavedPreset: handleSelectSavedPreset,
+    handleSavePreset: handleSavePreset,
+    clearFetchedConfig,
+    deletePreset,
+  } = useExamPresets('examai_coding_presets', {
+    featurePrefix: 'coding',
+    onConfigLoaded: (config) => {
+      // For coding, just set the active preset to null
+      setActivePreset(null);
+    },
+  });
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [configModalPreset, setConfigModalPreset] = useState({ name: '', emoji: '' });
 
@@ -120,26 +135,16 @@ export default function CodingPage() {
   const displayTitle = fetchedProblems?.title || null;
   const solvedCount = allProblems.filter((p) => solvedIds.has(String(p.id))).length;
 
-  function handleUseFetchedConfig(config) {
-    trackFeatureUsed({ featureName: 'preset_use', context: `coding_fetch:${config.title || 'unknown'}` });
-    setFetchedProblems(config);
-    setActivePreset(null);
-  }
-  function handleSelectSavedPreset(preset) {
-    trackFeatureUsed({ featureName: 'preset_use', context: `coding:${preset.name}` });
-    if (preset.problems) setFetchedProblems(preset);
-    setActivePreset(preset.id);
-  }
-  function handleSavePreset(config) {
-    savePreset({
-      name: config.title || 'Custom Practice',
-      emoji: config.emoji || '💻',
-      desc: config.description || '',
+  const handleSavePresetWithFields = (config) => {
+    handleSavePreset(config, {
+      nameField: 'title',
+      emojiField: 'emoji',
+      descField: 'description',
       problems: config.problems,
     });
-  }
+  };
   function resetToDefault() {
-    setFetchedProblems(null);
+    clearFetchedConfig();
     setActivePreset(null);
   }
 
@@ -274,7 +279,7 @@ export default function CodingPage() {
         isOpen={showFetchModal}
         onClose={() => setShowFetchModal(false)}
         onUseConfig={handleUseFetchedConfig}
-        onSavePreset={handleSavePreset}
+        onSavePreset={handleSavePresetWithFields}
         mode="coding"
       />
       <ExamConfigModal
