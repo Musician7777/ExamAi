@@ -61,9 +61,8 @@ export default function RootLayout({ children }) {
               try {
                 var VALID_THEMES = ['light','dark','simple-white','punchy','gradient','aurora','sunset','ocean','glass-dark','glass-light','frosted'];
                 var stored = localStorage.getItem('examai-theme');
-                var theme = stored ? JSON.parse(stored) : null;
-                if (theme && theme.theme && VALID_THEMES.indexOf(theme.theme) > -1) {
-                  document.documentElement.classList.add(theme.theme);
+                if (stored && VALID_THEMES.indexOf(stored) > -1) {
+                  document.documentElement.classList.add(stored);
                 } else {
                   document.documentElement.classList.add('dark');
                 }
