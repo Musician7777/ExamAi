@@ -8,8 +8,8 @@ import {
   AddPresetCard,
   SavedPresetCard,
   SavedPresetsSection,
-  useSavedPresets,
 } from '../../components/PresetManager/PresetManager';
+import { useExamPresets, parseSectionsToSubjects, buildCustomStateFromConfig } from '@/hooks/useExamPresets';
 import ExamConfigModal from '../../components/ExamConfigModal/ExamConfigModal';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,8 +45,27 @@ export default function GeneratePage() {
   const [selectedPreset, setSelectedPreset] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showFetchModal, setShowFetchModal] = useState(false);
-  const [fetchedConfig, setFetchedConfig] = useState(null);
-  const { presets: savedPresets, savePreset, deletePreset } = useSavedPresets('examai_exam_presets');
+
+  // Shared preset handling hook
+  const {
+    fetchedConfig,
+    savedPresets,
+    handleUseFetchedConfig: onFetchedConfig,
+    handleSelectSavedPreset: onSelectPreset,
+    handleSavePreset,
+    clearFetchedConfig,
+    deletePreset,
+  } = useExamPresets('examai_exam_presets', {
+    featurePrefix: 'exam',
+    onConfigLoaded: (config) => {
+      // Populate subjects from fetched config sections
+      const subjects = parseSectionsToSubjects(config.sections, config.totalQuestions);
+      setCustomSubjects(subjects);
+      setCustom(buildCustomStateFromConfig(config));
+      setActiveTab('custom');
+      setSelectedPreset(null);
+    },
+  });
 
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [configModalPreset, setConfigModalPreset] = useState({ name: '', emoji: '' });
@@ -155,72 +174,25 @@ export default function GeneratePage() {
   });
   const [customSubjects, setCustomSubjects] = useState([]);
 
-  function handleUseFetchedConfig(config) {
-    trackFeatureUsed({
-      featureName: 'preset_use',
-      context: `exam_fetch:${config.examName || config.name || 'unknown'}`,
-    });
-    setFetchedConfig(config);
-    // Populate subjects from fetched config sections
-    const sections = Array.isArray(config.sections)
-      ? config.sections
-      : (config.sections || 'General')
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean);
-    const subjects = sections.map((name) => ({
-      name,
-      questionCount: Math.max(1, Math.floor((config.totalQuestions || 50) / sections.length)),
-      aiOverview: null,
-    }));
-    setCustomSubjects(subjects);
-    setCustom({
-      totalQuestions: config.totalQuestions || 50,
-      negativeMarking: config.negativeMarking || 0,
-      timeLimit: config.timeLimit || 60,
-      easy: 30,
-      medium: 50,
-      hard: 20,
-      questionType: config.questionType || 'MCQ',
-    });
-    setActiveTab('custom');
-    setSelectedPreset(null);
-  }
+  // Wrappers to connect with FetchExamModal's expected prop names
+  const handleUseFetchedConfig = (config) => {
+    clearFetchedConfig();
+    onFetchedConfig(config);
+  };
 
-  function handleSelectSavedPreset(preset) {
-    trackFeatureUsed({ featureName: 'preset_use', context: `exam:${preset.name}` });
-    setFetchedConfig(preset);
-    // Populate subjects from saved preset sections
-    const sections = Array.isArray(preset.sections)
-      ? preset.sections
-      : (preset.sections || 'General')
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean);
-    const subjects = sections.map((name) => ({
-      name,
-      questionCount: Math.max(1, Math.floor((preset.totalQuestions || 50) / sections.length)),
-      aiOverview: null,
-    }));
-    setCustomSubjects(subjects);
-    setCustom({
-      totalQuestions: preset.totalQuestions || 50,
-      negativeMarking: preset.negativeMarking || 0,
-      timeLimit: preset.timeLimit || 60,
-      easy: 30,
-      medium: 50,
-      hard: 20,
-      questionType: preset.questionType || 'MCQ',
-    });
-    setActiveTab('custom');
+  const handleSelectSavedPreset = (preset) => {
+    clearFetchedConfig();
+    onSelectPreset(preset);
+    // Also set selectedPreset for UI
     setSelectedPreset(preset.id);
-  }
+    setActiveTab('custom');
+  };
 
-  function handleSavePreset(config) {
-    savePreset({
-      name: config.examName || config.title || 'Custom Exam',
-      emoji: config.emoji || '📄',
-      desc: config.description || '',
+  const handleSavePresetWithFields = (config) => {
+    handleSavePreset(config, {
+      nameField: 'examName',
+      emojiField: 'emoji',
+      descField: 'description',
       totalQuestions: config.totalQuestions,
       sections: config.sections,
       negativeMarking: config.negativeMarking,
@@ -229,7 +201,7 @@ export default function GeneratePage() {
       questionType: config.questionType,
       topics: config.topics,
     });
-  }
+  };
 
   const handleGenerate = async (examType) => {
     setLoading(true);
@@ -533,7 +505,7 @@ export default function GeneratePage() {
         isOpen={showFetchModal}
         onClose={() => setShowFetchModal(false)}
         onUseConfig={handleUseFetchedConfig}
-        onSavePreset={handleSavePreset}
+        onSavePreset={handleSavePresetWithFields}
         mode="exam"
       />
       <ExamConfigModal

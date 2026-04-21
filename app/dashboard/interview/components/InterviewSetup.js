@@ -13,8 +13,8 @@ import {
   AddPresetCard,
   SavedPresetCard,
   SavedPresetsSection,
-  useSavedPresets,
 } from '@/app/components/PresetManager/PresetManager';
+import { useExamPresets } from '@/hooks/useExamPresets';
 import ExamConfigModal from '@/app/components/ExamConfigModal/ExamConfigModal';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import clientLogger from '@/lib/client-logger';
-import { trackFeatureUsed } from '@/lib/ga';
 
 /* ─────────────────────────────────────────────
    INTERVIEW TEMPLATES (shared with main page)
@@ -179,7 +178,6 @@ export default function InterviewSetup({
   setVoiceEnabled,
   micEnabled,
   setMicEnabled,
-  fetchedConfig,
   setFetchedConfig,
   // Callbacks
   onStartInterview,
@@ -188,7 +186,25 @@ export default function InterviewSetup({
   const [showFetchModal, setShowFetchModal] = useState(false);
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [configModalPreset, setConfigModalPreset] = useState({ name: '', emoji: '', initialConfig: {} });
-  const { presets: savedPresets, savePreset, deletePreset } = useSavedPresets('examai_interview_presets');
+
+  // Shared preset handling hook
+  const {
+    fetchedConfig,
+    savedPresets,
+    handleUseFetchedConfig: handleUseFetchedConfig,
+    handleSelectSavedPreset: handleSelectSavedPreset,
+    handleSavePreset: handleSavePreset,
+    clearFetchedConfig,
+    deletePreset,
+  } = useExamPresets('examai_interview_presets', {
+    featurePrefix: 'interview',
+    onConfigLoaded: (config) => {
+      // Set the template type based on fetched config
+      setFetchedConfig(config);
+      setSelectedTemplate(config.interviewType || 'technical');
+      setShowCustom(false);
+    },
+  });
 
   // Check for config passed from dashboard quick action
   useEffect(() => {
@@ -225,31 +241,12 @@ export default function InterviewSetup({
     setConfigModalOpen(true);
   }
 
-  /* ─── Handle AI-fetched interview config ─── */
-  function handleUseFetchedConfig(config) {
-    trackFeatureUsed({
-      featureName: 'preset_use',
-      context: `interview_fetch:${config.title || config.name || 'unknown'}`,
-    });
-    setFetchedConfig(config);
-    setSelectedTemplate(config.interviewType || 'technical');
-    setShowCustom(false);
-  }
-
-  /* ─── Handle saved preset selection ─── */
-  function handleSelectSavedPreset(preset) {
-    trackFeatureUsed({ featureName: 'preset_use', context: `interview:${preset.name}` });
-    setFetchedConfig(preset);
-    setSelectedTemplate(preset.interviewType || preset.id || 'technical');
-    setShowCustom(false);
-  }
-
-  /* ─── Save preset to localStorage ─── */
-  function handleSavePreset(config) {
-    savePreset({
-      name: config.title || 'Custom Interview',
-      emoji: config.emoji || '🎤',
-      desc: config.description || '',
+  // Wrappers for FetchExamModal
+  const handleSavePresetWithFields = (config) => {
+    handleSavePreset(config, {
+      nameField: 'title',
+      emojiField: 'emoji',
+      descField: 'description',
       interviewType: config.interviewType,
       role: config.role,
       company: config.company,
@@ -258,7 +255,7 @@ export default function InterviewSetup({
       questionCount: config.questionCount,
       tone: config.tone,
     });
-  }
+  };
 
   /* ─── Toggle custom topic ─── */
   function toggleCustomTopic(topic) {
@@ -503,7 +500,7 @@ export default function InterviewSetup({
         isOpen={showFetchModal}
         onClose={() => setShowFetchModal(false)}
         onUseConfig={handleUseFetchedConfig}
-        onSavePreset={handleSavePreset}
+        onSavePreset={handleSavePresetWithFields}
         mode="interview"
       />
 
