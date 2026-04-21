@@ -15,7 +15,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
+import { cn, formatDuration } from '@/lib/utils';
 import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
 import { cacheInvalidate } from '@/lib/clientCache';
 import clientLogger from '@/lib/client-logger';
@@ -299,13 +299,6 @@ export default function ResultsPage() {
     setShareLoading(false);
   }
 
-  function formatTime(seconds) {
-    if (!seconds || seconds <= 0) return '—';
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return m > 0 ? `${m}m ${s}s` : `${s}s`;
-  }
-
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div>
@@ -387,18 +380,18 @@ export default function ResultsPage() {
           </h2>
           <div className="grid sm:grid-cols-3 gap-4">
             <Card className="p-4 text-center">
-              <div className="text-2xl font-bold text-primary">{formatTime(avgTimePerQ)}</div>
+              <div className="text-2xl font-bold text-primary">{formatDuration(avgTimePerQ)}</div>
               <div className="text-xs text-muted-foreground mt-1">Avg. Time / Question</div>
             </Card>
             {fastestQ && (
               <Card className="p-4 text-center">
-                <div className="text-2xl font-bold text-emerald-400">{formatTime(fastestQ.timeSpent)}</div>
+                <div className="text-2xl font-bold text-emerald-400">{formatDuration(fastestQ.timeSpent)}</div>
                 <div className="text-xs text-muted-foreground mt-1">Fastest (Q{fastestQ.index + 1})</div>
               </Card>
             )}
             {slowestQ && (
               <Card className="p-4 text-center">
-                <div className="text-2xl font-bold text-amber-400">{formatTime(slowestQ.timeSpent)}</div>
+                <div className="text-2xl font-bold text-amber-400">{formatDuration(slowestQ.timeSpent)}</div>
                 <div className="text-xs text-muted-foreground mt-1">Slowest (Q{slowestQ.index + 1})</div>
               </Card>
             )}
@@ -421,7 +414,7 @@ export default function ResultsPage() {
                 {s.correct}/{s.total}
               </div>
               {s.avgTime > 0 && (
-                <div className="w-16 text-right text-xs text-muted-foreground">~{formatTime(s.avgTime)}</div>
+                <div className="w-16 text-right text-xs text-muted-foreground">~{formatDuration(s.avgTime)}</div>
               )}
             </Card>
           ))}
@@ -462,7 +455,7 @@ export default function ResultsPage() {
                   <div className="flex items-center gap-2">
                     {r.timeSpent > 0 && (
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <HiOutlineClock className="h-3 w-3" /> {formatTime(r.timeSpent)}
+                        <HiOutlineClock className="h-3 w-3" /> {formatDuration(r.timeSpent)}
                       </span>
                     )}
                     <Badge

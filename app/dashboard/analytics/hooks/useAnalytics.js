@@ -1,5 +1,5 @@
 'use client';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTheme } from '@/app/providers/ThemeProvider';
 import { useCachedFetch } from '@/hooks/useCachedFetch';
 
@@ -96,22 +96,63 @@ function buildDeepTopicScores(activities) {
   return deepTopicScores;
 }
 
+/** Predefined date-range presets */
+export const DATE_PRESETS = [
+  { key: '7d', label: '7D', days: 7 },
+  { key: '30d', label: '30D', days: 30 },
+  { key: '90d', label: '3M', days: 90 },
+  { key: '1y', label: '1Y', days: 365 },
+  { key: 'all', label: 'All', days: null },
+];
+
+/**
+ * Returns dateFrom / dateTo strings for a given preset key.
+ */
+function getPresetDates(presetKey) {
+  if (presetKey === 'all') return { dateFrom: null, dateTo: null };
+  const preset = DATE_PRESETS.find((p) => p.key === presetKey);
+  if (!preset || preset.days === null) return { dateFrom: null, dateTo: null };
+  const now = new Date();
+  const from = new Date(now);
+  from.setDate(from.getDate() - preset.days);
+  return {
+    dateFrom: from.toISOString().split('T')[0],
+    dateTo: now.toISOString().split('T')[0],
+  };
+}
+
 /**
  * Custom hook that fetches activities and computes all analytics data.
  * Returns loading state, derived metrics, chart configs, and insight cards data.
  */
 export function useAnalytics() {
+  const [datePreset, setDatePreset] = useState('30d');
+  const { dateFrom, dateTo } = useMemo(() => getPresetDates(datePreset), [datePreset]);
+
+  // Build the URL with date range params.
+  // NOTE: limit=1000 is a pragmatic cap — for very active users this may still truncate.
+  // A proper fix would be server-side aggregation or paginated fetching.
+  const activitiesUrl = useMemo(() => {
+    const params = new URLSearchParams({ limit: '1000', page: '1' });
+    if (dateFrom) params.set('dateFrom', dateFrom);
+    if (dateTo) params.set('dateTo', dateTo);
+    return `/api/activities?${params.toString()}`;
+  }, [dateFrom, dateTo]);
+
   const {
     data: activitiesData,
     loading,
     revalidating,
-  } = useCachedFetch('/api/activities?limit=50', {
+    error,
+    refetch,
+  } = useCachedFetch(activitiesUrl, {
     ttl: 60_000,
     selector: (json) => json.activities || [],
   });
-  const activities = activitiesData || [];
+  const activities = useMemo(() => activitiesData || [], [activitiesData]);
 
   const { theme } = useTheme();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const chartColors = useMemo(() => getThemeChartColors(), [theme]);
 
   const hasData = activities.length > 0;
@@ -166,26 +207,119 @@ export function useAnalytics() {
     [deepTopicEntries]
   );
 
-  // Difficulty-based scores
-  const easyScores = useMemo(
-    () =>
-      activities.filter((a) => a.details?.difficulty === 'easy' || (a.totalMarks > 0 && a.score / a.totalMarks >= 0.8)),
+  // Difficulty-based breakdown — uses ONLY the explicit difficulty field
+  const easyScores = useMemo(() => activities.filter((a) => a.difficulty === 'easy'), [activities]);
+  const medScores = useMemo(() => activities.filter((a) => a.difficulty === 'medium'), [activities]);
+  const hardScores = useMemo(() => activities.filter((a) => a.difficulty === 'hard'), [activities]);
+  const mixedScores = useMemo(() => activities.filter((a) => a.difficulty === 'mixed'), [activities]);
+  const unratedScores = useMemo(() => activities.filter((a) => !a.difficulty), [activities]);
+
+  // Score-based performance bands (independent of difficulty)
+  const highScoreCount = useMemo(() => scores.filter((s) => s >= 80).length, [scores]);
+  const midScoreCount = useMemo(() => scores.filter((s) => s >= 50 && s < 80).length, [scores]);
+  const lowScoreCount = useMemo(() => scores.filter((s) => s < 50).length, [scores]);
+
+  // Duration analytics — time-based metrics from the duration field (seconds)
+  const activitiesWithDuration = useMemo(
+    () => activities.filter((a) => a.duration != null && a.duration > 0 && a.totalMarks > 0),
     [activities]
   );
-  const medScores = useMemo(
-    () =>
-      activities.filter(
-        (a) =>
-          a.details?.difficulty === 'medium' ||
-          (a.totalMarks > 0 && a.score / a.totalMarks >= 0.5 && a.score / a.totalMarks < 0.8)
-      ),
-    [activities]
+  const avgDuration = useMemo(() => {
+    if (activitiesWithDuration.length === 0) return null;
+    const total = activitiesWithDuration.reduce((sum, a) => sum + a.duration, 0);
+    return Math.round(total / activitiesWithDuration.length);
+  }, [activitiesWithDuration]);
+  const avgDurationByType = useMemo(() => {
+    const buckets = { exam: [], coding: [], interview: [] };
+    activitiesWithDuration.forEach((a) => {
+      if (buckets[a.type]) buckets[a.type].push(a.duration);
+    });
+    return Object.fromEntries(
+      Object.entries(buckets)
+        .filter(([_, durs]) => durs.length > 0)
+        .map(([type, durs]) => [type, Math.round(durs.reduce((a, b) => a + b, 0) / durs.length)])
+    );
+  }, [activitiesWithDuration]);
+
+  // Scatter: time vs accuracy — each point is { x: duration (seconds), y: score % }
+  const scatterConfig = useMemo(
+    () => ({
+      type: 'scatter',
+      data: {
+        datasets: [
+          {
+            label: 'Time vs Accuracy',
+            data: activitiesWithDuration.map((a) => ({
+              x: a.duration,
+              y: Math.round((a.score / a.totalMarks) * 100),
+            })),
+            backgroundColor: chartColors.primaryBg,
+            borderColor: chartColors.primary,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const mins = Math.floor(ctx.parsed.x / 60);
+                const secs = ctx.parsed.x % 60;
+                return `${mins}m ${secs}s → ${ctx.parsed.y}%`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Time (seconds)', color: chartColors.label, font: { size: 11 } },
+            ticks: {
+              color: chartColors.tick,
+              callback: (val) => {
+                const m = Math.floor(val / 60);
+                const s = val % 60;
+                return m > 0 ? `${m}m` : `${s}s`;
+              },
+            },
+            grid: { color: chartColors.grid },
+          },
+          y: {
+            min: 0,
+            max: 100,
+            title: { display: true, text: 'Score %', color: chartColors.label, font: { size: 11 } },
+            ticks: { color: chartColors.tick },
+            grid: { color: chartColors.grid },
+          },
+        },
+      },
+    }),
+    [activitiesWithDuration, chartColors]
   );
-  const hardScores = useMemo(
-    () =>
-      activities.filter((a) => a.details?.difficulty === 'hard' || (a.totalMarks > 0 && a.score / a.totalMarks < 0.5)),
-    [activities]
-  );
+
+  // Trend indicators — compare recent half vs earlier half of activities
+  const trend = useMemo(() => {
+    if (scores.length < 4) return null;
+    const mid = Math.floor(scores.length / 2);
+    const earlier = scores.slice(0, mid);
+    const recent = scores.slice(mid);
+    const earlierAvg = earlier.reduce((a, b) => a + b, 0) / earlier.length;
+    const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length;
+    const diff = recentAvg - earlierAvg;
+    const pctChange = earlierAvg > 0 ? Math.round((diff / earlierAvg) * 100) : 0;
+    // ±2% threshold to avoid labeling minor noise as trending
+    return {
+      direction: diff > 2 ? 'up' : diff < -2 ? 'down' : 'stable',
+      diff: Math.round(diff),
+      pctChange,
+      recentAvg: Math.round(recentAvg),
+      earlierAvg: Math.round(earlierAvg),
+    };
+  }, [scores]);
 
   // Chart configs
   const lineConfig = useMemo(
@@ -294,7 +428,7 @@ export function useAnalytics() {
         labels: ['High (80%+)', 'Medium (50-79%)', 'Low (<50%)'],
         datasets: [
           {
-            data: hasData ? [easyScores.length, medScores.length, hardScores.length] : [1, 1, 1],
+            data: hasData ? [highScoreCount, midScoreCount, lowScoreCount] : [1, 1, 1],
             backgroundColor: hasData ? ['#4ade80', '#fbbf24', '#f87171'] : ['#334155', '#334155', '#334155'],
             borderWidth: 0,
             spacing: 4,
@@ -314,7 +448,7 @@ export function useAnalytics() {
         cutout: '65%',
       },
     }),
-    [hasData, easyScores.length, medScores.length, hardScores.length, chartColors]
+    [hasData, highScoreCount, midScoreCount, lowScoreCount, chartColors]
   );
 
   // Insights
@@ -380,5 +514,26 @@ export function useAnalytics() {
     strongTopics,
     insights,
     revalidating,
+    error,
+    refetch,
+    datePreset,
+    setDatePreset,
+    // Difficulty breakdown (explicit field only)
+    easyScores,
+    medScores,
+    hardScores,
+    mixedScores,
+    unratedScores,
+    // Score bands
+    highScoreCount,
+    midScoreCount,
+    lowScoreCount,
+    // Duration analytics
+    avgDuration,
+    avgDurationByType,
+    activitiesWithDuration,
+    scatterConfig,
+    // Trend
+    trend,
   };
 }

@@ -1,12 +1,16 @@
 'use client';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertCircle, RotateCw, TrendingUp, TrendingDown, Minus, Clock } from 'lucide-react';
 import ChartCanvas from '@/app/components/ChartCanvas/ChartCanvas';
 import AnalyticsLoadingSkeleton from './AnalyticsLoadingSkeleton';
 import DeepTopicAnalytics from './DeepTopicAnalytics';
 import InsightCards from './InsightCards';
-import { useAnalytics } from './hooks/useAnalytics';
+import { useAnalytics, DATE_PRESETS } from './hooks/useAnalytics';
 import { RefreshShimmer } from '@/components/ui/refresh-shimmer';
 import AdBanner from '@/app/components/AdBanner/AdBanner';
+import { formatDuration } from '@/lib/utils';
 
 export default function AnalyticsPage() {
   const {
@@ -25,25 +29,132 @@ export default function AnalyticsPage() {
     strongTopics,
     insights,
     revalidating,
+    error,
+    refetch,
+    datePreset,
+    setDatePreset,
+    trend,
+    easyScores,
+    medScores,
+    hardScores,
+    mixedScores,
+    unratedScores,
+    avgDuration,
+    avgDurationByType,
+    activitiesWithDuration,
+    scatterConfig,
   } = useAnalytics();
+
+  // Date range picker rendered in both error and success states
+  const datePicker = (
+    <Tabs value={datePreset} onValueChange={setDatePreset}>
+      <TabsList>
+        {DATE_PRESETS.map((p) => (
+          <TabsTrigger key={p.key} value={p.key} className="text-xs px-2.5">
+            {p.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
+  );
 
   if (loading) {
     return <AnalyticsLoadingSkeleton />;
   }
 
+  if (error) {
+    return (
+      <div className="space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">
+              📊 Performance <span className="gradient-text">Analytics</span>
+            </h1>
+            <p className="text-muted-foreground mt-1">Something went wrong loading your analytics.</p>
+          </div>
+          {datePicker}
+        </div>
+        <Card className="p-8 flex flex-col items-center justify-center gap-4 text-center">
+          <AlertCircle className="h-10 w-10 text-destructive" />
+          <p className="text-sm text-muted-foreground max-w-md">
+            Failed to load analytics data. This could be a temporary issue — please try again.
+          </p>
+          <Button variant="outline" onClick={refetch} className="gap-2">
+            <RotateCw className="h-4 w-4" />
+            Retry
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 relative">
       <RefreshShimmer active={revalidating} />
-      <div>
-        <h1 className="text-2xl font-bold">
-          📊 Performance <span className="gradient-text">Analytics</span>
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          {hasData
-            ? 'Track your progress, identify weak areas, and improve.'
-            : 'Complete activities to see your performance analytics here.'}
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">
+            📊 Performance <span className="gradient-text">Analytics</span>
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {hasData
+              ? 'Track your progress, identify weak areas, and improve.'
+              : 'Complete activities to see your performance analytics here.'}
+          </p>
+        </div>
+        {datePicker}
       </div>
+
+      {/* Trend indicator banner */}
+      {trend && (
+        <Card
+          className={`p-4 flex items-center gap-3 border-l-4 ${
+            trend.direction === 'up'
+              ? 'border-l-emerald-500 bg-emerald-500/5'
+              : trend.direction === 'down'
+                ? 'border-l-red-500 bg-red-500/5'
+                : 'border-l-sky-500 bg-sky-500/5'
+          }`}
+        >
+          {trend.direction === 'up' ? (
+            <TrendingUp className="h-5 w-5 text-emerald-500 shrink-0" />
+          ) : trend.direction === 'down' ? (
+            <TrendingDown className="h-5 w-5 text-red-500 shrink-0" />
+          ) : (
+            <Minus className="h-5 w-5 text-sky-500 shrink-0" />
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold">
+              {trend.direction === 'up'
+                ? 'Performance improving'
+                : trend.direction === 'down'
+                  ? 'Performance declining'
+                  : 'Performance stable'}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Recent avg: {trend.recentAvg}% · Earlier avg: {trend.earlierAvg}%
+              {trend.pctChange !== 0 && (
+                <span className={`ml-1 font-medium ${trend.pctChange > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                  ({trend.pctChange > 0 ? '+' : ''}
+                  {trend.pctChange}%)
+                </span>
+              )}
+            </p>
+          </div>
+          <div
+            className={`text-lg font-bold ${
+              trend.direction === 'up'
+                ? 'text-emerald-500'
+                : trend.direction === 'down'
+                  ? 'text-red-500'
+                  : 'text-sky-500'
+            }`}
+          >
+            {trend.diff > 0 ? '+' : ''}
+            {trend.diff}%
+          </div>
+        </Card>
+      )}
 
       <div className="grid md:grid-cols-2 gap-6">
         <Card className="md:col-span-2 p-6">
@@ -65,12 +176,90 @@ export default function AnalyticsPage() {
           </div>
         </Card>
         <Card className="md:col-span-2 p-6">
-          <h3 className="font-semibold mb-4">🎚️ Performance Breakdown</h3>
+          <h3 className="font-semibold mb-4">🎚️ Score Range Breakdown</h3>
           <div className="h-64 max-w-[350px] mx-auto">
             <ChartCanvas config={doughnutConfig} />
           </div>
         </Card>
       </div>
+
+      {/* Difficulty breakdown — only shown when at least one activity has a difficulty set */}
+      {easyScores.length + medScores.length + hardScores.length + mixedScores.length > 0 && (
+        <Card className="p-6">
+          <h3 className="font-semibold mb-4">🏋️ Difficulty Breakdown</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { label: 'Easy', count: easyScores.length, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+              { label: 'Medium', count: medScores.length, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+              { label: 'Hard', count: hardScores.length, color: 'text-red-500', bg: 'bg-red-500/10' },
+              { label: 'Mixed', count: mixedScores.length, color: 'text-sky-500', bg: 'bg-sky-500/10' },
+            ].map((d) => (
+              <div key={d.label} className={`rounded-lg ${d.bg} p-4 text-center`}>
+                <p className={`text-2xl font-bold ${d.color}`}>{d.count}</p>
+                <p className="text-xs text-muted-foreground mt-1">{d.label}</p>
+              </div>
+            ))}
+          </div>
+          {unratedScores.length > 0 && (
+            <p className="text-xs text-muted-foreground mt-3">
+              {unratedScores.length} activit{unratedScores.length === 1 ? 'y' : 'ies'} without a difficulty rating
+            </p>
+          )}
+        </Card>
+      )}
+
+      {/* Duration analytics — only shown when at least one activity has duration data */}
+      {activitiesWithDuration.length > 0 && (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-xl font-bold">
+              ⏱️ Time <span className="gradient-text">Analytics</span>
+            </h2>
+            <p className="text-muted-foreground mt-1">How you spend time and how it relates to your performance.</p>
+          </div>
+
+          {/* Avg time stats cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              {
+                label: 'Avg Overall',
+                value: avgDuration,
+              },
+              {
+                label: 'Avg Exam',
+                value: avgDurationByType.exam,
+              },
+              {
+                label: 'Avg Coding',
+                value: avgDurationByType.coding,
+              },
+              {
+                label: 'Avg Interview',
+                value: avgDurationByType.interview,
+              },
+            ]
+              .filter((d) => d.value != null)
+              .map((d) => (
+                <div key={d.label} className="rounded-lg bg-sky-500/10 p-4 text-center">
+                  <div className="flex items-center justify-center gap-1.5">
+                    <Clock className="h-4 w-4 text-sky-500" />
+                    <p className="text-2xl font-bold text-sky-500">{formatDuration(d.value)}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{d.label}</p>
+                </div>
+              ))}
+          </div>
+
+          {/* Time vs Accuracy scatter chart */}
+          <Card className="p-6">
+            <h3 className="font-semibold mb-4">📈 Time vs Accuracy</h3>
+            <p className="text-xs text-muted-foreground mb-3">Each dot represents an activity. Hover to see details.</p>
+            <div className="h-72">
+              <ChartCanvas config={scatterConfig} />
+            </div>
+          </Card>
+        </div>
+      )}
 
       <DeepTopicAnalytics
         chartColors={chartColors}
