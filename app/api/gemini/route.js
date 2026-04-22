@@ -54,7 +54,7 @@ function evaluateJavaScript(code, testCases) {
   const testResults = [];
 
   // Extract the function name from the code
-  const fnMatch = code.match(/function\ns+(\nw+)/);
+  const fnMatch = code.match(/function\s+(\w+)/);
   const fnName = fnMatch ? fnMatch[1] : null;
 
   if (!fnName) {
