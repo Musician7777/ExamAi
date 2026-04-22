@@ -1,6 +1,5 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { HiOutlineLogout } from 'react-icons/hi';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,19 +24,14 @@ import clientLogger from '@/lib/client-logger';
 export default function InterviewLive({
   // State
   messages,
-  setMessages,
   input,
   setInput,
   isThinking,
-  setIsThinking,
   questionCount,
   interviewConfig,
-  currentQ,
   awaitingMic,
   setAwaitingMic,
-  voiceEnabled,
   micEnabled,
-  scores,
   // Refs
   sendingRef,
   submitAnswerRef,
@@ -46,7 +40,6 @@ export default function InterviewLive({
   onExitInterview,
   // Speech props passed from parent
   isSpeaking,
-  speak,
   stopSpeaking,
   isListening,
   transcript,

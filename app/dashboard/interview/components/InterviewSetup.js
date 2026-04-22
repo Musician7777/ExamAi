@@ -150,7 +150,7 @@ export const customTopicOptions = [
 /* ─────────────────────────────────────────────
    CUSTOM BUILDER COMPONENT
    ───────────────────────────────────────────── */
-function CustomBuilder({ customConfig, setCustomConfig, showCustom, setShowCustom, setSelectedTemplate }) {
+function CustomBuilder({ customConfig, setCustomConfig, showCustom }) {
   function toggleCustomTopic(topic) {
     setCustomConfig((prev) => ({
       ...prev,
@@ -340,13 +340,7 @@ export default function InterviewSetup({
         setShowCustom={setShowCustom}
       />
 
-      <CustomBuilder
-        customConfig={customConfig}
-        setCustomConfig={setCustomConfig}
-        showCustom={showCustom}
-        setShowCustom={setShowCustom}
-        setSelectedTemplate={setSelectedTemplate}
-      />
+      <CustomBuilder customConfig={customConfig} setCustomConfig={setCustomConfig} showCustom={showCustom} />
 
       <div className={styles.startControls}>
         <VoiceControls
