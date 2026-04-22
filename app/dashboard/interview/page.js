@@ -580,7 +580,7 @@ export default function InterviewPage() {
   }
 
   /* ─── Fetch AI Analysis ─── */
-  async function fetchAnalysis() {
+  const fetchAnalysis = useCallback(async () => {
     if (analysisLoading || analysis) return;
     setAnalysisLoading(true);
     try {
@@ -618,7 +618,7 @@ export default function InterviewPage() {
     } finally {
       setAnalysisLoading(false);
     }
-  }
+  }, [analysisLoading, analysis, reviewData, interviewConfig, scores]);
 
   function toggleQuestionExpand(idx) {
     setExpandedQuestions((prev) => ({ ...prev, [idx]: !prev[idx] }));
