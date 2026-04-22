@@ -22,13 +22,13 @@ Exam generation is powered by the Google Gemini AI (`@google/generative-ai`), sp
 ### How it works:
 
 1. **User Interface (`app/dashboard/generate/page.js`)**:
-   - The user selects a preset (e.g., "UPSC CSE", "Software Eng.") or configures a custom exam (setting the number of questions, sections, difficulty distribution, and negative marking).
-   - Upon clicking "Generate", a POST request is sent to the `/api/gemini` endpoint with the configuration.
+   - The user selects a preset (e.g., \"UPSC CSE\", \"Software Eng.\") or configures a custom exam (setting the number of questions, sections, difficulty distribution, and negative marking).
+   - Upon clicking \"Generate\", a POST request is sent to the `/api/gemini` endpoint with the configuration.
 
 2. **API Logic & AI Prompting (`app/api/gemini/route.js`)**:
    - The endpoint receives the configuration and constructs a highly detailed prompt.
-   - For preset exams, it uses hardcoded "Exam Profiles" containing exact sections, topics, exam style, and negative marking rules.
-   - _Example prompt injection_: "You are an expert exam paper setter for UPSC... Generate a realistic, high-quality exam paper with EXACTLY 20 questions... Return a JSON object with this EXACT structure..."
+   - For preset exams, it uses hardcoded \"Exam Profiles\" containing exact sections, topics, exam style, and negative marking rules.
+   - _Example prompt injection_: \"You are an expert exam paper setter for UPSC... Generate a realistic, high-quality exam paper with EXACTLY 20 questions... Return a JSON object with this EXACT structure...\"
    - **Failover & Reliability**: The API implements a robust failover mechanism. It maintains an array of API keys. If one key hits a rate limit (HTTP 429), it implements exponential backoff retries. If the limit persists, it automatically switches to the next available API key.
    - The AI responds with a structured JSON containing the sections, questions, options, correct indices, and educational explanations.
 
@@ -44,7 +44,7 @@ The analytics dashboard provides users with actionable insights based on their p
    - The page calls the `/api/activities` endpoint to fetch up to 50 recent activities for the logged-in user. Included in these activities are exam scores, coding test results, and interview evaluations.
 2. **Data Aggregation**:
    - The frontend processes this array of activities. It maps scores to percentages, categorized by topics (Coding, Exams, Interviews), and difficulty tiers (Easy, Medium, Hard).
-   - Dynamic insights are calculated (e.g., finding the "Best Topic" by averaging scores per category).
+   - Dynamic insights are calculated (e.g., finding the \"Best Topic\" by averaging scores per category).
 
 3. **Data Visualization (`Chart.js` & `react-chartjs-2`)**:
    - **Score Trend (Line Chart)**: Plots the chronological progression of the user's overall scores across all activities.

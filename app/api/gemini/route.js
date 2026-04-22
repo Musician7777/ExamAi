@@ -20,91 +20,6 @@ import { sanitizePromptInput } from '@/lib/sanitize';
 import { rateLimit } from '@/lib/rateLimit';
 import logger from '@/lib/logger';
 
-// JS code evaluator (kept inline since it's runtime logic, not a prompt)
-function evaluateJavaScript(code, testCases) {
-  const testResults = [];
-  const fnMatch = code.match(/function\s+(\w+)/);
-  const fnName = fnMatch ? fnMatch[1] : null;
-
-  if (!fnName) {
-    return {
-      passed: false,
-      score: 0,
-      testResults: testCases.map((tc) => ({
-        input: tc.input || '',
-        expected: tc.output || '',
-        actual: 'No function found',
-        passed: false,
-      })),
-      feedback: 'Could not find a function definition in your code.',
-      timeComplexity: '—',
-      spaceComplexity: '—',
-      suggestions: ['Define a named function'],
-    };
-  }
-
-  for (const tc of testCases) {
-    try {
-      const args = parseTestInput(tc.input);
-      const wrappedCode = `${code}\nreturn JSON.stringify(${fnName}(${args.join(', ')}));`;
-      const fn = new Function(wrappedCode);
-      const actual = fn();
-      const expected = tc.output?.trim();
-      const passed = normalizeOutput(actual) === normalizeOutput(expected);
-      testResults.push({ input: tc.input, expected, actual: actual || 'undefined', passed });
-    } catch (error) {
-      testResults.push({
-        input: tc.input,
-        expected: tc.output || '',
-        actual: `Error: ${error.message}`,
-        passed: false,
-      });
-    }
-  }
-
-  const passedCount = testResults.filter((t) => t.passed).length;
-  const score = Math.round((passedCount / Math.max(testResults.length, 1)) * 100);
-  const hasHashMap = code.includes('Map') || code.includes('new Map');
-  const hasNestedLoop = (code.match(/for/g) || []).length >= 2;
-  const hasLoop = code.includes('for') || code.includes('while');
-
-  return {
-    passed: passedCount === testResults.length,
-    score,
-    testResults,
-    feedback:
-      passedCount === testResults.length
-        ? 'All test cases passed!'
-        : score === 0
-          ? 'No tests passed.'
-          : `${passedCount}/${testResults.length} tests passed.`,
-    timeComplexity: hasNestedLoop ? 'O(n²)' : hasLoop ? 'O(n)' : 'O(1)',
-    spaceComplexity: hasHashMap ? 'O(n)' : 'O(1)',
-    suggestions:
-      passedCount === testResults.length
-        ? hasNestedLoop
-          ? ['Consider optimizing with a hash map']
-          : ['Great job!']
-        : ['Check return value format'],
-  };
-}
-
-function parseTestInput(inputStr) {
-  if (!inputStr) return [];
-  const parts = [];
-  const assignments = inputStr.split(/,\s*(?=\w+\s*=)/);
-  for (const assignment of assignments) {
-    const valueMatch = assignment.match(/=\s*(.+)$/);
-    parts.push(valueMatch ? valueMatch[1].trim() : assignment.trim());
-  }
-  return parts;
-}
-
-function normalizeOutput(output) {
-  if (output === null || output === undefined) return '';
-  return String(output).replace(/"/g, '').replace(/'/g, '').replace(/\s+/g, '').trim();
-}
-
 // Prompt router
 const PROMPT_BUILDERS = {
   'generate-exam': (config) => buildExamPrompt(config),
@@ -132,6 +47,112 @@ function getMockResponse(type, config) {
     return getMockCodeResponse(config);
   }
   return { error: 'Unknown type' };
+}
+
+// Actually execute JavaScript code against test cases
+function evaluateJavaScript(code, testCases) {
+  const testResults = [];
+
+  // Extract the function name from the code
+  const fnMatch = code.match(/function\ns+(\nw+)/);
+  const fnName = fnMatch ? fnMatch[1] : null;
+
+  if (!fnName) {
+    return {
+      passed: false,
+      score: 0,
+      testResults: testCases.map((tc) => ({
+        input: tc.input || '',
+        expected: tc.output || '',
+        actual: 'No function found',
+        passed: false,
+      })),
+      feedback:
+        'Could not find a function definition in your code. Make sure you define a function (e.g., function twoSum(nums, target) { ... }).',
+      timeComplexity: '—',
+      spaceComplexity: '—',
+      suggestions: ['Define a named function', 'Make sure the function returns a value'],
+    };
+  }
+
+  for (const tc of testCases) {
+    try {
+      // Parse input arguments from the test case input string
+      const args = parseTestInput(tc.input);
+
+      // Create a sandboxed function execution
+      const wrappedCode = `
+        ${code}
+        return JSON.stringify(${fnName}(${args.join(', ')}));
+      `;
+
+      const fn = new Function(wrappedCode);
+      const actual = fn();
+      const expected = tc.output?.trim();
+
+      // Compare results (normalize both to strings for comparison)
+      const normalizedActual = normalizeOutput(actual);
+      const normalizedExpected = normalizeOutput(expected);
+      const passed = normalizedActual === normalizedExpected;
+
+      testResults.push({
+        input: tc.input,
+        expected: expected,
+        actual: actual || 'undefined',
+        passed,
+      });
+    } catch (error) {
+      testResults.push({
+        input: tc.input,
+        expected: tc.output || '',
+        actual: `Error: ${error.message}`,
+        passed: false,
+      });
+    }
+  }
+
+  const passedCount = testResults.filter((t) => t.passed).length;
+  const score = Math.round((passedCount / Math.max(testResults.length, 1)) * 100);
+  const allPassed = passedCount === testResults.length;
+
+  // Analyze code quality
+  const hasHashMap = code.includes('Map') || code.includes('{}') || code.includes('new Map');
+  const hasLoop = code.includes('for') || code.includes('while');
+  const hasNestedLoop = (code.match(/for/g) || []).length >= 2;
+
+  return {
+    passed: allPassed,
+    score,
+    testResults,
+    feedback: allPassed
+      ? 'All test cases passed!'
+      : score === 0
+        ? 'No tests passed. Check your logic and make sure you return the correct value.'
+        : `${passedCount}/${testResults.length} tests passed. Check the failing cases.`,
+    timeComplexity: hasNestedLoop ? 'O(n²)' : hasLoop ? 'O(n)' : 'O(1)',
+    spaceComplexity: hasHashMap ? 'O(n)' : 'O(1)',
+    suggestions: allPassed
+      ? hasNestedLoop
+        ? ['Consider optimizing with a hash map']
+        : ['Great job!']
+      : ['Review failing test cases', 'Consider edge cases'],
+  };
+}
+
+function parseTestInput(inputStr) {
+  if (!inputStr) return [];
+  const parts = [];
+  const assignments = inputStr.split(/,\ns*(?=\nw+\ns*=)/);
+  for (const assignment of assignments) {
+    const valueMatch = assignment.match(/=\ns*(.+)$/);
+    parts.push(valueMatch ? valueMatch[1].trim() : assignment.trim());
+  }
+  return parts;
+}
+
+function normalizeOutput(output) {
+  if (output === null || output === undefined) return '';
+  return String(output).replace(/'/g, '').replace(/\n/g, '').replace(/ +/g, ' ').trim();
 }
 
 export async function POST(request) {
