@@ -8,7 +8,6 @@ import { AdsProvider } from './providers/AdsProvider';
 import CookieConsent from './components/CookieConsent/CookieConsent';
 import { ToastProvider } from './components/Toast/ToastProvider';
 import FloatingCookieButton from './components/FloatingCookieButton/FloatingCookieButton';
-import AdSenseScript from './components/AdBanner/AdSenseScript';
 import PageViewTracker from './components/PageViewTracker/PageViewTracker';
 import UserIdTracker from './components/UserIdTracker/UserIdTracker';
 
@@ -75,6 +74,38 @@ export default function RootLayout({ children }) {
             `,
           }}
         />
+        {/* Google Consent Mode v2 — must run BEFORE any ad/analytics scripts.
+            Inline blocking script ensures defaults are set before async scripts load. */}
+        {!!(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || process.env.NEXT_PUBLIC_ADSENSE_ID) && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('consent', 'default', {
+                  'analytics_storage': 'denied',
+                  'ad_storage': 'denied',
+                  'ad_user_data': 'denied',
+                  'ad_personalization': 'denied',
+                  'wait_for_update': 500,
+                  'url_passthrough': true,
+                  'ads_data_redaction': true
+                });
+              `,
+            }}
+          />
+        )}
+        {/* AdSense auto-ads script — loaded in <head> per Google's requirement.
+            Safe to load unconditionally: Consent Mode v2 defaults above set
+            ad_storage to 'denied', so no ads serve until the user grants consent. */}
+        {!!process.env.NEXT_PUBLIC_ADSENSE_ID && (
+          <Script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_ADSENSE_ID}`}
+            strategy="beforeInteractive"
+            crossOrigin="anonymous"
+          />
+        )}
       </head>
       <body className={inter.variable}>
         <AuthProvider>
@@ -87,36 +118,14 @@ export default function RootLayout({ children }) {
                   {children}
                 </ToastProvider>
               </ThemeProvider>
-              <AdSenseScript />
               <CookieConsent />
               <FloatingCookieButton />
             </AdsProvider>
           </ConsentProvider>
         </AuthProvider>
-        {/* Google Consent Mode v2 — default denied, updated on user consent */}
+        {/* Google Tag Manager + GA4 config — loaded after interactive content */}
         {!!process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
           <>
-            <Script
-              id="gtag-consent-default"
-              strategy="beforeInteractive"
-              dangerouslySetInnerHTML={{
-                __html: `
-                  window.dataLayer = window.dataLayer || [];
-                  function gtag(){dataLayer.push(arguments);}
-                  gtag('consent', 'default', {
-                    'analytics_storage': 'denied',
-                    'ad_storage': 'denied',
-                    'ad_user_data': 'denied',
-                    'ad_personalization': 'denied',
-                    'wait_for_update': 500,
-                    'url_passthrough': true,
-                    'ads_data_redaction': true
-                  });
-                  // eslint-disable-next-line no-console
-                  console.log('[GA4] Consent defaults configured');
-                `,
-              }}
-            />
             <Script
               src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}`}
               strategy="afterInteractive"
@@ -132,8 +141,6 @@ export default function RootLayout({ children }) {
                   gtag('config', '${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}', {
                     send_page_view: true
                   });
-                  // eslint-disable-next-line no-console
-                  console.log('[GA4] Consent Mode v2 initialized');
                 `,
               }}
             />
