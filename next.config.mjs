@@ -34,12 +34,12 @@ const securityHeaders = [
 const isDev = process.env.NODE_ENV !== 'production';
 const ContentSecurityPolicy = `
   default-src 'self';
-  script-src 'self' ${isDev ? "'unsafe-eval'" : ''} 'unsafe-inline' https://www.googletagmanager.com https://www.google.com https://pagead2.googlesyndication.com;
+  script-src 'self' ${isDev ? "'unsafe-eval'" : ''} 'unsafe-inline' https://www.googletagmanager.com https://www.google.com https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://adservice.google.com https://partner.googleadservices.com https://www.googlesyndication.com;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-  img-src 'self' blob: data: https://www.googletagmanager.com https://www.google.com https://www.google-analytics.com https://fonts.gstatic.com https://lh3.googleusercontent.com https://*.googleusercontent.com;
+  img-src 'self' blob: data: https://www.googletagmanager.com https://www.google.com https://www.google-analytics.com https://fonts.gstatic.com https://lh3.googleusercontent.com https://*.googleusercontent.com https://tpc.googlesyndication.com https://googleads.g.doubleclick.net https://adservice.google.com https://partner.googleadservices.com https://www.googlesyndication.com;
   font-src 'self' https://fonts.gstatic.com;
-  connect-src 'self' https://www.google-analytics.com https://analytics.google.com https://www.google.com;
-  frame-src 'self' https://www.google.com;
+  connect-src 'self' https://www.google-analytics.com https://analytics.google.com https://www.google.com https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://adservice.google.com https://partner.googleadservices.com;
+  frame-src 'self' https://www.google.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://partner.googleadservices.com https://adservice.google.com;
   object-src 'none';
   base-uri 'self';
   form-action 'self';
