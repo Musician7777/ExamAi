@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import connectDB from '@/lib/mongodb';
 import SharedPreset from '@/models/SharedPreset';
 import { v4 as uuidv4 } from 'uuid';
-import logger from '@/lib/logger';
+import { apiRoute } from '@/lib/apiHandler';
+import { sharePresetSchema } from '@/lib/validation';
 
-// GET — Get a preset by short code
-export async function GET(request) {
-  try {
+// GET — Get a preset by short code (public, no auth)
+export const GET = apiRoute(
+  {
+    connectDB: true,
+    errorMessage: 'Failed to fetch preset',
+  },
+  async (request) => {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
 
@@ -15,7 +18,6 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Short code is required' }, { status: 400 });
     }
 
-    await connectDB();
     const preset = await SharedPreset.findOne({ shortCode: code });
 
     if (!preset) {
@@ -37,26 +39,20 @@ export async function GET(request) {
         createdAt: preset.createdAt,
       },
     });
-  } catch (error) {
-    logger.error({ err: error }, 'Presets GET error');
-    return NextResponse.json({ error: 'Failed to fetch preset' }, { status: 500 });
   }
-}
+);
 
 // POST — Share a preset (create a short code)
-export async function POST(request) {
-  try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    await connectDB();
-    const { presetType, config, title, description, emoji } = await request.json();
-
-    if (!presetType || !config || !title) {
-      return NextResponse.json({ error: 'presetType, config, and title are required' }, { status: 400 });
-    }
+export const POST = apiRoute(
+  {
+    requireAuth: true,
+    requireCsrf: true,
+    schema: sharePresetSchema,
+    connectDB: true,
+    errorMessage: 'Failed to share preset',
+  },
+  async (request, { session, body }) => {
+    const { presetType, config, title, description, emoji } = body;
 
     const shortCode = uuidv4().substring(0, 8);
 
@@ -80,8 +76,5 @@ export async function POST(request) {
       },
       { status: 201 }
     );
-  } catch (error) {
-    logger.error({ err: error }, 'Presets POST error');
-    return NextResponse.json({ error: 'Failed to share preset' }, { status: 500 });
   }
-}
+);

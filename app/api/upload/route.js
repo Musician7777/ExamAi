@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { parsePDF, analyzeExamPattern, buildPatternReplicationPrompt } from '@/lib/services/pdfParserService';
 import { generateWithFailover, hasApiKeys, parseAIResponse } from '@/lib/services/geminiService';
-import logger from '@/lib/logger';
+import { sanitizeErrorResponse } from '@/lib/sanitize';
+import { apiRoute } from '@/lib/apiHandler';
 
-export async function POST(request) {
-  try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
+export const POST = apiRoute(
+  {
+    requireAuth: true,
+    requireCsrf: true,
+    formData: true,
+    sanitizeErrors: true,
+    errorMessage: 'Failed to process file',
+  },
+  async (request) => {
     const formData = await request.formData();
     const file = formData.get('file');
     const totalQuestions = parseInt(formData.get('totalQuestions') || '20');
@@ -35,13 +37,9 @@ export async function POST(request) {
     const parsed = await parsePDF(buffer);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: 'Failed to parse PDF',
-          details: parsed.error,
-        },
-        { status: 422 }
-      );
+      return NextResponse.json(sanitizeErrorResponse({ error: 'Failed to parse PDF', details: parsed.error }), {
+        status: 422,
+      });
     }
 
     if (parsed.text.trim().length < 50) {
@@ -91,14 +89,5 @@ export async function POST(request) {
         patterns: analysis.patterns,
       },
     });
-  } catch (error) {
-    logger.error({ err: error }, 'Upload error');
-    return NextResponse.json(
-      {
-        error: 'Failed to process file',
-        details: error?.message,
-      },
-      { status: 500 }
-    );
   }
-}
+);

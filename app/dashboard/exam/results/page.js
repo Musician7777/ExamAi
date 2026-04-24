@@ -18,6 +18,7 @@ import {
 import { cn, formatDuration } from '@/lib/utils';
 import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
 import { cacheInvalidate } from '@/lib/clientCache';
+import { secureFetch } from '@/lib/client-csrf';
 import clientLogger from '@/lib/client-logger';
 import { trackShareResult } from '@/lib/ga';
 import {
@@ -149,7 +150,7 @@ export default function ResultsPage() {
       if (!savedRef.current) {
         savedRef.current = true;
         const correct = parsed.results?.filter((r) => r.isCorrect).length || 0;
-        fetch('/api/activities', {
+        secureFetch('/api/activities', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -262,7 +263,7 @@ export default function ResultsPage() {
     setCopied(false);
     try {
       trackShareResult({ resultType: 'exam' });
-      const res = await fetch('/api/share', {
+      const res = await secureFetch('/api/share', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

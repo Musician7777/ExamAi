@@ -1,32 +1,29 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import connectDB from '@/lib/mongodb';
 import Activity from '@/models/Activity';
 import ExamSession from '@/models/ExamSession';
 import AnalyticsEvent from '@/models/AnalyticsEvent';
-import logger from '@/lib/logger';
+import { apiRoute } from '@/lib/apiHandler';
+import { analyticsEventSchema } from '@/lib/validation';
 
 /**
  * GET /api/analytics
- * 
+ *
  * Returns comprehensive analytics data including:
  * - Funnel analysis (exam start → completion → review)
  * - Question-level performance metrics
  * - Cohort analysis for user retention
  * - Personalized recommendations
  */
-export async function GET(request) {
-  try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    await connectDB();
+export const GET = apiRoute(
+  {
+    requireAuth: true,
+    connectDB: true,
+    errorMessage: 'Failed to fetch analytics',
+  },
+  async (request, { session }) => {
     const userId = session.user.email;
 
     // ── 1. Funnel Analysis ──────────────────────────────────────────────
-    // Get exam session stats
     const sessionStats = await ExamSession.aggregate([
       { $match: { userId } },
       {
@@ -45,16 +42,14 @@ export async function GET(request) {
       abandoned: sessionStats.find((s) => s._id === 'abandoned')?.count || 0,
     };
 
-    // Calculate completion rate
     const totalStarted = Object.values(funnelData).reduce((a, b) => a + b, 0);
     const completionRate = totalStarted > 0 ? (funnelData.completed / totalStarted) * 100 : 0;
     const abandonRate = totalStarted > 0 ? (funnelData.abandoned / totalStarted) * 100 : 0;
 
-    // Get activities to count reviews
     const reviewCount = await Activity.countDocuments({
       userId,
       type: 'exam',
-      createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }, // Last 30 days
+      createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
     });
 
     funnelData.reviewed = reviewCount;
@@ -63,7 +58,6 @@ export async function GET(request) {
     funnelData.totalSessions = totalStarted;
 
     // ── 2. Question-Level Performance ───────────────────────────────────
-    // Get question-level events for detailed performance
     const questionEvents = await AnalyticsEvent.find({
       userId,
       eventType: { $in: ['question_correct', 'question_incorrect'] },
@@ -72,7 +66,6 @@ export async function GET(request) {
       .limit(500)
       .lean();
 
-    // Calculate per-question-type stats
     const questionTypeStats = {
       MCQ: { correct: 0, total: 0, avgTime: 0 },
       MSQ: { correct: 0, total: 0, avgTime: 0 },
@@ -80,14 +73,12 @@ export async function GET(request) {
       Descriptive: { correct: 0, total: 0, avgTime: 0 },
     };
 
-    // Calculate per-difficulty stats
     const difficultyStats = {
       easy: { correct: 0, total: 0 },
       medium: { correct: 0, total: 0 },
       hard: { correct: 0, total: 0 },
     };
 
-    // Topic-wise accuracy
     const topicStats = {};
 
     questionEvents.forEach((event) => {
@@ -117,7 +108,6 @@ export async function GET(request) {
       }
     });
 
-    // Calculate accuracy percentages
     const questionPerformance = Object.entries(questionTypeStats).map(([type, stats]) => ({
       type,
       accuracy: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
@@ -138,10 +128,9 @@ export async function GET(request) {
         total: stats.total,
         avgTimeSeconds: stats.total > 0 ? Math.round(stats.totalTime / stats.total) : 0,
       }))
-      .sort((a, b) => a.accuracy - b.accuracy); // Sort by weakest first
+      .sort((a, b) => a.accuracy - b.accuracy);
 
     // ── 3. Cohort Analysis ──────────────────────────────────────────────
-    // Group users by their signup week and track retention
     const fourWeeksAgo = new Date();
     fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
 
@@ -173,7 +162,6 @@ export async function GET(request) {
       { $sort: { '_id.year': 1, '_id.week': 1 } },
     ]);
 
-    // Calculate weekly retention metrics
     const weeklyRetention = cohortData.map((week, idx) => ({
       week: `Week ${week._id.week}`,
       activeDaysCount: week.activeDays.length,
@@ -184,11 +172,8 @@ export async function GET(request) {
     }));
 
     // ── 4. Personalized Recommendations ────────────────────────────────
-    // Find topics where user is weak (accuracy < 50%)
     const weakTopics = topicPerformance.filter((t) => t.accuracy < 50 && t.total >= 3);
-    // Find topics where user is strong (accuracy >= 75%)
     const strongTopics = topicPerformance.filter((t) => t.accuracy >= 75 && t.total >= 3);
-    // Find question types to practice
     const questionTypesToPractice = questionPerformance.filter((q) => q.accuracy < 60 && q.total >= 5);
 
     const recommendations = {
@@ -228,33 +213,22 @@ export async function GET(request) {
       funnel: funnelData,
       questionPerformance,
       difficultyPerformance,
-      topicPerformance: topicPerformance.slice(0, 20), // Top 20 topics
+      topicPerformance: topicPerformance.slice(0, 20),
       weeklyRetention,
       recommendations,
-      // Time series for charts
       dailyActivity: await getDailyActivityData(userId),
       examProgress: await getExamProgressData(userId),
     });
-  } catch (error) {
-    logger.error({ err: error }, 'Analytics GET error');
-    return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 });
   }
-}
+);
 
-/**
- * Helper: Get daily activity data for the last 30 days
- */
+/** Helper: Get daily activity data for the last 30 days */
 async function getDailyActivityData(userId) {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   const activities = await Activity.aggregate([
-    {
-      $match: {
-        userId,
-        createdAt: { $gte: thirtyDaysAgo },
-      },
-    },
+    { $match: { userId, createdAt: { $gte: thirtyDaysAgo } } },
     {
       $group: {
         _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
@@ -272,9 +246,7 @@ async function getDailyActivityData(userId) {
   }));
 }
 
-/**
- * Helper: Get exam progress data (avg time per question, completion rate over time)
- */
+/** Helper: Get exam progress data */
 async function getExamProgressData(userId) {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -291,7 +263,6 @@ async function getExamProgressData(userId) {
     return sum + questions.length;
   }, 0);
 
-  // Calculate avg completion time
   const completedSessions = examSessions.filter((s) => s.completedAt);
   const avgCompletionTime =
     completedSessions.length > 0
@@ -310,18 +281,17 @@ async function getExamProgressData(userId) {
 }
 
 /**
- * POST /api/analytics
- * 
- * Track an analytics event (for frontend to send events)
+ * POST /api/analytics — Track an analytics event
  */
-export async function POST(request) {
-  try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    await connectDB();
+export const POST = apiRoute(
+  {
+    requireAuth: true,
+    requireCsrf: true,
+    schema: analyticsEventSchema,
+    connectDB: true,
+    errorMessage: 'Failed to track event',
+  },
+  async (request, { session, body }) => {
     const {
       eventType,
       data,
@@ -336,11 +306,7 @@ export async function POST(request) {
       topic,
       difficulty,
       sessionId,
-    } = await request.json();
-
-    if (!eventType) {
-      return NextResponse.json({ error: 'Event type is required' }, { status: 400 });
-    }
+    } = body;
 
     const event = await AnalyticsEvent.create({
       userId: session.user.email,
@@ -361,8 +327,5 @@ export async function POST(request) {
     });
 
     return NextResponse.json({ event, message: 'Event tracked' }, { status: 201 });
-  } catch (error) {
-    logger.error({ err: error }, 'Analytics POST error');
-    return NextResponse.json({ error: 'Failed to track event' }, { status: 500 });
   }
-}
+);

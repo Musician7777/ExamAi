@@ -4,7 +4,13 @@ import EmailVerification from '@/models/EmailVerification';
 import User from '@/models/User';
 import UserProfile from '@/models/UserProfile';
 import Activity from '@/models/Activity';
-import { cacheDelete } from '@/lib/services/cacheService';
+import ExamSession from '@/models/ExamSession';
+import StudyPlan from '@/models/StudyPlan';
+import SharedPreset from '@/models/SharedPreset';
+import SharedResult from '@/models/SharedResult';
+import AnalyticsEvent from '@/models/AnalyticsEvent';
+import PasswordReset from '@/models/PasswordReset';
+import { cacheDelete } from '@/lib/services/redisCacheService';
 import logger from '@/lib/logger';
 
 export async function GET(request) {
@@ -46,21 +52,28 @@ export async function GET(request) {
     await user.save();
 
     // Migrate related data to new email
+    const newEmail = verification.newEmail;
     await Promise.all([
-      UserProfile.updateOne({ userId: oldEmail }, { $set: { userId: verification.newEmail } }),
-      Activity.updateMany({ userId: oldEmail }, { $set: { userId: verification.newEmail } }),
-      EmailVerification.updateMany({ userId: oldEmail }, { $set: { userId: verification.newEmail } }),
+      UserProfile.updateOne({ userId: oldEmail }, { $set: { userId: newEmail } }),
+      Activity.updateMany({ userId: oldEmail }, { $set: { userId: newEmail } }),
+      EmailVerification.updateMany({ userId: oldEmail }, { $set: { userId: newEmail } }),
+      ExamSession.updateMany({ userId: oldEmail }, { $set: { userId: newEmail } }),
+      StudyPlan.updateMany({ userId: oldEmail }, { $set: { userId: newEmail } }),
+      SharedPreset.updateMany({ creatorId: oldEmail }, { $set: { creatorId: newEmail } }),
+      SharedResult.updateMany({ creatorId: oldEmail }, { $set: { creatorId: newEmail } }),
+      AnalyticsEvent.updateMany({ userId: oldEmail }, { $set: { userId: newEmail } }),
+      PasswordReset.updateMany({ email: oldEmail }, { $set: { email: newEmail } }),
     ]);
 
     // Invalidate caches for both old and new emails
-    cacheDelete(`user:${oldEmail}`);
-    cacheDelete(`dashboard:${oldEmail}`);
-    cacheDelete(`gamification:${oldEmail}`);
-    cacheDelete(`user:${verification.newEmail}`);
-    cacheDelete(`dashboard:${verification.newEmail}`);
-    cacheDelete(`gamification:${verification.newEmail}`);
+    await cacheDelete(`user:${oldEmail}`);
+    await cacheDelete(`dashboard:${oldEmail}`);
+    await cacheDelete(`gamification:${oldEmail}`);
+    await cacheDelete(`user:${newEmail}`);
+    await cacheDelete(`dashboard:${newEmail}`);
+    await cacheDelete(`gamification:${newEmail}`);
 
-    logger.info({ oldEmail, newEmail: verification.newEmail }, 'Email changed successfully');
+    logger.info({ oldEmail, newEmail }, 'Email changed successfully');
 
     // Redirect to profile with success message
     return NextResponse.redirect(new URL('/dashboard/profile?emailChanged=1', request.url));

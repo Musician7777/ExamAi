@@ -54,6 +54,7 @@ import StudyPlan from './StudyPlan';
 import { useAnalytics, DATE_PRESETS } from './hooks/useAnalytics';
 import { RefreshShimmer } from '@/components/ui/refresh-shimmer';
 import AdBanner from '@/app/components/AdBanner/AdBanner';
+import { secureFetch } from '@/lib/client-csrf';
 import { formatDuration } from '@/lib/utils';
 import {
   exportAllAnalyticsCSV,
@@ -163,7 +164,7 @@ export default function AnalyticsPage() {
   const handleUpdateStudyPlanItem = async (itemId, status) => {
     setStudyPlanLoading(true);
     try {
-      const res = await fetch('/api/study-plan', {
+      const res = await secureFetch('/api/study-plan', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'update_item', itemId, status }),
@@ -181,7 +182,7 @@ export default function AnalyticsPage() {
   const handleRegenerateStudyPlan = async () => {
     setStudyPlanLoading(true);
     try {
-      const res = await fetch('/api/study-plan', {
+      const res = await secureFetch('/api/study-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ regenerate: true }),

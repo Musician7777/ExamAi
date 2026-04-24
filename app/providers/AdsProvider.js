@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useConsent } from './ConsentProvider';
+import { secureFetch } from '@/lib/client-csrf';
 
 const AdsContext = createContext({
   adsVisible: false,
@@ -47,7 +48,7 @@ export function AdsProvider({ children }) {
 
       if (session?.user?.email) {
         try {
-          await fetch('/api/user', {
+          await secureFetch('/api/user', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ showAds: newValue }),

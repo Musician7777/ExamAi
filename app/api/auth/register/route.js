@@ -3,10 +3,15 @@ import bcrypt from 'bcryptjs';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import { registerSchema, validateRequest } from '@/lib/validation';
+import { rateLimit } from '@/lib/services/rateLimitService';
 import logger from '@/lib/logger';
 
 export async function POST(request) {
   try {
+    // Rate limit: 5 registrations per 15 minutes per IP
+    const rateLimitResult = await rateLimit(request, 5, 900000);
+    if (rateLimitResult) return rateLimitResult;
+
     const body = await request.json();
 
     // Validate input with Zod

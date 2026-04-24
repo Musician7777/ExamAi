@@ -8,11 +8,11 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
 import { cacheInvalidate } from '@/lib/clientCache';
+import { secureFetch } from '@/lib/client-csrf';
 import clientLogger from '@/lib/client-logger';
 import { trackCodingSubmit } from '@/lib/ga';
 
@@ -20,10 +20,19 @@ import { trackCodingSubmit } from '@/lib/ga';
 const Editor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
   loading: () => (
-    <div className="flex-1 relative bg-[#1e1e1e] p-4 space-y-3">
-      {['40%', '70%', '55%', '65%', '45%', '60%', '50%', '35%', '68%', '42%', '58%', '33%'].map((w, i) => (
-        <div key={i} className="h-4 rounded bg-[#2d2d2d] animate-pulse" style={{ width: w }} />
-      ))}
+    <div className="flex-1 relative bg-[#1e1e1e] flex flex-col items-center justify-center gap-3">
+      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+        Loading editor...
+      </div>
+      <div className="w-full px-4 space-y-2">
+        {['40%', '70%', '55%', '65%', '45%', '60%', '50%', '35%'].map((w, i) => (
+          <div key={i} className="h-4 rounded bg-[#2d2d2d] animate-pulse" style={{ width: w }} />
+        ))}
+      </div>
     </div>
   ),
 });
@@ -347,7 +356,7 @@ export default function CodingEditorPage() {
       const stored = sessionStorage.getItem('codingProblem_' + params.id);
       if (stored) {
         try {
-          setAiProblem(JSON.parse(stored)); // eslint-disable-line react-hooks/set-state-in-effect -- SSR-safe sessionStorage init
+          setAiProblem(JSON.parse(stored));
         } catch (e) {
           clientLogger.warn('Failed to parse AI-generated problem from sessionStorage:', e.message);
         }
@@ -366,11 +375,27 @@ export default function CodingEditorPage() {
   const codeInitialized = useRef(false);
   const { notify } = useNotification();
 
+  // Keyboard shortcuts: Ctrl+Enter = Run, Ctrl+Shift+Enter = Submit
+  // Refs declared before conditional return to satisfy rules-of-hooks
+  const runRef = useRef(null);
+  const submitRef = useRef(null);
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (e.shiftKey) submitRef.current?.();
+        else runRef.current?.();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Set starter code when problem becomes available (only once)
   useEffect(() => {
     if (problem?.starterCode?.[language] && !codeInitialized.current) {
       codeInitialized.current = true;
-      setCode(problem.starterCode[language]); // eslint-disable-line react-hooks/set-state-in-effect -- sync derived state from async-loaded problem
+      setCode(problem.starterCode[language]);
     }
   }, [problem, language]);
 
@@ -446,7 +471,7 @@ export default function CodingEditorPage() {
   }
 
   const evaluateCode = async () => {
-    const res = await fetch('/api/gemini', {
+    const res = await secureFetch('/api/gemini', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -458,12 +483,14 @@ export default function CodingEditorPage() {
   };
 
   const handleRun = async () => {
+    if (running) return;
     setRunning(true);
     setSubmitted(false);
+    setOutput(null);
     setExecutionOutput(null);
     try {
       // Use real code execution via Piston API
-      const res = await fetch('/api/execute', {
+      const res = await secureFetch('/api/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, language, testCases: problem.testCases }),
@@ -485,14 +512,16 @@ export default function CodingEditorPage() {
   };
 
   const handleSubmit = async () => {
+    if (submitting) return;
     setSubmitting(true);
     setSubmitted(false);
+    setExecutionOutput(null);
     try {
       const result = await evaluateCode();
       setOutput(result);
 
       // Save to database
-      const actRes = await fetch('/api/activities', {
+      const actRes = await secureFetch('/api/activities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -539,9 +568,11 @@ export default function CodingEditorPage() {
       // Dispatch solved event for the coding page tracker
       if (result.passed) {
         try {
-          window.dispatchEvent(new CustomEvent('coding-problem-solved', { 
-            detail: { problemId: params.id, problemTitle: problem.title } 
-          }));
+          window.dispatchEvent(
+            new CustomEvent('coding-problem-solved', {
+              detail: { problemId: params.id, problemTitle: problem.title },
+            })
+          );
         } catch (e) {
           clientLogger.warn('Failed to dispatch coding-problem-solved event:', e.message);
         }
@@ -560,6 +591,19 @@ export default function CodingEditorPage() {
     setExecutionOutput(null);
     setSubmitted(false);
   };
+
+  const handleResetCode = () => {
+    setCode(problem.starterCode?.[language] || problem.starterCode?.javascript || '');
+    setOutput(null);
+    setExecutionOutput(null);
+    setSubmitted(false);
+  };
+
+  // Keep refs updated with latest handler closures
+  // eslint-disable-next-line react-hooks/refs -- intentional ref sync for keyboard shortcuts
+  runRef.current = handleRun;
+  // eslint-disable-next-line react-hooks/refs -- intentional ref sync for keyboard shortcuts
+  submitRef.current = handleSubmit;
 
   return (
     <div className="h-[calc(100vh-theme(spacing.16))] flex flex-col lg:flex-row p-4 gap-4 bg-background">
@@ -651,11 +695,21 @@ export default function CodingEditorPage() {
 
             <div className="flex gap-2">
               <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleResetCode}
+                className="gap-1.5 text-muted-foreground hover:text-foreground"
+                title="Reset to starter code"
+              >
+                🔄 Reset
+              </Button>
+              <Button
                 variant="secondary"
                 size="sm"
                 onClick={handleRun}
                 disabled={running || submitting}
                 className="gap-2 font-semibold"
+                title="Run Code (Ctrl+Enter)"
               >
                 {running ? (
                   <>
@@ -664,7 +718,7 @@ export default function CodingEditorPage() {
                 ) : (
                   '▶ '
                 )}{' '}
-                Run Code
+                Run
               </Button>
               <Button
                 size="sm"
@@ -674,6 +728,7 @@ export default function CodingEditorPage() {
                   'gap-2 font-semibold transition-colors',
                   submitted && 'bg-success text-success-foreground hover:bg-success/90'
                 )}
+                title="Submit Code (Ctrl+Shift+Enter)"
               >
                 {submitting ? (
                   <>
@@ -684,7 +739,7 @@ export default function CodingEditorPage() {
                 ) : (
                   '📤 '
                 )}{' '}
-                Submit Code
+                Submit
               </Button>
             </div>
           </div>
@@ -709,102 +764,163 @@ export default function CodingEditorPage() {
           </div>
         </Card>
 
-        {output && (
+        {(output || executionOutput) && (
           <Card className="flex-1 max-h-[350px] flex flex-col overflow-hidden animate-in slide-in-from-bottom-2 fade-in-0 shadow-sm border-border">
-            <div
-              className={cn(
-                'px-4 py-3 flex flex-wrap items-center justify-between font-semibold border-b gap-3',
-                output.passed
-                  ? 'bg-success/10 text-success border-success/20'
-                  : 'bg-destructive/10 text-destructive border-destructive/20'
-              )}
-            >
-              <div className="flex items-center gap-2 text-base">
-                {output.passed ? '✅ All Tests Passed!' : '❌ Some Tests Failed'}
-              </div>
-              <div className="flex items-center gap-3">
-                <Badge
-                  variant="outline"
+            {output ? (
+              <>
+                <div
                   className={cn(
-                    'bg-background py-1 text-sm font-bold min-w-[90px] justify-center',
-                    output.passed ? 'text-success border-success/50' : 'text-destructive border-destructive/50'
+                    'px-4 py-3 flex flex-wrap items-center justify-between font-semibold border-b gap-3',
+                    output.passed
+                      ? 'bg-success/10 text-success border-success/20'
+                      : 'bg-destructive/10 text-destructive border-destructive/20'
                   )}
                 >
-                  Score: {output.score}/100
-                </Badge>
-                {submitted && (
-                  <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30 py-1 text-sm px-3">
-                    💾 Saved
-                  </Badge>
-                )}
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-secondary/5">
-              {output.testResults?.length > 0 && (
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1">
-                    Test Cases
-                  </h4>
-                  <div className="grid gap-3">
-                    {output.testResults?.map((t, i) => (
-                      <div
-                        key={i}
-                        className="flex flex-col sm:flex-row gap-3 p-3 rounded-lg border bg-background shadow-sm text-sm font-mono"
+                  <div className="flex items-center gap-2 text-base">
+                    {output.passed ? '✅ All Tests Passed!' : '❌ Some Tests Failed'}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {output.executionTime != null && (
+                      <Badge variant="outline" className="text-xs bg-secondary/50 font-mono py-1 px-3">
+                        ⏱️ {output.executionTime}ms
+                      </Badge>
+                    )}
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'bg-background py-1 text-sm font-bold min-w-[90px] justify-center',
+                        output.passed ? 'text-success border-success/50' : 'text-destructive border-destructive/50'
+                      )}
+                    >
+                      Score: {output.score}/100
+                    </Badge>
+                    {submitted && (
+                      <Badge
+                        variant="secondary"
+                        className="bg-primary/20 text-primary border-primary/30 py-1 text-sm px-3"
                       >
-                        <div className="flex items-center gap-2 shrink-0 sm:w-20">
-                          <span
-                            className={cn(
-                              'flex items-center justify-center w-6 h-6 rounded-full text-white',
-                              t.passed ? 'bg-success' : 'bg-destructive'
-                            )}
-                          >
-                            {t.passed ? '✓' : '✗'}
-                          </span>
-                          <span className="font-semibold text-xs text-muted-foreground">Test {i + 1}</span>
-                        </div>
-                        <div className="grid grid-cols-1 gap-2 flex-1 w-full overflow-hidden text-xs sm:text-sm">
-                          <div className="truncate">
-                            <span className="text-muted-foreground w-10 inline-block font-sans">In:</span> {t.input}
-                          </div>
-                          <div className="truncate">
-                            <span className="text-muted-foreground w-10 inline-block font-sans">Exp:</span> {t.expected}
-                          </div>
-                          <div className={cn('truncate font-semibold', t.passed ? 'text-success' : 'text-destructive')}>
-                            <span className="text-muted-foreground w-10 inline-block font-sans">Got:</span> {t.actual}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                        💾 Saved
+                      </Badge>
+                    )}
                   </div>
                 </div>
-              )}
 
-              {(output.feedback || output.timeComplexity) && (
-                <div className="space-y-3 pt-4 border-t border-border/60">
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1">
-                    AI Analysis
-                  </h4>
-
-                  {output.timeComplexity && (
-                    <div className="flex gap-3 mt-2">
-                      <Badge variant="outline" className="text-xs bg-secondary/50 font-mono py-1 px-3">
-                        ⏱️ Time: {output.timeComplexity}
-                      </Badge>
-                      <Badge variant="outline" className="text-xs bg-secondary/50 font-mono py-1 px-3">
-                        💾 Space: {output.spaceComplexity}
-                      </Badge>
+                <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-secondary/5">
+                  {output.testResults?.length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1">
+                        Test Cases
+                      </h4>
+                      <div className="grid gap-3">
+                        {output.testResults?.map((t, i) => (
+                          <div
+                            key={i}
+                            className="flex flex-col sm:flex-row gap-3 p-3 rounded-lg border bg-background shadow-sm text-sm font-mono"
+                          >
+                            <div className="flex items-center gap-2 shrink-0 sm:w-20">
+                              <span
+                                className={cn(
+                                  'flex items-center justify-center w-6 h-6 rounded-full text-white',
+                                  t.passed ? 'bg-success' : 'bg-destructive'
+                                )}
+                              >
+                                {t.passed ? '✓' : '✗'}
+                              </span>
+                              <span className="font-semibold text-xs text-muted-foreground">Test {i + 1}</span>
+                            </div>
+                            <div className="grid grid-cols-1 gap-2 flex-1 w-full overflow-hidden text-xs sm:text-sm">
+                              <div className="truncate">
+                                <span className="text-muted-foreground w-10 inline-block font-sans">In:</span> {t.input}
+                              </div>
+                              <div className="truncate">
+                                <span className="text-muted-foreground w-10 inline-block font-sans">Exp:</span>{' '}
+                                {t.expected}
+                              </div>
+                              <div
+                                className={cn('truncate font-semibold', t.passed ? 'text-success' : 'text-destructive')}
+                              >
+                                <span className="text-muted-foreground w-10 inline-block font-sans">Got:</span>{' '}
+                                {t.actual}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
 
-                  {output.feedback && (
-                    <div className="mt-3 p-4 rounded-xl bg-primary/5 border border-primary/20 text-sm text-foreground/90 leading-relaxed shadow-inner">
-                      {output.feedback}
+                  {(output.feedback || output.timeComplexity) && (
+                    <div className="space-y-3 pt-4 border-t border-border/60">
+                      <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1">
+                        AI Analysis
+                      </h4>
+
+                      {output.timeComplexity && (
+                        <div className="flex gap-3 mt-2">
+                          <Badge variant="outline" className="text-xs bg-secondary/50 font-mono py-1 px-3">
+                            ⏱️ Time: {output.timeComplexity}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs bg-secondary/50 font-mono py-1 px-3">
+                            💾 Space: {output.spaceComplexity}
+                          </Badge>
+                        </div>
+                      )}
+
+                      {output.feedback && (
+                        <div className="mt-3 p-4 rounded-xl bg-primary/5 border border-primary/20 text-sm text-foreground/90 leading-relaxed shadow-inner">
+                          {output.feedback}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
+              </>
+            ) : executionOutput ? (
+              <>
+                <div
+                  className={cn(
+                    'px-4 py-3 flex flex-wrap items-center justify-between font-semibold border-b gap-3',
+                    executionOutput.exitCode === 0
+                      ? 'bg-success/10 text-success border-success/20'
+                      : 'bg-destructive/10 text-destructive border-destructive/20'
+                  )}
+                >
+                  <div className="flex items-center gap-2 text-base">
+                    {executionOutput.exitCode === 0 ? '✅ Execution Successful' : '❌ Execution Failed'}
+                  </div>
+                  {executionOutput.executionTime != null && (
+                    <Badge variant="outline" className="text-xs bg-secondary/50 font-mono py-1 px-3">
+                      ⏱️ {executionOutput.executionTime}ms
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-secondary/5">
+                  {executionOutput.stdout && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1 mb-2">
+                        Output
+                      </h4>
+                      <pre className="p-3 rounded-lg bg-background border text-sm font-mono whitespace-pre-wrap break-words leading-relaxed">
+                        {executionOutput.stdout}
+                      </pre>
+                    </div>
+                  )}
+                  {executionOutput.stderr && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-destructive uppercase tracking-wider pl-1 mb-2">
+                        Errors
+                      </h4>
+                      <pre className="p-3 rounded-lg bg-destructive/5 border border-destructive/20 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed text-destructive">
+                        {executionOutput.stderr}
+                      </pre>
+                    </div>
+                  )}
+                  {!executionOutput.stdout && !executionOutput.stderr && (
+                    <div className="text-sm text-muted-foreground text-center py-4">No output produced.</div>
+                  )}
+                </div>
+              </>
+            ) : null}
           </Card>
         )}
       </div>

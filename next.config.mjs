@@ -22,7 +22,7 @@ const securityHeaders = [
   },
   {
     key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(), geolocation=()',
+    value: 'camera=(), microphone=(self), geolocation=()',
   },
   {
     key: 'X-XSS-Protection',
@@ -83,6 +83,9 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
   },
+
+  // Packages that should not be bundled and should be kept as external
+  serverExternalPackages: ['@upstash/redis'],
 };
 
 export default nextConfig;

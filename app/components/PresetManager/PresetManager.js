@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { secureFetch } from '@/lib/client-csrf';
 import clientLogger from '@/lib/client-logger';
 
 /* ═══ FETCH EXAM MODAL ═══ */
@@ -41,7 +42,7 @@ export function FetchExamModal({ isOpen, onClose, onUseConfig, onSavePreset, mod
     setResult(null);
     setSaved(false);
     try {
-      const res = await fetch('/api/gemini', {
+      const res = await secureFetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: apiType, config: { examName: examName.trim() } }),

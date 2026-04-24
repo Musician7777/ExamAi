@@ -1,18 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import connectDB from '@/lib/mongodb';
 import ExamSession from '@/models/ExamSession';
-import logger from '@/lib/logger';
+import { apiRoute } from '@/lib/apiHandler';
+import { examSessionCreateSchema, examSessionUpdateSchema } from '@/lib/validation';
 
 // GET — Get active/paused sessions or a specific session
-export async function GET(request) {
-  try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    await connectDB();
+export const GET = apiRoute(
+  {
+    requireAuth: true,
+    connectDB: true,
+    errorMessage: 'Failed to fetch sessions',
+  },
+  async (request, { session }) => {
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get('id');
 
@@ -36,26 +34,20 @@ export async function GET(request) {
       .lean();
 
     return NextResponse.json({ sessions: activeSessions });
-  } catch (error) {
-    logger.error({ err: error }, 'ExamSession GET error');
-    return NextResponse.json({ error: 'Failed to fetch sessions' }, { status: 500 });
   }
-}
+);
 
 // POST — Create a new exam session
-export async function POST(request) {
-  try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    await connectDB();
-    const { examData, timeRemaining } = await request.json();
-
-    if (!examData) {
-      return NextResponse.json({ error: 'Exam data is required' }, { status: 400 });
-    }
+export const POST = apiRoute(
+  {
+    requireAuth: true,
+    requireCsrf: true,
+    schema: examSessionCreateSchema,
+    connectDB: true,
+    errorMessage: 'Failed to create session',
+  },
+  async (request, { session, body }) => {
+    const { examData, timeRemaining } = body;
 
     const examSession = await ExamSession.create({
       userId: session.user.email,
@@ -71,27 +63,20 @@ export async function POST(request) {
       },
       { status: 201 }
     );
-  } catch (error) {
-    logger.error({ err: error }, 'ExamSession POST error');
-    return NextResponse.json({ error: 'Failed to create session' }, { status: 500 });
   }
-}
+);
 
 // PATCH — Update an existing session (save progress, pause, complete)
-export async function PATCH(request) {
-  try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    await connectDB();
-    const { sessionId, answers, markedForReview, currentSection, currentQuestion, timeRemaining, status } =
-      await request.json();
-
-    if (!sessionId) {
-      return NextResponse.json({ error: 'Session ID is required' }, { status: 400 });
-    }
+export const PATCH = apiRoute(
+  {
+    requireAuth: true,
+    requireCsrf: true,
+    schema: examSessionUpdateSchema,
+    connectDB: true,
+    errorMessage: 'Failed to update session',
+  },
+  async (request, { session, body }) => {
+    const { sessionId, answers, markedForReview, currentSection, currentQuestion, timeRemaining, status } = body;
 
     const examSession = await ExamSession.findOne({
       _id: sessionId,
@@ -125,8 +110,5 @@ export async function PATCH(request) {
 
     await examSession.save();
     return NextResponse.json({ session: examSession, message: 'Session updated' });
-  } catch (error) {
-    logger.error({ err: error }, 'ExamSession PATCH error');
-    return NextResponse.json({ error: 'Failed to update session' }, { status: 500 });
   }
-}
+);

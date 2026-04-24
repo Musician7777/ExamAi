@@ -17,6 +17,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { secureFetch } from '@/lib/client-csrf';
 import clientLogger from '@/lib/client-logger';
 import { trackExamSubmit, trackExamStart } from '@/lib/ga';
 import { useNotification } from '@/app/components/BadgeNotification/BadgeNotification';
@@ -155,7 +156,7 @@ export default function LiveExamPage() {
         // Track exam start event for analytics funnel
         if (!examStartTrackedRef.current) {
           examStartTrackedRef.current = true;
-          fetch('/api/analytics', {
+          secureFetch('/api/analytics', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -172,7 +173,7 @@ export default function LiveExamPage() {
 
         // Save session to DB for resume capability
         try {
-          const res = await fetch('/api/exam-session', {
+          const res = await secureFetch('/api/exam-session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ examData: parsed, timeRemaining: duration }),
@@ -212,7 +213,7 @@ export default function LiveExamPage() {
     if (!savedSessionId || !exam) return;
     autoSaveTimerRef.current = setInterval(async () => {
       try {
-        await fetch('/api/exam-session', {
+        await secureFetch('/api/exam-session', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -257,7 +258,7 @@ export default function LiveExamPage() {
         const timeSpent = currentQuestionTimes[i] || 0;
 
         // Track question-level analytics
-        return fetch('/api/analytics', {
+        return secureFetch('/api/analytics', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -278,7 +279,7 @@ export default function LiveExamPage() {
     ).catch((e) => clientLogger.warn('Failed to track question analytics batch:', e.message));
 
     // Track exam completion
-    fetch('/api/analytics', {
+    secureFetch('/api/analytics', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -324,7 +325,7 @@ export default function LiveExamPage() {
 
     // Mark session as completed in DB
     if (savedSessionId) {
-      fetch('/api/exam-session', {
+      secureFetch('/api/exam-session', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -514,7 +515,7 @@ export default function LiveExamPage() {
       if (res.ok) {
         const data = await res.json();
         for (const s of data.sessions || []) {
-          await fetch('/api/exam-session', {
+          await secureFetch('/api/exam-session', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sessionId: s._id, status: 'abandoned' }),
@@ -776,7 +777,11 @@ export default function LiveExamPage() {
       </div>
 
       {/* Keyboard shortcuts hint */}
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" role="note" aria-label="Keyboard shortcuts">
+      <div
+        className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+        role="note"
+        aria-label="Keyboard shortcuts"
+      >
         <span className="px-2 py-1 rounded bg-secondary/50 border">← → Navigate</span>
         {qType === 'MCQ' && <span className="px-2 py-1 rounded bg-secondary/50 border">1-4 Select option</span>}
         {qType === 'MSQ' && <span className="px-2 py-1 rounded bg-secondary/50 border">1-5 Toggle option</span>}
@@ -784,7 +789,9 @@ export default function LiveExamPage() {
         <span className="px-2 py-1 rounded bg-secondary/50 border">X Clear answer</span>
         <span className="px-2 py-1 rounded bg-secondary/50 border">Enter Submit</span>
         <span className="px-2 py-1 rounded bg-secondary/50 border">Esc Cancel</span>
-        <Button variant='ghost' size='sm' onClick={() => setShowShortcuts(true)} className='text-xs h-6 px-2'>? Help</Button>
+        <Button variant="ghost" size="sm" onClick={() => setShowShortcuts(true)} className="text-xs h-6 px-2">
+          ? Help
+        </Button>
       </div>
 
       <div className="grid lg:grid-cols-4 gap-6">
@@ -980,15 +987,13 @@ export default function LiveExamPage() {
 
       {/* Keyboard Shortcuts Help Modal */}
       <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
-        <DialogContent className='max-w-md'>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>⌨️ Keyboard Shortcuts</DialogTitle>
-            <DialogDescription>
-              Navigate faster using these keyboard shortcuts during the exam.
-            </DialogDescription>
+            <DialogDescription>Navigate faster using these keyboard shortcuts during the exam.</DialogDescription>
           </DialogHeader>
-          <div className='space-y-4 py-4'>
-            <div className='grid gap-3'>
+          <div className="space-y-4 py-4">
+            <div className="grid gap-3">
               {[
                 { key: '← →', desc: 'Navigate between questions' },
                 { key: '↑ ↓', desc: 'Also navigate between questions' },
@@ -999,22 +1004,24 @@ export default function LiveExamPage() {
                 { key: 'Esc', desc: 'Close dialogs' },
                 { key: '?', desc: 'Show this help dialog' },
               ].map((shortcut) => (
-                <div key={shortcut.key} className='flex items-center justify-between'>
-                  <kbd className='px-3 py-1.5 rounded bg-secondary text-sm font-mono font-semibold min-w-[60px] text-center'>
+                <div key={shortcut.key} className="flex items-center justify-between">
+                  <kbd className="px-3 py-1.5 rounded bg-secondary text-sm font-mono font-semibold min-w-[60px] text-center">
                     {shortcut.key}
                   </kbd>
-                  <span className='text-sm text-muted-foreground'>{shortcut.desc}</span>
+                  <span className="text-sm text-muted-foreground">{shortcut.desc}</span>
                 </div>
               ))}
             </div>
-            <div className='pt-4 border-t'>
-              <p className='text-xs text-muted-foreground text-center'>
+            <div className="pt-4 border-t">
+              <p className="text-xs text-muted-foreground text-center">
                 Shortcuts are disabled when typing in input fields.
               </p>
             </div>
           </div>
           <DialogFooter>
-            <Button variant='outline' onClick={() => setShowShortcuts(false)}>Got it!</Button>
+            <Button variant="outline" onClick={() => setShowShortcuts(false)}>
+              Got it!
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import PasswordReset from '@/models/PasswordReset';
-import { rateLimit } from '@/lib/rateLimit';
+import { rateLimit } from '@/lib/services/rateLimitService';
 import { sendPasswordResetEmail } from '@/lib/services/emailService';
 import { forgotPasswordSchema, validateRequest } from '@/lib/validation';
 import logger from '@/lib/logger';
@@ -11,7 +11,7 @@ import logger from '@/lib/logger';
 export async function POST(request) {
   try {
     // Rate limit: 3 password reset requests per 15 minutes
-    const rateLimitResult = rateLimit(request, 3, 900000);
+    const rateLimitResult = await rateLimit(request, 3, 900000);
     if (rateLimitResult) return rateLimitResult;
 
     await connectDB();

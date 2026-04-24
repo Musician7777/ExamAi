@@ -4,10 +4,15 @@ import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import PasswordReset from '@/models/PasswordReset';
 import { resetPasswordSchema, validateRequest } from '@/lib/validation';
+import { rateLimit } from '@/lib/services/rateLimitService';
 import logger from '@/lib/logger';
 
 export async function POST(request) {
   try {
+    // Rate limit: 10 password resets per minute per IP
+    const rateLimitResult = await rateLimit(request, 10, 60000);
+    if (rateLimitResult) return rateLimitResult;
+
     await connectDB();
     const body = await request.json();
 

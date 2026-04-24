@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 
 import { cn } from '@/lib/utils';
+import { secureFetch } from '@/lib/client-csrf';
 import clientLogger from '@/lib/client-logger';
 import { trackFeatureUsed } from '@/lib/ga';
 
@@ -35,7 +36,7 @@ export default function StudyAssistant({ notify } = {}) {
 
     try {
       const history = messages.slice(-10).map((m) => ({ role: m.role, text: m.text }));
-      const res = await fetch('/api/chat', {
+      const res = await secureFetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMsg, history, context: {} }),

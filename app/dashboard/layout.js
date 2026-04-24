@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -26,6 +26,7 @@ import { NotificationProvider, useNotification } from '../components/BadgeNotifi
 import ErrorBoundary from '../components/ErrorBoundary/ErrorBoundary';
 import AdBanner from '../components/AdBanner/AdBanner';
 import { cn } from '@/lib/utils';
+import { ensureCSRFToken } from '@/lib/client-csrf';
 
 const navItems = [
   {
@@ -66,6 +67,12 @@ function DashboardInner({ children }) {
   const { data: session } = useSession();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { notify } = useNotification();
+
+  // Ensure CSRF cookie is set on first dashboard load so that
+  // mutation requests can include the x-csrf-token header.
+  useEffect(() => {
+    ensureCSRFToken();
+  }, []);
 
   const getInitials = (name) => {
     if (!name) return '?';

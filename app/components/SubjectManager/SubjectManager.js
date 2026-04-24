@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { secureFetch } from '@/lib/client-csrf';
 import { cn } from '@/lib/utils';
 
 /**
@@ -45,7 +46,7 @@ export default function SubjectManager({
       if (!subjectName.trim() || !showAiOverviews) return null;
       setSubjectLoading((prev) => ({ ...prev, [subjectName]: true }));
       try {
-        const res = await fetch('/api/gemini', {
+        const res = await secureFetch('/api/gemini', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

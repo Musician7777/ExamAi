@@ -1,22 +1,19 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import connectDB from '@/lib/mongodb';
 import Activity from '@/models/Activity';
 import { awardXP } from '@/lib/services/gamificationService';
 import { updateStudyPlanProgress } from '@/lib/studyPlanService';
-import { rateLimit } from '@/lib/rateLimit';
-import { cacheWrap, cacheDelete, cacheInvalidatePrefix } from '@/lib/services/cacheService';
+import { cacheWrap, cacheDelete, cacheInvalidatePrefix } from '@/lib/services/redisCacheService';
+import { apiRoute } from '@/lib/apiHandler';
+import { activityCreateSchema } from '@/lib/validation';
 import logger from '@/lib/logger';
 
-export async function GET(request) {
-  try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    await connectDB();
-
+export const GET = apiRoute(
+  {
+    requireAuth: true,
+    connectDB: true,
+    errorMessage: 'Failed to fetch activities',
+  },
+  async (request, { session }) => {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
     const limit = parseInt(searchParams.get('limit') || '20');
@@ -69,36 +66,26 @@ export async function GET(request) {
           },
         };
       },
-      30_000 // 30s server cache
+      30 // 30 seconds server cache
     );
 
     return NextResponse.json(data, {
       headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=15' },
     });
-  } catch (error) {
-    logger.error({ err: error }, 'Activities GET error');
-    return NextResponse.json({ error: 'Failed to fetch activities' }, { status: 500 });
   }
-}
+);
 
-export async function POST(request) {
-  try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    await connectDB();
-
-    // Rate limit: 30 activity saves per minute
-    const rateLimitResult = rateLimit(request, 30, 60000);
-    if (rateLimitResult) return rateLimitResult;
-
-    const { type, title, score, totalMarks, details, difficulty, duration, tags } = await request.json();
-
-    if (!type || !title) {
-      return NextResponse.json({ error: 'Type and title are required' }, { status: 400 });
-    }
+export const POST = apiRoute(
+  {
+    requireAuth: true,
+    requireCsrf: true,
+    rateLimit: { max: 30, windowMs: 60000 },
+    schema: activityCreateSchema,
+    connectDB: true,
+    errorMessage: 'Failed to save activity',
+  },
+  async (request, { session, body }) => {
+    const { type, title, score, totalMarks, details, difficulty, duration, tags } = body;
 
     const activity = await Activity.create({
       userId: session.user.email,
@@ -133,9 +120,9 @@ export async function POST(request) {
 
     // Invalidate activity & dashboard caches for this user
     const email = session.user.email;
-    cacheInvalidatePrefix(`activities:${email}`);
-    cacheDelete(`dashboard:${email}`);
-    cacheDelete(`gamification:${email}`);
+    await cacheInvalidatePrefix(`activities:${email}`);
+    await cacheDelete(`dashboard:${email}`);
+    await cacheDelete(`gamification:${email}`);
 
     return NextResponse.json(
       {
@@ -145,8 +132,5 @@ export async function POST(request) {
       },
       { status: 201 }
     );
-  } catch (error) {
-    logger.error({ err: error }, 'Activities POST error');
-    return NextResponse.json({ error: 'Failed to save activity' }, { status: 500 });
   }
-}
+);

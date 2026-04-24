@@ -27,17 +27,17 @@ const handler = NextAuth({
         const user = await User.findOne({ email: credentials.email });
 
         if (!user) {
-          throw new Error('No account found with this email');
+          throw new Error('Invalid email or password');
         }
 
         if (!user.password) {
-          throw new Error('This account uses Google sign-in. Please use the Google button.');
+          throw new Error('Invalid email or password');
         }
 
         const isValid = await bcrypt.compare(credentials.password, user.password);
 
         if (!isValid) {
-          throw new Error('Invalid password');
+          throw new Error('Invalid email or password');
         }
 
         return {

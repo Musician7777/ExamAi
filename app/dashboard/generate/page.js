@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { secureFetch } from '@/lib/client-csrf';
 import clientLogger from '@/lib/client-logger';
 import { trackExamGenerate, trackFeatureUsed } from '@/lib/ga';
 import { examProfiles } from '@/lib/prompts/examPrompts';
@@ -112,7 +113,7 @@ export default function GeneratePage() {
       } else if (modalConfig.sections) {
         config.sections = modalConfig.sections;
       }
-      const res = await fetch('/api/gemini', {
+      const res = await secureFetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'generate-exam', config }),
@@ -233,7 +234,7 @@ export default function GeneratePage() {
               }
               return cfg;
             })();
-      const res = await fetch('/api/gemini', {
+      const res = await secureFetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'generate-exam', config }),

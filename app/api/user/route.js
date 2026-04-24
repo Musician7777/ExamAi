@@ -1,32 +1,37 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import UserProfile from '@/models/UserProfile';
 import Activity from '@/models/Activity';
 import EmailVerification from '@/models/EmailVerification';
-import { cacheWrap, cacheDelete } from '@/lib/services/cacheService';
+import ExamSession from '@/models/ExamSession';
+import StudyPlan from '@/models/StudyPlan';
+import SharedPreset from '@/models/SharedPreset';
+import SharedResult from '@/models/SharedResult';
+import AnalyticsEvent from '@/models/AnalyticsEvent';
+import PasswordReset from '@/models/PasswordReset';
+import { cacheWrap, cacheDelete } from '@/lib/services/redisCacheService';
 import { sendEmail } from '@/lib/services/emailService';
-import logger from '@/lib/logger';
 import { sanitizePromptInput } from '@/lib/sanitize';
+import { apiRoute } from '@/lib/apiHandler';
+import { userUpdateSchema, userDeleteSchema } from '@/lib/validation';
+import logger from '@/lib/logger';
 
 const BASE_URL = process.env.NEXTAUTH_URL || 'http://localhost:3000';
 const APP_NAME = 'ExamAI';
 
-export async function GET() {
-  try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
+export const GET = apiRoute(
+  {
+    requireAuth: true,
+    connectDB: true,
+    errorMessage: 'Failed to fetch user',
+  },
+  async (request, { session }) => {
     const cacheKey = `user:${session.user.email}`;
     const data = await cacheWrap(
       cacheKey,
       async () => {
-        await connectDB();
         const user = await User.findOne({ email: session.user.email })
           .select('name email image authProvider createdAt')
           .lean();
@@ -34,7 +39,7 @@ export async function GET() {
         if (!user) return null;
         return { user: { ...user, showAds: profile?.showAds ?? true } };
       },
-      60_000
+      60
     );
 
     if (!data) {
@@ -44,21 +49,18 @@ export async function GET() {
     return NextResponse.json(data, {
       headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=30' },
     });
-  } catch (error) {
-    logger.error({ err: error }, 'User GET error');
-    return NextResponse.json({ error: 'Failed to fetch user' }, { status: 500 });
   }
-}
+);
 
-export async function PATCH(request) {
-  try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    await connectDB();
-    const body = await request.json();
+export const PATCH = apiRoute(
+  {
+    requireAuth: true,
+    requireCsrf: true,
+    schema: userUpdateSchema,
+    connectDB: true,
+    errorMessage: 'Failed to update profile',
+  },
+  async (request, { session, body }) => {
     const { name, image, currentPassword, newPassword, newEmail, showAds } = body;
 
     const user = await User.findOne({ email: session.user.email });
@@ -100,20 +102,12 @@ export async function PATCH(request) {
       if (!isValid) {
         return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 });
       }
-      if (newPassword.length < 8) {
-        return NextResponse.json({ error: 'New password must be at least 8 characters' }, { status: 400 });
-      }
       user.password = await bcrypt.hash(newPassword, 12);
     }
 
     // Request email change — sends verification to new email
     if (newEmail && newEmail !== user.email) {
-      const sanitizedEmail = sanitizePromptInput(newEmail.trim().toLowerCase(), 254);
-      if (!sanitizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sanitizedEmail)) {
-        return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
-      }
-      // Check if new email is already taken
-      const existing = await User.findOne({ email: sanitizedEmail });
+      const existing = await User.findOne({ email: newEmail });
       if (existing) {
         return NextResponse.json({ error: 'This email is already in use by another account' }, { status: 409 });
       }
@@ -122,22 +116,20 @@ export async function PATCH(request) {
       await EmailVerification.create({
         userId: user.email,
         currentEmail: user.email,
-        newEmail: sanitizedEmail,
+        newEmail,
         token,
-        expiresAt: new Date(Date.now() + 3600000), // 1 hour
+        expiresAt: new Date(Date.now() + 3600000),
       });
 
       const verifyUrl = `${BASE_URL}/api/user/verify-email?token=${token}`;
 
-      // HTML-encode values to prevent XSS in email templates
       const escHtml = (s) =>
         s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      const safeEmail = escHtml(sanitizedEmail);
+      const safeEmail = escHtml(newEmail);
       const safeApp = escHtml(APP_NAME);
 
-      // Send verification email to the NEW address
       const emailResult = await sendEmail({
-        to: sanitizedEmail,
+        to: newEmail,
         subject: `${APP_NAME} — Verify your new email`,
         html: `
           <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 0;">
@@ -165,7 +157,6 @@ export async function PATCH(request) {
         `,
       });
 
-      // Don't save the user email yet — it changes only after verification
       await user.save();
 
       const msg = emailResult.sent
@@ -174,7 +165,7 @@ export async function PATCH(request) {
 
       return NextResponse.json({
         emailChangeRequested: true,
-        newEmail: sanitizedEmail,
+        newEmail,
         message: msg,
         ...(process.env.NODE_ENV === 'development' && !emailResult.sent ? { verifyUrl } : {}),
       });
@@ -183,29 +174,27 @@ export async function PATCH(request) {
     await user.save();
 
     // Invalidate caches after mutation
-    cacheDelete(`user:${session.user.email}`);
-    cacheDelete(`dashboard:${session.user.email}`);
-    cacheDelete(`gamification:${session.user.email}`);
+    await cacheDelete(`user:${session.user.email}`);
+    await cacheDelete(`dashboard:${session.user.email}`);
+    await cacheDelete(`gamification:${session.user.email}`);
 
     return NextResponse.json({
       user: { name: user.name, email: user.email, image: user.image, authProvider: user.authProvider },
       message: 'Profile updated successfully',
     });
-  } catch (error) {
-    logger.error({ err: error }, 'User PATCH error');
-    return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
   }
-}
+);
 
-export async function DELETE(request) {
-  try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    await connectDB();
-    const { password } = await request.json();
+export const DELETE = apiRoute(
+  {
+    requireAuth: true,
+    requireCsrf: true,
+    schema: userDeleteSchema,
+    connectDB: true,
+    errorMessage: 'Failed to delete account',
+  },
+  async (request, { session, body }) => {
+    const { password } = body;
 
     const user = await User.findOne({ email: session.user.email });
     if (!user) {
@@ -233,18 +222,21 @@ export async function DELETE(request) {
       UserProfile.deleteOne({ userId: email }),
       Activity.deleteMany({ userId: email }),
       EmailVerification.deleteMany({ userId: email }),
+      ExamSession.deleteMany({ userId: email }),
+      StudyPlan.deleteMany({ userId: email }),
+      SharedPreset.deleteMany({ creatorId: email }),
+      SharedResult.deleteMany({ creatorId: email }),
+      AnalyticsEvent.deleteMany({ userId: email }),
+      PasswordReset.deleteMany({ email }),
     ]);
 
     // Invalidate all caches
-    cacheDelete(`user:${email}`);
-    cacheDelete(`dashboard:${email}`);
-    cacheDelete(`gamification:${email}`);
+    await cacheDelete(`user:${email}`);
+    await cacheDelete(`dashboard:${email}`);
+    await cacheDelete(`gamification:${email}`);
 
     logger.info({ email }, 'Account deleted');
 
     return NextResponse.json({ message: 'Account deleted successfully' });
-  } catch (error) {
-    logger.error({ err: error }, 'User DELETE error');
-    return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 });
   }
-}
+);

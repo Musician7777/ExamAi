@@ -1,26 +1,21 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
-import { cacheDelete } from '@/lib/services/cacheService';
+import { cacheDelete } from '@/lib/services/redisCacheService';
+import { apiRoute } from '@/lib/apiHandler';
 import logger from '@/lib/logger';
 
 const MAX_SIZE = 2 * 1024 * 1024; // 2MB raw file limit
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-const MAX_DIMENSION = 256; // Resize to max 256x256
 
-/**
- * Resize an image buffer to fit within MAX_DIMENSION using sharp-less approach.
- * Since sharp may not be installed, we just validate and store the raw base64.
- * Client-side resizing handles the actual downscaling.
- */
-export async function POST(request) {
-  try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
+export const POST = apiRoute(
+  {
+    requireAuth: true,
+    requireCsrf: true,
+    connectDB: true,
+    formData: true,
+    errorMessage: 'Failed to upload avatar',
+  },
+  async (request, { session }) => {
     const formData = await request.formData();
     const file = formData.get('avatar');
 
@@ -55,8 +50,6 @@ export async function POST(request) {
       );
     }
 
-    await connectDB();
-
     const user = await User.findOne({ email: session.user.email });
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -66,9 +59,9 @@ export async function POST(request) {
     await user.save();
 
     // Invalidate caches
-    cacheDelete(`user:${session.user.email}`);
-    cacheDelete(`dashboard:${session.user.email}`);
-    cacheDelete(`gamification:${session.user.email}`);
+    await cacheDelete(`user:${session.user.email}`);
+    await cacheDelete(`dashboard:${session.user.email}`);
+    await cacheDelete(`gamification:${session.user.email}`);
 
     logger.info({ email: session.user.email }, 'Avatar updated');
 
@@ -76,8 +69,5 @@ export async function POST(request) {
       image: dataUri,
       message: 'Avatar updated successfully',
     });
-  } catch (error) {
-    logger.error({ err: error }, 'Avatar upload error');
-    return NextResponse.json({ error: 'Failed to upload avatar' }, { status: 500 });
   }
-}
+);

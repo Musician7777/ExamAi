@@ -12,13 +12,10 @@ import {
 import { useExamPresets } from '@/hooks/useExamPresets';
 // Lazy load ExamConfigModal - only needed when user opens config dialog
 import dynamic from 'next/dynamic';
-const ExamConfigModal = dynamic(
-  () => import('../../components/ExamConfigModal/ExamConfigModal'),
-  {
-    loading: () => <div className="fixed inset-0 bg-background/80 backdrop-blur-sm animate-pulse" />,
-    ssr: false,
-  }
-);
+const ExamConfigModal = dynamic(() => import('../../components/ExamConfigModal/ExamConfigModal'), {
+  loading: () => <div className="fixed inset-0 bg-background/80 backdrop-blur-sm animate-pulse" />,
+  ssr: false,
+});
 import AdBanner from '../../components/AdBanner/AdBanner';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/app/components/Toast/ToastProvider';
@@ -130,7 +127,7 @@ export default function CodingPage() {
 
   function openConfigForPreset(preset) {
     setActivePreset(preset.id);
-    setFetchedProblems(null);
+    clearFetchedConfig();
     setConfigModalPreset({ name: preset.name, emoji: preset.emoji });
     setModalMounted(true); // Trigger lazy mount
     setConfigModalOpen(true);

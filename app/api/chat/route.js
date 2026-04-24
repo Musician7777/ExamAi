@@ -1,23 +1,21 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { generateWithFailover, hasApiKeys, parseAIResponse } from '@/lib/services/geminiService';
 import { buildChatPrompt } from '@/lib/prompts/codingPrompts';
 import { sanitizePromptInput } from '@/lib/sanitize';
-import { rateLimit } from '@/lib/rateLimit';
-import logger from '@/lib/logger';
+import { apiRoute } from '@/lib/apiHandler';
+import { chatSchema } from '@/lib/validation';
 
-export async function POST(request) {
-  try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Rate limit: 30 requests per minute per IP
-    const rateLimitResult = rateLimit(request, 30, 60000);
-    if (rateLimitResult) return rateLimitResult;
-
-    const { message, history, context } = await request.json();
+export const POST = apiRoute(
+  {
+    requireAuth: true,
+    requireCsrf: true,
+    rateLimit: { max: 30, windowMs: 60000 },
+    schema: chatSchema,
+    sanitizeErrors: true,
+    errorMessage: 'Failed to process message',
+  },
+  async (request, { body }) => {
+    const { message, history, context } = body;
 
     // Sanitize user message to prevent prompt injection
     const sanitizedMessage = sanitizePromptInput(message);
@@ -52,14 +50,5 @@ export async function POST(request) {
     const parsed = parseAIResponse(text);
 
     return NextResponse.json(parsed);
-  } catch (error) {
-    logger.error({ err: error }, 'Chat API error');
-    return NextResponse.json(
-      {
-        error: 'Failed to process message',
-        details: error?.message,
-      },
-      { status: 500 }
-    );
   }
-}
+);

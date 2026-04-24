@@ -22,6 +22,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { secureFetch } from '@/lib/client-csrf';
 import { cn } from '@/lib/utils';
 import {
   Shield,
@@ -316,7 +317,7 @@ function ProfilePageInner() {
     setSaving(true);
     setMessage(null);
     try {
-      const res = await fetch('/api/user', {
+      const res = await secureFetch('/api/user', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: editName.trim() }),
@@ -354,7 +355,7 @@ function ProfilePageInner() {
     setChangingPassword(true);
     setPasswordMessage(null);
     try {
-      const res = await fetch('/api/user', {
+      const res = await secureFetch('/api/user', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentPassword, newPassword }),
@@ -382,7 +383,7 @@ function ProfilePageInner() {
     setChangingEmail(true);
     setEmailMessage(null);
     try {
-      const res = await fetch('/api/user', {
+      const res = await secureFetch('/api/user', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ newEmail: newEmail.trim() }),
@@ -407,7 +408,7 @@ function ProfilePageInner() {
   async function handleDeleteAccount() {
     setDeleting(true);
     try {
-      const res = await fetch('/api/user', {
+      const res = await secureFetch('/api/user', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: deletePassword || undefined }),
@@ -430,7 +431,7 @@ function ProfilePageInner() {
     setSharing(true);
     trackFeatureUsed({ featureName: 'share_profile', context: 'profile_page' });
     try {
-      const res = await fetch('/api/share', {
+      const res = await secureFetch('/api/share', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -531,7 +532,7 @@ function ProfilePageInner() {
       const formData = new FormData();
       formData.append('avatar', resized);
 
-      const res = await fetch('/api/user/avatar', {
+      const res = await secureFetch('/api/user/avatar', {
         method: 'POST',
         body: formData,
       });
@@ -563,7 +564,7 @@ function ProfilePageInner() {
     setMessage(null);
     trackFeatureUsed({ featureName: 'avatar_upload', context: 'remove' });
     try {
-      const res = await fetch('/api/user', {
+      const res = await secureFetch('/api/user', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: null }),

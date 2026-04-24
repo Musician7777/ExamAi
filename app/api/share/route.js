@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import connectDB from '@/lib/mongodb';
 import SharedResult from '@/models/SharedResult';
 import { v4 as uuidv4 } from 'uuid';
-import logger from '@/lib/logger';
+import { apiRoute } from '@/lib/apiHandler';
+import { shareResultSchema } from '@/lib/validation';
 
-// GET — Fetch a shared result by short code
-export async function GET(request) {
-  try {
+// GET — Fetch a shared result by short code (public, no auth)
+export const GET = apiRoute(
+  {
+    connectDB: true,
+    errorMessage: 'Failed to fetch shared result',
+  },
+  async (request) => {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
 
@@ -15,7 +18,6 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Short code is required' }, { status: 400 });
     }
 
-    await connectDB();
     const shared = await SharedResult.findOne({ shortCode: code });
 
     if (!shared) {
@@ -35,26 +37,20 @@ export async function GET(request) {
         createdAt: shared.createdAt,
       },
     });
-  } catch (error) {
-    logger.error({ err: error }, 'Share GET error');
-    return NextResponse.json({ error: 'Failed to fetch shared result' }, { status: 500 });
   }
-}
+);
 
 // POST — Create a shared result link
-export async function POST(request) {
-  try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    await connectDB();
-    const { type, title, data } = await request.json();
-
-    if (!type || !title || !data) {
-      return NextResponse.json({ error: 'Type, title, and data are required' }, { status: 400 });
-    }
+export const POST = apiRoute(
+  {
+    requireAuth: true,
+    requireCsrf: true,
+    schema: shareResultSchema,
+    connectDB: true,
+    errorMessage: 'Failed to share result',
+  },
+  async (request, { session, body }) => {
+    const { type, title, data } = body;
 
     const shortCode = uuidv4().substring(0, 8);
 
@@ -76,8 +72,5 @@ export async function POST(request) {
       },
       { status: 201 }
     );
-  } catch (error) {
-    logger.error({ err: error }, 'Share POST error');
-    return NextResponse.json({ error: 'Failed to share result' }, { status: 500 });
   }
-}
+);
