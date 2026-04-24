@@ -14,10 +14,9 @@ export default function AdSenseScript() {
   return (
     <Script
       async
-      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"
+      src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_ADSENSE_ID}`}
       strategy="afterInteractive"
       crossOrigin="anonymous"
-      data-ad-client={process.env.NEXT_PUBLIC_ADSENSE_ID}
     />
   );
 }
