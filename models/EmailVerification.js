@@ -7,15 +7,18 @@ const emailVerificationSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    type: {
+      type: String,
+      enum: ['registration', 'email_change'],
+      default: 'email_change',
+    },
     currentEmail: {
       type: String,
-      required: true,
       lowercase: true,
       trim: true,
     },
     newEmail: {
       type: String,
-      required: true,
       lowercase: true,
       trim: true,
     },

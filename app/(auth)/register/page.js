@@ -1,7 +1,6 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { FaGoogle } from 'react-icons/fa';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -10,16 +9,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Check, X } from 'lucide-react';
+import { Check, X, Mail, CheckCircle2 } from 'lucide-react';
 import clientLogger from '@/lib/client-logger';
 import { trackUserSignUp } from '@/lib/ga';
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
+  const [resendMessage, setResendMessage] = useState('');
 
   const passwordRules = [
     { label: 'At least 8 characters', met: form.password.length >= 8 },
@@ -53,15 +54,9 @@ export default function RegisterPage() {
         setLoading(false);
         return;
       }
-      const result = await signIn('credentials', { email: form.email, password: form.password, redirect: false });
-      if (result?.error) {
-        setError('Account created! But auto-login failed. Please sign in manually.');
-        router.push('/login');
-      } else {
-        trackUserSignUp({ method: 'credentials' });
-        router.push('/dashboard');
-        router.refresh();
-      }
+      // Account created — show verification prompt instead of auto-sign-in
+      setRegisteredEmail(form.email);
+      setVerificationSent(data.verificationSent !== false);
     } catch (err) {
       clientLogger.error('Registration error:', err);
       setError('Something went wrong. Please try again.');
@@ -108,110 +103,167 @@ export default function RegisterPage() {
       <div className="flex-1 flex items-center justify-center p-8 relative z-10">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl">Create Account</CardTitle>
-            <CardDescription>Start your free account today</CardDescription>
+            <CardTitle className="text-2xl">{verificationSent ? 'Check Your Email' : 'Create Account'}</CardTitle>
+            <CardDescription>
+              {verificationSent ? 'We sent you a verification link' : 'Start your free account today'}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <Button
-              variant="outline"
-              className="w-full gap-2"
-              onClick={() => {
-                trackUserSignUp({ method: 'google' });
-                signIn('google', { callbackUrl: '/dashboard' });
-              }}
-              type="button"
-            >
-              <FaGoogle className="h-4 w-4" /> Continue with Google
-            </Button>
-
-            <div className="relative">
-              <Separator />
-              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
-                or register with email
-              </span>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  placeholder="John Doe"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  required
-                  disabled={loading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  required
-                  disabled={loading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Min 8 characters"
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  onFocus={() => setPasswordFocused(true)}
-                  onBlur={() => setPasswordFocused(false)}
-                  required
-                  minLength={8}
-                  disabled={loading}
-                />
-                {form.password && (!allPasswordRulesMet || passwordFocused) && (
-                  <div className="space-y-1 pt-1">
-                    {passwordRules.map((rule) => (
-                      <div
-                        key={rule.label}
-                        className={`flex items-center gap-1.5 text-xs transition-colors ${rule.met ? 'text-emerald-500' : 'text-muted-foreground'}`}
-                      >
-                        {rule.met ? <Check className="h-3 w-3 shrink-0" /> : <X className="h-3 w-3 shrink-0" />}
-                        <span>{rule.label}</span>
-                      </div>
-                    ))}
-                  </div>
+            {verificationSent ? (
+              <div className="space-y-4 text-center">
+                <div className="mx-auto w-16 h-16 rounded-full bg-indigo-500/10 flex items-center justify-center">
+                  <Mail className="h-8 w-8 text-indigo-500" />
+                </div>
+                <div className="flex items-center justify-center gap-2 text-success">
+                  <CheckCircle2 className="h-5 w-5" />
+                  <span className="font-semibold">Account created!</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  We&apos;ve sent a verification link to <strong>{registeredEmail}</strong>. Click the link in the email
+                  to activate your account.
+                </p>
+                <div className="p-3 rounded-lg bg-secondary/50 border text-xs text-muted-foreground">
+                  💡 Didn&apos;t receive the email? Check your spam folder or{' '}
+                  <button
+                    type="button"
+                    className="text-indigo-400 hover:text-indigo-300 underline"
+                    onClick={async () => {
+                      setLoading(true);
+                      setResendMessage('');
+                      try {
+                        const res = await fetch('/api/auth/resend-verification', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ email: registeredEmail }),
+                        });
+                        const data = await res.json();
+                        setResendMessage(data.message || 'Verification email sent!');
+                      } catch {
+                        setResendMessage('Failed to resend. Please try again.');
+                      }
+                      setLoading(false);
+                    }}
+                    disabled={loading}
+                  >
+                    {loading ? 'sending...' : 'resend it'}
+                  </button>
+                  .
+                </div>
+                {resendMessage && (
+                  <Alert>
+                    <AlertDescription>{resendMessage}</AlertDescription>
+                  </Alert>
                 )}
+                <Link href="/login">
+                  <Button variant="brand" className="w-full">
+                    Go to Sign In
+                  </Button>
+                </Link>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="Re-enter password"
-                  value={form.confirmPassword}
-                  onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-                  required
-                  disabled={loading}
-                />
-              </div>
-              <Button type="submit" variant="brand" className="w-full" disabled={loading}>
-                {loading ? 'Creating Account...' : 'Create Account'}
-              </Button>
-            </form>
+            ) : (
+              <>
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
 
-            <p className="text-center text-sm text-muted-foreground">
-              Already have an account?{' '}
-              <Link href="/login" className="text-indigo-400 hover:text-indigo-300 font-medium">
-                Sign in
-              </Link>
-            </p>
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => {
+                    trackUserSignUp({ method: 'google' });
+                    signIn('google', { callbackUrl: '/dashboard' });
+                  }}
+                  type="button"
+                >
+                  <FaGoogle className="h-4 w-4" /> Continue with Google
+                </Button>
+
+                <div className="relative">
+                  <Separator />
+                  <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
+                    or register with email
+                  </span>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input
+                      id="name"
+                      placeholder="John Doe"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={form.email}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="Min 8 characters"
+                      value={form.password}
+                      onChange={(e) => setForm({ ...form, password: e.target.value })}
+                      onFocus={() => setPasswordFocused(true)}
+                      onBlur={() => setPasswordFocused(false)}
+                      required
+                      minLength={8}
+                      disabled={loading}
+                    />
+                    {form.password && (!allPasswordRulesMet || passwordFocused) && (
+                      <div className="space-y-1 pt-1">
+                        {passwordRules.map((rule) => (
+                          <div
+                            key={rule.label}
+                            className={`flex items-center gap-1.5 text-xs transition-colors ${rule.met ? 'text-emerald-500' : 'text-muted-foreground'}`}
+                          >
+                            {rule.met ? <Check className="h-3 w-3 shrink-0" /> : <X className="h-3 w-3 shrink-0" />}
+                            <span>{rule.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      placeholder="Re-enter password"
+                      value={form.confirmPassword}
+                      onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                  <Button type="submit" variant="brand" className="w-full" disabled={loading}>
+                    {loading ? 'Creating Account...' : 'Create Account'}
+                  </Button>
+                </form>
+
+                <p className="text-center text-sm text-muted-foreground">
+                  Already have an account?{' '}
+                  <Link href="/login" className="text-indigo-400 hover:text-indigo-300 font-medium">
+                    Sign in
+                  </Link>
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

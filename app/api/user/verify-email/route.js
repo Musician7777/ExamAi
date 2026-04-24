@@ -35,6 +35,27 @@ export async function GET(request) {
       return NextResponse.redirect(new URL('/login?error=expired-token', request.url));
     }
 
+    // Handle registration verification — just mark email as verified
+    if (verification.type === 'registration') {
+      const user = await User.findOne({ email: verification.userId });
+      if (!user) {
+        return NextResponse.redirect(new URL('/login?error=user-not-found', request.url));
+      }
+
+      user.emailVerified = true;
+      await user.save();
+
+      // Invalidate caches
+      await cacheDelete(`user:${user.email}`);
+      await cacheDelete(`dashboard:${user.email}`);
+      await cacheDelete(`gamification:${user.email}`);
+
+      logger.info({ email: user.email }, 'Email verified (registration)');
+
+      return NextResponse.redirect(new URL('/login?verified=1', request.url));
+    }
+
+    // Handle email change verification
     // Double-check new email isn't taken (race condition guard)
     const existingUser = await User.findOne({ email: verification.newEmail });
     if (existingUser) {

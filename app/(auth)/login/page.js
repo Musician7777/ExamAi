@@ -18,10 +18,17 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+  const verifiedParam = searchParams.get('verified');
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMessage, setResendMessage] = useState('');
+  const [emailNotVerified, setEmailNotVerified] = useState(false);
+
+  // Show success message when redirected after email verification
+  const justVerified = verifiedParam === '1';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,7 +37,14 @@ function LoginContent() {
     try {
       const result = await signIn('credentials', { email: form.email, password: form.password, redirect: false });
       if (result?.error) {
-        setError(result.error);
+        // Detect unverified email error
+        if (result.error === 'Please verify your email before signing in') {
+          setEmailNotVerified(true);
+          setError(result.error);
+        } else {
+          setEmailNotVerified(false);
+          setError(result.error);
+        }
       } else {
         trackUserSignIn({ method: 'credentials' });
         router.push(callbackUrl);
@@ -89,9 +103,51 @@ function LoginContent() {
             <CardDescription>Enter your credentials to continue</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {justVerified && (
+              <Alert>
+                <AlertDescription className="text-success">
+                  ✅ Email verified successfully! You can now sign in.
+                </AlertDescription>
+              </Alert>
+            )}
             {error && (
               <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription>
+                  {error}
+                  {emailNotVerified && (
+                    <>
+                      {' '}
+                      <button
+                        type="button"
+                        className="text-indigo-300 hover:text-indigo-200 underline"
+                        disabled={resendLoading}
+                        onClick={async () => {
+                          setResendLoading(true);
+                          setResendMessage('');
+                          try {
+                            const res = await fetch('/api/auth/resend-verification', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ email: form.email }),
+                            });
+                            const data = await res.json();
+                            setResendMessage(data.message || 'Verification email sent!');
+                          } catch {
+                            setResendMessage('Failed to resend. Please try again.');
+                          }
+                          setResendLoading(false);
+                        }}
+                      >
+                        {resendLoading ? 'sending...' : 'Resend verification email'}
+                      </button>
+                    </>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+            {resendMessage && !error && (
+              <Alert>
+                <AlertDescription>{resendMessage}</AlertDescription>
               </Alert>
             )}
 

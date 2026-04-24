@@ -40,6 +40,11 @@ const handler = NextAuth({
           throw new Error('Invalid email or password');
         }
 
+        // Only block if emailVerified is explicitly false (not undefined/null for existing users)
+        if (user.emailVerified === false) {
+          throw new Error('Please verify your email before signing in');
+        }
+
         return {
           id: user._id.toString(),
           name: user.name,
@@ -62,7 +67,11 @@ const handler = NextAuth({
             email: user.email,
             image: user.image,
             authProvider: 'google',
+            emailVerified: true,
           });
+        } else if (!existingUser.emailVerified) {
+          // Google login proves email ownership — auto-verify
+          await User.updateOne({ email: user.email }, { $set: { emailVerified: true } });
         }
       }
       return true;

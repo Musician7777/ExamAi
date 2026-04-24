@@ -27,6 +27,10 @@ const userSchema = new mongoose.Schema(
       enum: ['credentials', 'google'],
       default: 'credentials',
     },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

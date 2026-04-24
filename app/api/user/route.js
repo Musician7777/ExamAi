@@ -56,6 +56,7 @@ export const PATCH = apiRoute(
   {
     requireAuth: true,
     requireCsrf: true,
+    rateLimit: { max: 10, windowMs: 60000 },
     schema: userUpdateSchema,
     connectDB: true,
     errorMessage: 'Failed to update profile',
@@ -107,6 +108,19 @@ export const PATCH = apiRoute(
 
     // Request email change — sends verification to new email
     if (newEmail && newEmail !== user.email) {
+      // Prevent email change spam: reject if user already has a pending verification
+      const pendingVerification = await EmailVerification.findOne({
+        userId: user.email,
+        used: false,
+        expiresAt: { $gt: new Date() },
+      });
+      if (pendingVerification) {
+        return NextResponse.json(
+          { error: 'You already have a pending email change. Please check your inbox or wait for it to expire.' },
+          { status: 409 }
+        );
+      }
+
       const existing = await User.findOne({ email: newEmail });
       if (existing) {
         return NextResponse.json({ error: 'This email is already in use by another account' }, { status: 409 });

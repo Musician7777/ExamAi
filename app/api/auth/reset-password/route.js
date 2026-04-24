@@ -24,12 +24,13 @@ export async function POST(request) {
 
     const { token, newPassword } = validation.data;
 
-    // Find valid token
-    const resetRecord = await PasswordReset.findOne({
-      token,
-      used: false,
-      expiresAt: { $gt: new Date() },
-    });
+    // Atomically claim the token to prevent race conditions
+    // (two concurrent requests could both pass findOne before either marks it used)
+    const resetRecord = await PasswordReset.findOneAndUpdate(
+      { token, used: false, expiresAt: { $gt: new Date() } },
+      { $set: { used: true } },
+      { new: true }
+    );
 
     if (!resetRecord) {
       return NextResponse.json({ error: 'Invalid or expired reset token. Please request a new one.' }, { status: 400 });
@@ -44,10 +45,6 @@ export async function POST(request) {
     // Update password
     user.password = await bcrypt.hash(newPassword, 12);
     await user.save();
-
-    // Mark token as used
-    resetRecord.used = true;
-    await resetRecord.save();
 
     return NextResponse.json({
       message: 'Password reset successfully. You can now sign in with your new password.',
