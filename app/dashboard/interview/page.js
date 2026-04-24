@@ -1,204 +1,15 @@
 'use client';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { HiOutlineLogout } from 'react-icons/hi';
-import styles from './interview.module.css';
 import InterviewSetup, { interviewTemplates } from './components/InterviewSetup';
 import InterviewAvatar, { getOrbState } from './components/InterviewAvatar';
 import InterviewChat from './components/InterviewChat';
 import InterviewResults from './components/InterviewResults';
-
-/* ─────────────────────────────────────────────
-   TTS HOOK — with onEnd callback + Chrome fix
-   ───────────────────────────────────────────── */
-function useSpeechSynthesis() {
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const onEndRef = useRef(null);
-  const pollRef = useRef(null);
-
-  const fireOnEnd = useCallback(() => {
-    clearInterval(pollRef.current);
-    setIsSpeaking(false);
-    const cb = onEndRef.current;
-    onEndRef.current = null;
-    if (cb) cb();
-  }, []);
-
-  const speak = useCallback(
-    (text, onEnd) => {
-      if (typeof window === 'undefined' || !window.speechSynthesis) {
-        if (onEnd) onEnd();
-        return;
-      }
-      window.speechSynthesis.cancel();
-      clearInterval(pollRef.current);
-      onEndRef.current = onEnd || null;
-
-      const clean = text.replace(/\n/g, ' ').replace(/\t/g, ' ').replace(/\r/g, ' ').replace(/  +/g, ' ').trim();
-      const utt = new SpeechSynthesisUtterance(clean);
-      utt.rate = 1.05;
-      utt.pitch = 1.0;
-      utt.volume = 1.0;
-
-      const voices = window.speechSynthesis.getVoices();
-      const preferred =
-        voices.find((v) => v.name.includes('Google') && v.lang.startsWith('en')) ||
-        voices.find((v) => v.name.includes('Microsoft') && v.lang.startsWith('en') && v.name.includes('Online')) ||
-        voices.find((v) => v.lang.startsWith('en-') && v.localService === false) ||
-        voices.find((v) => v.lang.startsWith('en'));
-      if (preferred) utt.voice = preferred;
-
-      let ended = false;
-      utt.onstart = () => setIsSpeaking(true);
-      utt.onend = () => {
-        if (!ended) {
-          ended = true;
-          fireOnEnd();
-        }
-      };
-      utt.onerror = () => {
-        if (!ended) {
-          ended = true;
-          fireOnEnd();
-        }
-      };
-
-      window.speechSynthesis.speak(utt);
-
-      // Chrome bug workaround: onend sometimes never fires.
-      pollRef.current = setInterval(() => {
-        if (!window.speechSynthesis.speaking && !ended) {
-          ended = true;
-          fireOnEnd();
-        }
-      }, 300);
-    },
-    [fireOnEnd]
-  );
-
-  const stop = useCallback(() => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    clearInterval(pollRef.current);
-    window.speechSynthesis.cancel();
-    setIsSpeaking(false);
-    onEndRef.current = null;
-  }, []);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.getVoices();
-      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
-    }
-    return () => {
-      clearInterval(pollRef.current);
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, []);
-
-  return { isSpeaking, speak, stop };
-}
-
-/* ─────────────────────────────────────────────
-   STT HOOK — with silence detection callback
-   ───────────────────────────────────────────── */
-function useSpeechRecognition({ onSilence } = {}) {
-  const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const recognitionRef = useRef(null);
-  const finalTranscriptRef = useRef('');
-  const silenceTimerRef = useRef(null);
-  const onSilenceRef = useRef(onSilence);
-  const hasSpokenRef = useRef(false);
-
-  useEffect(() => {
-    onSilenceRef.current = onSilence;
-  }, [onSilence]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-
-    const recognition = new SR();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-
-    recognition.onresult = (event) => {
-      let interim = '';
-      let final = finalTranscriptRef.current;
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const t = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          final += t + ' ';
-          finalTranscriptRef.current = final;
-        } else {
-          interim += t;
-        }
-      }
-      setTranscript(final + interim);
-      hasSpokenRef.current = true;
-
-      // Reset silence timer — user is speaking
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = setTimeout(() => {
-        // 2s of silence after speech → auto-send
-        if (hasSpokenRef.current && onSilenceRef.current) {
-          const finalText = finalTranscriptRef.current.trim() || (final + interim).trim();
-          if (finalText) onSilenceRef.current(finalText);
-        }
-      }, 2000);
-    };
-
-    recognition.onerror = (e) => {
-      if (e.error !== 'aborted' && e.error !== 'no-speech') {
-        console.warn('Speech recognition error:', e.error);
-      }
-      clearTimeout(silenceTimerRef.current);
-      setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      clearTimeout(silenceTimerRef.current);
-      setIsListening(false);
-    };
-
-    recognitionRef.current = recognition;
-
-    return () => clearTimeout(silenceTimerRef.current);
-  }, []);
-
-  const startListening = useCallback(() => {
-    if (!recognitionRef.current) return;
-    finalTranscriptRef.current = '';
-    hasSpokenRef.current = false;
-    setTranscript('');
-    clearTimeout(silenceTimerRef.current);
-    try {
-      recognitionRef.current.start();
-      setIsListening(true);
-    } catch (e) {
-      console.warn('Could not start recognition:', e);
-    }
-  }, []);
-
-  const stopListening = useCallback(() => {
-    if (!recognitionRef.current) return;
-    clearTimeout(silenceTimerRef.current);
-    recognitionRef.current.stop();
-    setIsListening(false);
-    return finalTranscriptRef.current.trim() || transcript.trim();
-  }, [transcript]);
-
-  const resetTranscript = useCallback(() => {
-    finalTranscriptRef.current = '';
-    hasSpokenRef.current = false;
-    setTranscript('');
-  }, []);
-
-  return { isListening, transcript, startListening, stopListening, resetTranscript };
-}
+import { useSpeechSynthesis } from './hooks/useSpeechSynthesis';
+import { useSpeechRecognition } from './hooks/useSpeechRecognition';
+import { secureFetch } from '@/lib/client-csrf';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 /* ─────────────────────────────────────────────
    MAIN COMPONENT
@@ -225,11 +36,19 @@ export default function InterviewPage() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
-  const [scores, setScores] = useState({ knowledge: 0, communication: 0, confidence: 0 });
   const [totalScores, setTotalScores] = useState({ knowledge: 0, communication: 0, confidence: 0 });
   const [questionCount, setQuestionCount] = useState(0);
   const [currentQ, setCurrentQ] = useState(null);
   const [interviewConfig, setInterviewConfig] = useState(null);
+  // Derive display scores from totals so they can never go out of sync
+  const scores = useMemo(() => {
+    const totalQs = interviewConfig?.questionCount || 10;
+    return {
+      knowledge: Math.round((totalScores.knowledge / totalQs) * 10),
+      communication: Math.round((totalScores.communication / totalQs) * 10),
+      confidence: Math.round((totalScores.confidence / totalQs) * 10),
+    };
+  }, [totalScores, interviewConfig]);
   const [questionHistory, setQuestionHistory] = useState([]);
   const [reviewData, setReviewData] = useState([]);
   const [analysis, setAnalysis] = useState(null);
@@ -241,12 +60,16 @@ export default function InterviewPage() {
   const sendingRef = useRef(false);
   const activitySavedRef = useRef(false);
 
-  // TTS & STT hooks
+  // TTS & STT hooks — use the proper hook implementations from hooks/
   const { isSpeaking, speak, stop: stopSpeaking } = useSpeechSynthesis();
-  const { isListening, transcript, startListening, stopListening, resetTranscript } = useSpeechRecognition();
-
-  // Check STT support
-  const sttSupported = typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  const {
+    isListening,
+    transcript,
+    supported: sttSupported,
+    startListening,
+    stopListening,
+    resetTranscript,
+  } = useSpeechRecognition();
 
   // Auto-scroll chat
   useEffect(() => {
@@ -334,13 +157,6 @@ export default function InterviewPage() {
       communication: prev.communication + cScore,
       confidence: prev.confidence + confScore,
     }));
-
-    const totalQs = interviewConfig?.questionCount || 10;
-    setScores({
-      knowledge: Math.round(((totalScores.knowledge + kScore) / totalQs) * 10),
-      communication: Math.round(((totalScores.communication + cScore) / totalQs) * 10),
-      confidence: Math.round(((totalScores.confidence + confScore) / totalQs) * 10),
-    });
   }
 
   /* ─── Start Interview ─── */
@@ -355,7 +171,6 @@ export default function InterviewPage() {
     setInterviewConfig(config);
     setPhase('interview');
     setMessages([]);
-    setScores({ knowledge: 0, communication: 0, confidence: 0 });
     setTotalScores({ knowledge: 0, communication: 0, confidence: 0 });
     setQuestionCount(0);
     setQuestionHistory([]);
@@ -363,7 +178,7 @@ export default function InterviewPage() {
     setIsThinking(true);
 
     try {
-      const res = await fetch('/api/gemini', {
+      const res = await secureFetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'interview-question', config: { ...config, history: [] } }),
@@ -410,7 +225,7 @@ export default function InterviewPage() {
 
     try {
       if (isLastQuestion) {
-        const evalRes = await fetch('/api/gemini', {
+        const evalRes = await secureFetch('/api/gemini', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -438,7 +253,7 @@ export default function InterviewPage() {
           setTimeout(() => setPhase('summary'), 2500);
         }
       } else {
-        const res = await fetch('/api/gemini', {
+        const res = await secureFetch('/api/gemini', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -518,7 +333,7 @@ export default function InterviewPage() {
       const totalQs = interviewConfig?.questionCount || 10;
       const totalEarned = data.reduce((s, r) => s + (r.score || 0), 0);
       const totalPossible = totalQs * 10;
-      await fetch('/api/activities', {
+      await secureFetch('/api/activities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -568,7 +383,6 @@ export default function InterviewPage() {
     setInterviewConfig(null);
     setQuestionHistory([]);
     setReviewData([]);
-    setScores({ knowledge: 0, communication: 0, confidence: 0 });
     setTotalScores({ knowledge: 0, communication: 0, confidence: 0 });
     setInput('');
     setIsThinking(false);
@@ -584,7 +398,7 @@ export default function InterviewPage() {
     if (analysisLoading || analysis) return;
     setAnalysisLoading(true);
     try {
-      const res = await fetch('/api/gemini', {
+      const res = await secureFetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -671,26 +485,36 @@ export default function InterviewPage() {
   const orbState = getOrbState(isThinking, isSpeaking, isListening);
 
   return (
-    <div className={styles.interviewLayout}>
+    <div className="flex flex-col h-[calc(100vh-theme(spacing.16))] max-w-[1100px] animate-in fade-in duration-300">
       {/* ── Top Bar ── */}
-      <div className={styles.topBar}>
-        <div className={styles.topBarLeft}>
-          <div className={styles.statusDot} />
-          <h3>🎤 {interviewConfig?.role || 'Interview'}</h3>
-          <span className={styles.questionBadge}>
+      <div className="flex items-center justify-between px-4 py-3 bg-card border rounded-lg mb-4 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          <h3 className="text-sm font-bold">🎤 {interviewConfig?.role || 'Interview'}</h3>
+          <Badge
+            variant="outline"
+            className="text-[11px] px-2.5 py-0.5 bg-indigo-500/12 text-indigo-400 border-indigo-500/30 font-semibold"
+          >
             Q{questionCount}/{interviewConfig?.questionCount || 10}
-          </span>
+          </Badge>
         </div>
-        <div className={styles.topBarRight}>
-          <button
-            className={styles.modeToggle}
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setViewMode((v) => (v === 'avatar' ? 'transcript' : 'avatar'))}
+            className="text-xs font-semibold gap-1"
           >
             {viewMode === 'avatar' ? '📝 Transcript' : '🤖 Simple'}
-          </button>
-          <button className={styles.exitBtn} onClick={exitInterview}>
-            <HiOutlineLogout /> Exit
-          </button>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={exitInterview}
+            className="gap-1 text-red-400 hover:text-red-300 hover:bg-red-500/10 text-xs font-semibold"
+          >
+            <HiOutlineLogout className="w-4 h-4" /> Exit
+          </Button>
         </div>
       </div>
 

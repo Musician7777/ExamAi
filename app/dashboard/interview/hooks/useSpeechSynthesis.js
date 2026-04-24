@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { secureFetch } from '@/lib/client-csrf';
 import clientLogger from '@/lib/client-logger';
 import { trackFeatureUsed } from '@/lib/ga';
 
@@ -116,7 +117,7 @@ export function useSpeechSynthesis() {
 
       try {
         trackFeatureUsed({ featureName: 'tts', context: 'kokoro_api' });
-        const res = await fetch('/api/tts', {
+        const res = await secureFetch('/api/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: clean }),
