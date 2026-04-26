@@ -65,10 +65,11 @@ export default function SubjectManager({
             tips: data.tips || '',
           };
         }
-      } catch (e) {
+      } catch (_e) {
         // Silently fail — overview is optional
+      } finally {
+        setSubjectLoading((prev) => ({ ...prev, [subjectName]: false }));
       }
-      setSubjectLoading((prev) => ({ ...prev, [subjectName]: false }));
       return null;
     },
     [examName, showAiOverviews]
@@ -85,7 +86,6 @@ export default function SubjectManager({
     let cancelled = false;
     subjectsNeedingOverview.forEach((subject) => {
       subjectFetchAttempted.current[subject.name] = true;
-      setSubjectLoading((prev) => ({ ...prev, [subject.name]: true }));
       fetchSubjectOverview(subject.name).then((overview) => {
         if (cancelled) return;
         if (overview) {
@@ -97,7 +97,6 @@ export default function SubjectManager({
             )
           );
         }
-        setSubjectLoading((prev) => ({ ...prev, [subject.name]: false }));
       });
     });
     return () => {

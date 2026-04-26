@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Zap, Play, Loader2 } from 'lucide-react';
 import {
@@ -17,10 +17,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { secureFetch } from '@/lib/client-csrf';
 import clientLogger from '@/lib/client-logger';
-import { trackExamGenerate, trackFeatureUsed } from '@/lib/ga';
+import { trackExamGenerate } from '@/lib/ga';
 import { examProfiles } from '@/lib/prompts/examPrompts';
 import SubjectManager from '@/app/components/SubjectManager/SubjectManager';
 
@@ -46,6 +48,9 @@ export default function GeneratePage() {
   const [selectedPreset, setSelectedPreset] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showFetchModal, setShowFetchModal] = useState(false);
+  const [errorBanner, setErrorBanner] = useState(null); // { variant, title, message }
+  const [lastGenerateConfig, setLastGenerateConfig] = useState(null);
+  const [aiOverviewsEnabled, setAiOverviewsEnabled] = useState(true);
 
   // Shared preset handling hook
   const {
@@ -74,10 +79,12 @@ export default function GeneratePage() {
 
   // Define before useEffect so it's available (fixes immutability error)
   const handleGenerateFromModalRef = useRef(null);
+  const selectedPresetRef = useRef(null);
+  const runGenerateRef = useRef(null);
 
   function openConfigForPreset(preset) {
     setSelectedPreset(preset.id);
-    setFetchedConfig(null);
+    clearFetchedConfig();
     setConfigModalPreset({ name: preset.name, emoji: preset.emoji });
     // Auto-populate subjects from profile sections
     const profile = examProfiles[preset.id];
@@ -92,64 +99,7 @@ export default function GeneratePage() {
     setConfigModalOpen(true);
   }
 
-  async function handleGenerateFromModal(modalConfig) {
-    setConfigModalOpen(false);
-    setLoading(true);
-    try {
-      const config = {
-        examType: selectedPreset || 'Custom',
-        totalQuestions: modalConfig.totalQuestions || modalConfig.questions || 20,
-        difficulty: modalConfig.difficulty || 'Medium',
-        questionTypes: modalConfig.questionType || 'MCQ',
-        negativeMarking: modalConfig.negativeMarking ?? 0.25,
-        timeLimit: modalConfig.timeLimit || modalConfig.time || 60,
-      };
-      // Pass user-defined subjects and sections if provided
-      if (modalConfig.subjects && modalConfig.subjects.length > 0) {
-        config.subjects = modalConfig.subjects;
-        config.sections = modalConfig.sections || modalConfig.subjects.map((s) => s.name);
-        // Always use subject sum when subjects exist, ignoring the old pill-based totalQuestions
-        config.totalQuestions = modalConfig.subjects.reduce((s, sub) => s + sub.questionCount, 0);
-      } else if (modalConfig.sections) {
-        config.sections = modalConfig.sections;
-      }
-      const res = await secureFetch('/api/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'generate-exam', config }),
-      });
-      const exam = await res.json();
-      if (exam.error) {
-        alert(exam.error);
-        setLoading(false);
-        return;
-      }
-      if (!exam.sections || exam.sections.length === 0) {
-        alert('Failed to generate exam. Please try again.');
-        setLoading(false);
-        return;
-      }
-      sessionStorage.setItem('currentExam', JSON.stringify(exam));
-      trackExamGenerate({
-        examType: config.examType || 'Custom',
-        questionCount: config.totalQuestions || 20,
-        questionType: config.questionTypes || 'MCQ',
-        difficulty: config.difficulty || 'Medium',
-        hasSubjects: !!(config.subjects && config.subjects.length > 0),
-        subjectCount: config.subjects?.length || 0,
-        timeLimit: config.timeLimit || 60,
-      });
-      router.push('/dashboard/exam/live');
-    } catch (error) {
-      clientLogger.error('Error generating exam:', error);
-      alert('Network error. Please try again.');
-    }
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    handleGenerateFromModalRef.current = handleGenerateFromModal;
-  }, [handleGenerateFromModal]);
+  // (runGenerate, validateExamConfig, and handleGenerateFromModal are defined below)
 
   useEffect(() => {
     try {
@@ -174,11 +124,126 @@ export default function GeneratePage() {
     questionType: 'MCQ',
   });
   const [customSubjects, setCustomSubjects] = useState([]);
+  const [customExamName, setCustomExamName] = useState('Custom Exam');
+  const [customExamEmoji, setCustomExamEmoji] = useState('📝');
+
+  function validateExamConfig(config) {
+    const totalQuestions =
+      config?.subjects?.length > 0
+        ? config.subjects.reduce((s, sub) => s + (Number(sub?.questionCount) || 0), 0)
+        : Number(config?.totalQuestions);
+    const timeLimit = Number.isFinite(Number(config?.timeLimit)) ? Number(config?.timeLimit) : 60;
+    const negativeMarking = Number.isFinite(Number(config?.negativeMarking)) ? Number(config?.negativeMarking) : 0;
+    if (!Number.isFinite(totalQuestions) || totalQuestions < 1) return 'Total questions must be at least 1.';
+    if (!Number.isFinite(timeLimit) || timeLimit < 1) return 'Time limit must be at least 1 minute.';
+    if (!Number.isFinite(negativeMarking) || negativeMarking < 0) return 'Negative marking must be 0 or higher.';
+    return null;
+  }
+
+  const runGenerate = useCallback(
+    async (config) => {
+      const validationError = validateExamConfig(config);
+      if (validationError) {
+        setErrorBanner({ variant: 'warning', title: 'Check your settings', message: validationError });
+        return;
+      }
+      setErrorBanner(null);
+      setLastGenerateConfig(config);
+      setLoading(true);
+      try {
+        const res = await secureFetch('/api/gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'generate-exam', config }),
+        });
+        const exam = await res.json();
+        if (!res.ok || exam?.error) {
+          const msg = exam?.isRateLimited
+            ? 'All API keys are rate limited. Please wait 30-60 seconds and try again.'
+            : exam?.isServiceUnavailable
+              ? 'AI provider is temporarily unavailable. Please try again shortly.'
+              : exam?.error || 'Failed to generate exam. Please try again.';
+          setErrorBanner({
+            variant: exam?.isRateLimited ? 'warning' : 'destructive',
+            title: 'Generation failed',
+            message: msg,
+          });
+          setLoading(false);
+          return;
+        }
+        if (!exam.sections || exam.sections.length === 0) {
+          setErrorBanner({
+            variant: 'destructive',
+            title: 'Generation failed',
+            message: 'AI returned an invalid exam format. Please try again.',
+          });
+          setLoading(false);
+          return;
+        }
+        sessionStorage.setItem('currentExam', JSON.stringify(exam));
+        trackExamGenerate({
+          examType: config.examType || 'Custom',
+          questionCount: config.totalQuestions || 20,
+          questionType: config.questionType || 'MCQ',
+          difficulty: config.difficulty || 'Medium',
+          hasSubjects: !!(config.subjects && config.subjects.length > 0),
+          subjectCount: config.subjects?.length || 0,
+          timeLimit: config.timeLimit || 60,
+        });
+        router.push('/dashboard/exam/live');
+      } catch (e) {
+        clientLogger.error('Error generating exam:', e);
+        setErrorBanner({ variant: 'destructive', title: 'Network error', message: 'Please try again.' });
+      }
+      setLoading(false);
+    },
+    [router]
+  );
+
+  useEffect(() => {
+    selectedPresetRef.current = selectedPreset;
+  }, [selectedPreset]);
+
+  useEffect(() => {
+    runGenerateRef.current = runGenerate;
+  }, [runGenerate]);
+
+  useEffect(() => {
+    handleGenerateFromModalRef.current = async (modalConfig) => {
+      setConfigModalOpen(false);
+      try {
+        const config = {
+          examType: selectedPresetRef.current || 'Custom',
+          totalQuestions: modalConfig.totalQuestions || modalConfig.questions || 20,
+          difficulty: modalConfig.difficulty || 'Medium',
+          questionType: modalConfig.questionType || modalConfig.questionTypes || 'MCQ',
+          negativeMarking: modalConfig.negativeMarking ?? 0.25,
+          timeLimit: modalConfig.timeLimit || modalConfig.time || 60,
+        };
+        if (modalConfig.subjects && modalConfig.subjects.length > 0) {
+          config.subjects = modalConfig.subjects;
+          config.sections = modalConfig.sections || modalConfig.subjects.map((s) => s.name);
+          config.totalQuestions = modalConfig.subjects.reduce((s, sub) => s + sub.questionCount, 0);
+        } else if (modalConfig.sections) {
+          config.sections = modalConfig.sections;
+        }
+        await runGenerateRef.current?.(config);
+      } catch (error) {
+        clientLogger.error('Error generating exam:', error);
+      }
+    };
+  }, []);
+
+  function handleGenerateFromModal(modalConfig) {
+    return handleGenerateFromModalRef.current?.(modalConfig);
+  }
 
   // Wrappers to connect with FetchExamModal's expected prop names
   const handleUseFetchedConfig = (config) => {
     clearFetchedConfig();
     onFetchedConfig(config);
+    setCustomExamName(config.examName || config.title || config.name || 'Custom Exam');
+    setCustomExamEmoji(config.emoji || '📝');
   };
 
   const handleSelectSavedPreset = (preset) => {
@@ -205,7 +270,6 @@ export default function GeneratePage() {
   };
 
   const handleGenerate = async (examType) => {
-    setLoading(true);
     try {
       const config =
         activeTab === 'preset'
@@ -213,10 +277,13 @@ export default function GeneratePage() {
               examType: examType || selectedPreset,
               totalQuestions: 20,
               difficulty: '30% Easy, 50% Medium, 20% Hard',
+              timeLimit: 60,
+              negativeMarking: 0,
+              questionType: 'MCQ',
             }
           : (() => {
               const cfg = {
-                examType: fetchedConfig?.examName || 'Custom',
+                examType: customExamName || fetchedConfig?.examName || 'Custom',
                 totalQuestions:
                   customSubjects.length > 0
                     ? customSubjects.reduce((s, sub) => s + sub.questionCount, 0)
@@ -224,7 +291,8 @@ export default function GeneratePage() {
                 negativeMarking: custom.negativeMarking,
                 timeLimit: custom.timeLimit,
                 difficulty: `${custom.easy}% Easy, ${custom.medium}% Medium, ${custom.hard}% Hard`,
-                questionTypes: custom.questionType,
+                questionType: custom.questionType,
+                emoji: customExamEmoji,
               };
               if (customSubjects.length > 0) {
                 cfg.subjects = customSubjects.map((s) => ({ name: s.name, questionCount: s.questionCount }));
@@ -234,38 +302,10 @@ export default function GeneratePage() {
               }
               return cfg;
             })();
-      const res = await secureFetch('/api/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'generate-exam', config }),
-      });
-      const exam = await res.json();
-      if (exam.error) {
-        alert(exam.error);
-        setLoading(false);
-        return;
-      }
-      if (!exam.sections || exam.sections.length === 0) {
-        alert('Failed to generate exam. Please try again.');
-        setLoading(false);
-        return;
-      }
-      sessionStorage.setItem('currentExam', JSON.stringify(exam));
-      trackExamGenerate({
-        examType: config.examType || 'Custom',
-        questionCount: config.totalQuestions || 20,
-        questionType: config.questionTypes || 'MCQ',
-        difficulty: config.difficulty || 'Medium',
-        hasSubjects: !!(config.subjects && config.subjects.length > 0),
-        subjectCount: config.subjects?.length || 0,
-        timeLimit: config.timeLimit || 60,
-      });
-      router.push('/dashboard/exam/live');
+      await runGenerate(config);
     } catch (error) {
       clientLogger.error('Error generating exam:', error);
-      alert('Network error. Please try again.');
     }
-    setLoading(false);
   };
 
   if (loading) {
@@ -288,6 +328,20 @@ export default function GeneratePage() {
         </h1>
         <p className="text-muted-foreground mt-1">Choose a preset exam type or build your own custom structure.</p>
       </div>
+
+      {errorBanner && (
+        <Alert variant={errorBanner.variant}>
+          <AlertTitle>{errorBanner.title}</AlertTitle>
+          <AlertDescription className="flex items-center justify-between gap-3">
+            <span>{errorBanner.message}</span>
+            {lastGenerateConfig && (
+              <Button variant="outline" size="sm" onClick={() => runGenerate(lastGenerateConfig)}>
+                Retry
+              </Button>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="w-full sm:w-auto">
@@ -383,6 +437,26 @@ export default function GeneratePage() {
                 <span className="text-muted-foreground text-sm">— Modify as needed</span>
               </div>
             )}
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Exam Name</Label>
+                <Input
+                  value={customExamName}
+                  onChange={(e) => setCustomExamName(e.target.value)}
+                  placeholder="e.g. JEE Mock Test"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Emoji</Label>
+                <Input
+                  value={customExamEmoji}
+                  onChange={(e) => setCustomExamEmoji(e.target.value)}
+                  placeholder="📝"
+                  maxLength={10}
+                />
+              </div>
+            </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -484,20 +558,91 @@ export default function GeneratePage() {
             </div>
 
             {/* Subject Management — uses SubjectManager component */}
+            <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-secondary/30">
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium">AI subject overviews</p>
+                <p className="text-xs text-muted-foreground">Shows typical weightage and suggested question counts.</p>
+              </div>
+              <Switch checked={aiOverviewsEnabled} onCheckedChange={setAiOverviewsEnabled} />
+            </div>
             <SubjectManager
               subjects={customSubjects}
               onSubjectsChange={setCustomSubjects}
               examName={fetchedConfig?.examName || 'Custom Exam'}
+              showAiOverviews={aiOverviewsEnabled}
             />
 
-            <Button
-              variant="brand"
-              size="lg"
-              onClick={() => handleGenerate(fetchedConfig?.examName || 'Custom')}
-              className="gap-2"
-            >
-              <Play className="h-4 w-4" /> Generate Custom Exam
-            </Button>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="flex justify-between p-2 rounded-md bg-secondary/50">
+                <span className="text-muted-foreground">Difficulty</span>
+                <span className="font-medium">{`${custom.easy}% Easy, ${custom.medium}% Medium, ${custom.hard}% Hard`}</span>
+              </div>
+              <div className="flex justify-between p-2 rounded-md bg-secondary/50">
+                <span className="text-muted-foreground">Time</span>
+                <span className="font-medium">{custom.timeLimit} min</span>
+              </div>
+              <div className="flex justify-between p-2 rounded-md bg-secondary/50">
+                <span className="text-muted-foreground">Questions</span>
+                <span className="font-medium">
+                  {customSubjects.length > 0
+                    ? customSubjects.reduce((s, sub) => s + sub.questionCount, 0)
+                    : custom.totalQuestions}
+                </span>
+              </div>
+              <div className="flex justify-between p-2 rounded-md bg-secondary/50">
+                <span className="text-muted-foreground">Type</span>
+                <span className="font-medium">{custom.questionType}</span>
+              </div>
+              {customSubjects.length > 0 && (
+                <div className="flex justify-between p-2 rounded-md bg-secondary/50 col-span-2">
+                  <span className="text-muted-foreground">Subjects</span>
+                  <span className="font-medium">{customSubjects.map((s) => s.name).join(', ')}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() =>
+                  handleSavePresetWithFields({
+                    examName: customExamName || 'Custom Exam',
+                    emoji: customExamEmoji || '📝',
+                    description: 'Custom exam preset',
+                    totalQuestions:
+                      customSubjects.length > 0
+                        ? customSubjects.reduce((s, sub) => s + sub.questionCount, 0)
+                        : custom.totalQuestions,
+                    timeLimit: custom.timeLimit,
+                    negativeMarking: custom.negativeMarking,
+                    questionType: custom.questionType,
+                    sections: customSubjects.length > 0 ? customSubjects.map((s) => s.name) : ['General'],
+                  })
+                }
+                className="gap-2"
+              >
+                Save Preset
+              </Button>
+              <Button
+                variant="brand"
+                size="lg"
+                onClick={() => handleGenerate(customExamName || fetchedConfig?.examName || 'Custom')}
+                className="gap-2 flex-1"
+                disabled={
+                  !!validateExamConfig({
+                    totalQuestions:
+                      customSubjects.length > 0
+                        ? customSubjects.reduce((s, sub) => s + sub.questionCount, 0)
+                        : custom.totalQuestions,
+                    timeLimit: custom.timeLimit,
+                    negativeMarking: custom.negativeMarking,
+                  })
+                }
+              >
+                <Play className="h-4 w-4" /> Generate Custom Exam
+              </Button>
+            </div>
           </Card>
         </TabsContent>
       </Tabs>
