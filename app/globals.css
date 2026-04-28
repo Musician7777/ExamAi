@@ -928,6 +928,49 @@ html.theme-transition *::after {
   }
 }
 
+/* ═══ Pathway Animations ═══ */
+@keyframes pathwayPulse {
+  0%,
+  100% {
+    r: 32;
+    opacity: 0.2;
+  }
+  50% {
+    r: 38;
+    opacity: 0.4;
+  }
+}
+@keyframes pathwayDash {
+  0% {
+    stroke-dashoffset: 20;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes pathwayNodeFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.pathway-pulse {
+  animation: pathwayPulse 2.5s ease-in-out infinite;
+}
+.pathway-line-animate {
+  animation: pathwayDash 1.5s linear infinite;
+}
+.pathway-node-animate {
+  animation: pathwayNodeFloat 4s ease-in-out infinite;
+}
+.pathway-connector {
+  background: linear-gradient(90deg, transparent, hsl(var(--border)), transparent);
+}
+
 /* ═══ Focus Visible ═══ */
 :focus-visible {
   outline: 2px solid hsl(var(--ring));

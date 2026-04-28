@@ -7,6 +7,7 @@ import {
   isServiceUnavailableError,
 } from '@/lib/services/geminiService';
 import { buildExamPrompt, buildFetchExamConfigPrompt, buildSubjectOverviewPrompt } from '@/lib/prompts/examPrompts';
+import { buildPathwayPrompt } from '@/lib/prompts/pathwayPrompts';
 import {
   buildInterviewPrompt,
   buildInterviewRespondPrompt,
@@ -23,6 +24,7 @@ import { geminiPromptSchema } from '@/lib/validation';
 // Prompt router
 const PROMPT_BUILDERS = {
   'generate-exam': (config) => buildExamPrompt(config),
+  'generate-pathway': (config) => buildPathwayPrompt(config),
   'interview-question': (config) => buildInterviewPrompt(config),
   'interview-respond': (config) => buildInterviewRespondPrompt(config),
   'evaluate-answer': (config) => buildEvaluationPrompt(config),

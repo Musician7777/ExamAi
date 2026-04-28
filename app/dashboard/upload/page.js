@@ -1,7 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Upload, FileText, Check, AlertTriangle, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { Upload, FileText, Check, AlertTriangle, Loader2, Map, ArrowRight } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -75,6 +76,28 @@ export default function UploadPage() {
 
   return (
     <div className="space-y-6">
+      {/* Redirect banner */}
+      <Card className="p-4 border-indigo-500/20 bg-indigo-500/5">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/15 flex items-center justify-center">
+              <Map className="h-5 w-5 text-indigo-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold">Try Generate Pathway</h3>
+              <p className="text-xs text-muted-foreground">
+                Our new AI study planner creates a complete preparation roadmap for your exam.
+              </p>
+            </div>
+          </div>
+          <Link href="/dashboard/pathway">
+            <Button variant="brand" size="sm" className="gap-1.5">
+              Generate Pathway <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </Link>
+        </div>
+      </Card>
+
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Upload className="h-6 w-6 text-indigo-400" /> Upload <span className="gradient-text">Exam Pattern</span>

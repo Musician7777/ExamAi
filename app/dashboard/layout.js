@@ -8,7 +8,7 @@ import ThemePicker from '../components/ThemePicker/ThemePicker';
 import {
   Home,
   Zap,
-  Upload,
+  Map,
   Code,
   MessageSquare,
   BarChart3,
@@ -34,7 +34,7 @@ const navItems = [
     items: [
       { href: '/dashboard', icon: Home, label: 'Dashboard' },
       { href: '/dashboard/generate', icon: Zap, label: 'Generate Exam' },
-      { href: '/dashboard/upload', icon: Upload, label: 'Upload Pattern' },
+      { href: '/dashboard/pathway', icon: Map, label: 'Generate Pathway' },
     ],
   },
   {

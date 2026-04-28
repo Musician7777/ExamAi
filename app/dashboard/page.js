@@ -4,14 +4,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useCachedFetch } from '@/hooks/useCachedFetch';
-import { Zap, Code, MessageSquare, BarChart3 } from 'lucide-react';
+import { Zap, Code, MessageSquare, BarChart3, Map } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { RefreshShimmer } from '@/components/ui/refresh-shimmer';
 import ExamConfigModal from '../components/ExamConfigModal/ExamConfigModal';
 import EmptyState from '../components/EmptyState/EmptyState';
-import { useToast } from '../components/Toast/ToastProvider';
+
 import { setUserProperties, trackFeatureUsed } from '@/lib/ga';
 import AdBanner from '../components/AdBanner/AdBanner';
 import { cn } from '@/lib/utils';
@@ -26,6 +26,16 @@ const quickActions = [
     desc: 'Create AI-powered test',
     mode: 'exam',
     emoji: '📝',
+  },
+  {
+    icon: <Map className="h-5 w-5" />,
+    bg: 'bg-violet-500/10',
+    color: 'text-violet-400',
+    href: '/dashboard/pathway',
+    title: 'Generate Pathway',
+    desc: 'AI study planner',
+    mode: null,
+    emoji: '🗺️',
   },
   {
     icon: <Code className="h-5 w-5" />,
@@ -312,7 +322,7 @@ export default function DashboardPage() {
                 description="Take an exam, solve a coding challenge, or try an interview to see your progress here."
                 action={{
                   label: 'Start an Activity',
-                  href: '/dashboard/generate'
+                  href: '/dashboard/generate',
                 }}
               />
             )}
