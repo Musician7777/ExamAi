@@ -20,7 +20,17 @@ export default function StudyAssistant({ notify } = {}) {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [hidden, setHidden] = useState(false);
   const chatEndRef = useRef(null);
+
+  // Hide when interview is active (data-interview-active on body)
+  useEffect(() => {
+    const check = () => setHidden(document.body.hasAttribute('data-interview-active'));
+    check();
+    const observer = new MutationObserver(check);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['data-interview-active'] });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -56,6 +66,8 @@ export default function StudyAssistant({ notify } = {}) {
     }
     setLoading(false);
   }
+
+  if (hidden) return null;
 
   return (
     <>

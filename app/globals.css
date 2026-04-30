@@ -837,6 +837,17 @@ html.theme-transition *::after {
     box-shadow: 0 0 70px rgba(239, 68, 68, 0.25);
   }
 }
+@keyframes orbWaiting {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 40px rgba(34, 197, 94, 0.15);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 65px rgba(34, 197, 94, 0.3);
+  }
+}
 @keyframes typingFloat {
   0%,
   100% {

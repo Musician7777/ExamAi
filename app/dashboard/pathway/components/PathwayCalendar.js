@@ -104,20 +104,10 @@ export default function PathwayCalendar({ schedule, onTaskAction, onLaunchTest, 
         )
       : 4;
 
-  // Click a task → launch test directly (if it has an action route), or select it
+  // Click a task → always show detail panel first (user can then launch from there)
   const handleTaskClick = (task) => {
     if (task.type === 'rest') return;
-    if (task.completionStatus === 'completed' || task.completionStatus === 'skipped') {
-      // Already done — just show detail
-      setSelectedTask(selectedTask?._id === task._id ? null : task);
-      return;
-    }
-    // Launch the test directly
-    if (task.actionRoute) {
-      onLaunchTest?.(task);
-    } else {
-      setSelectedTask(selectedTask?._id === task._id ? null : task);
-    }
+    setSelectedTask(selectedTask?._id === task._id ? null : task);
   };
 
   return (
@@ -181,7 +171,7 @@ export default function PathwayCalendar({ schedule, onTaskAction, onLaunchTest, 
       <p className="text-xs text-muted-foreground">
         {startDate.getDate()} {MONTHS[startDate.getMonth()]} — {endDate.getDate()} {MONTHS[endDate.getMonth()]}{' '}
         {endDate.getFullYear()}
-        <span className="ml-2 text-indigo-400">• Click any test to launch it</span>
+        <span className="ml-2 text-indigo-400">• Click any test to see details & launch</span>
       </p>
 
       {/* Calendar grid */}

@@ -1,4 +1,5 @@
 'use client';
+import { HiOutlineMicrophone } from 'react-icons/hi';
 
 /* ─────────────────────────────────────────────
    INTERVIEW AVATAR COMPONENT
@@ -20,6 +21,11 @@ export default function InterviewAvatar({ orbState, isThinking, isSpeaking, isLi
       animation: 'orbListen 1.5s ease-in-out infinite',
       background: 'radial-gradient(circle at 40% 38%, rgba(239,68,68,0.3), rgba(99,102,241,0.2) 60%, transparent 100%)',
     },
+    orbWaiting: {
+      animation: 'orbWaiting 2.5s ease-in-out infinite',
+      background:
+        'radial-gradient(circle at 40% 38%, rgba(34,197,94,0.35), rgba(99,102,241,0.15) 60%, transparent 100%)',
+    },
   };
 
   const orbCoreStyle = {
@@ -31,6 +37,8 @@ export default function InterviewAvatar({ orbState, isThinking, isSpeaking, isLi
     transition: 'transform 0.5s ease, box-shadow 0.5s ease, background 0.5s ease',
     ...orbAnimStyle[orbState],
   };
+
+  const isWaiting = orbState === 'orbWaiting';
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center min-h-0 gap-6 p-6">
@@ -56,7 +64,18 @@ export default function InterviewAvatar({ orbState, isThinking, isSpeaking, isLi
             Listening
           </div>
         )}
-        {!isThinking && !isSpeaking && !isListening && (
+        {isWaiting && (
+          <div className="text-xs font-semibold uppercase tracking-widest mb-4 flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2 text-emerald-400">
+              <HiOutlineMicrophone className="w-4 h-4" style={{ animation: 'orbWaiting 2.5s ease-in-out infinite' }} />
+              Your Turn — Speak or Type
+            </div>
+            <span className="text-[10px] text-muted-foreground font-normal normal-case tracking-normal">
+              The interviewer is waiting for your response
+            </span>
+          </div>
+        )}
+        {!isThinking && !isSpeaking && !isListening && !isWaiting && (
           <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4">Ready</div>
         )}
 
@@ -79,9 +98,10 @@ export default function InterviewAvatar({ orbState, isThinking, isSpeaking, isLi
 /* ─────────────────────────────────────────────
    HELPER: Get orb state class based on current state
    ───────────────────────────────────────────── */
-export function getOrbState(isThinking, isSpeaking, isListening) {
+export function getOrbState(isThinking, isSpeaking, isListening, hasQuestion = false) {
   if (isThinking) return 'orbThinking';
   if (isSpeaking) return 'orbSpeaking';
   if (isListening) return 'orbListening';
+  if (hasQuestion) return 'orbWaiting';
   return 'orbIdle';
 }

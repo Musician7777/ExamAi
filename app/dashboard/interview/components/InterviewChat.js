@@ -161,7 +161,7 @@ export default function InterviewChat({
   chatRef,
 }) {
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 pb-18">
       <div
         ref={chatRef}
         className="flex-1 overflow-y-auto bg-card border rounded-lg p-5 flex flex-col gap-3 mb-3 min-h-0"

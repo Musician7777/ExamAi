@@ -71,6 +71,16 @@ export default function InterviewPage() {
     resetTranscript,
   } = useSpeechRecognition();
 
+  // Set data attribute on body so StudyAssistant hides during active interview
+  useEffect(() => {
+    if (phase === 'interview') {
+      document.body.setAttribute('data-interview-active', 'true');
+    } else {
+      document.body.removeAttribute('data-interview-active');
+    }
+    return () => document.body.removeAttribute('data-interview-active');
+  }, [phase]);
+
   // Auto-scroll chat
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
@@ -482,7 +492,7 @@ export default function InterviewPage() {
   /* ═══════════════════════════════════════════
        RENDER: LIVE INTERVIEW
        ═══════════════════════════════════════════ */
-  const orbState = getOrbState(isThinking, isSpeaking, isListening);
+  const orbState = getOrbState(isThinking, isSpeaking, isListening, !!currentQ);
 
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.16))] max-w-[1100px] animate-in fade-in duration-300">
