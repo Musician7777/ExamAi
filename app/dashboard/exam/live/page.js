@@ -278,17 +278,6 @@ export default function LiveExamPage() {
       })
     ).catch((e) => clientLogger.warn('Failed to track question analytics batch:', e.message));
 
-    // Track exam completion
-    secureFetch('/api/analytics', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        eventType: 'exam_complete',
-        sessionId: savedSessionId || null,
-        data: { correct, wrong, unanswered, percent },
-      }),
-    }).catch((e) => clientLogger.warn('Failed to track exam complete:', e.message));
-
     const results = questions.map((q, i) => {
       const userAnswer = currentAnswers[i] ?? null;
       const qType = q.type || 'MCQ';
@@ -339,6 +328,18 @@ export default function LiveExamPage() {
 
     const timeTaken = (exam.duration || 60) * 60 - currentTimeLeft;
     const percent = totalMarks > 0 ? Math.round((Math.max(0, score) / totalMarks) * 100) : 0;
+
+    // Track exam completion — must be after correct/wrong/unanswered/percent are computed
+    secureFetch('/api/analytics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventType: 'exam_complete',
+        sessionId: savedSessionId || null,
+        data: { correct, wrong, unanswered, percent },
+      }),
+    }).catch((e) => clientLogger.warn('Failed to track exam complete:', e.message));
+
     // Track exam submission in GA4
     trackExamSubmit({
       score: Math.max(0, score),
