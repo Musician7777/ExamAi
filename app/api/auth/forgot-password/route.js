@@ -10,8 +10,8 @@ import logger from '@/lib/logger';
 
 export async function POST(request) {
   try {
-    // Rate limit: 3 password reset requests per 15 minutes
-    const rateLimitResult = await rateLimit(request, 3, 900000);
+    // Rate limit: 20 password reset requests per 15 minutes (increased for testing)
+    const rateLimitResult = await rateLimit(request, 20, 900000);
     if (rateLimitResult) return rateLimitResult;
 
     await connectDB();
@@ -30,14 +30,16 @@ export async function POST(request) {
     if (!user) {
       // Still return success but don't create token
       return NextResponse.json({
-        message: 'If an account exists with that email, a reset link has been generated.',
+        message: 'If an account exists with that email, a reset link has been sent to your inbox.',
+        emailSent: true,
       });
     }
 
     if (user.authProvider === 'google') {
       // Return same generic success message to avoid email enumeration
       return NextResponse.json({
-        message: 'If an account exists with that email, a reset link has been generated.',
+        message: 'If an account exists with that email, a reset link has been sent to your inbox.',
+        emailSent: true,
       });
     }
 

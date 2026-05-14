@@ -91,8 +91,11 @@ export default function ForgotPasswordPage() {
                     <CheckCircle2 className="h-5 w-5" />
                     <span className="font-semibold">Reset link generated!</span>
                   </div>
+
                   <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 dark:text-amber-400">
-                    ⚠️ Dev mode: Email sending is not configured (RESEND_API_KEY not set). Use the link below:
+                    {message.text.includes('Email delivery failed')
+                      ? `⚠️ Resend Error: ${message.text} Are you using onboarding@resend.dev? You can only send to your registered email address.`
+                      : '⚠️ Dev mode: Email sending is not configured (RESEND_API_KEY not set). Use the link below:'}
                   </div>
                   {resetUrl && (
                     <div className="p-3 rounded-lg bg-secondary/50 border text-xs font-mono break-all">{resetUrl}</div>
