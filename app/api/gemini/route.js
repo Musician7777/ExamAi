@@ -15,8 +15,12 @@ import {
   buildInterviewAnalysisPrompt,
   buildFetchInterviewConfigPrompt,
 } from '@/lib/prompts/interviewPrompts';
-import { buildCodeEvaluationPrompt, buildFetchCodingConfigPrompt, buildChatPrompt } from '@/lib/prompts/codingPrompts';
-import { getMockExamResponse, getMockInterviewResponse, getMockCodeResponse } from '@/lib/prompts/mockResponses';
+import { buildCodeAnalysisPrompt, buildFetchCodingConfigPrompt, buildChatPrompt } from '@/lib/prompts/codingPrompts';
+import {
+  getMockExamResponse,
+  getMockInterviewResponse,
+  getMockCodeAnalysisResponse,
+} from '@/lib/prompts/mockResponses';
 import { sanitizePromptInput } from '@/lib/sanitize';
 import { apiRoute } from '@/lib/apiHandler';
 import { geminiPromptSchema } from '@/lib/validation';
@@ -29,7 +33,7 @@ const PROMPT_BUILDERS = {
   'interview-respond': (config) => buildInterviewRespondPrompt(config),
   'evaluate-answer': (config) => buildEvaluationPrompt(config),
   'interview-analysis': (config) => buildInterviewAnalysisPrompt(config),
-  'evaluate-code': (config) => buildCodeEvaluationPrompt(config),
+  'analyze-code': (config) => buildCodeAnalysisPrompt(config),
   'fetch-exam-config': (config) => buildFetchExamConfigPrompt(config),
   'fetch-subject-overview': (config) => buildSubjectOverviewPrompt(config),
   'fetch-interview-config': (config) => buildFetchInterviewConfigPrompt(config),
@@ -41,7 +45,7 @@ const PROMPT_BUILDERS = {
 function getMockResponse(type, config) {
   if (type === 'generate-exam') return getMockExamResponse(config);
   if (type.startsWith('interview') || type === 'evaluate-answer') return getMockInterviewResponse(type, config);
-  if (type === 'evaluate-code') return getMockCodeResponse(config);
+  if (type === 'analyze-code') return getMockCodeAnalysisResponse(config);
   return { error: 'Unknown type' };
 }
 

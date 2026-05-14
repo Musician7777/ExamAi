@@ -62,9 +62,32 @@ const problemsData = {
       'Only one valid answer exists.',
     ],
     testCases: [
-      { input: 'nums = [2,7,11,15], target = 9', output: '[0,1]' },
-      { input: 'nums = [3,2,4], target = 6', output: '[1,2]' },
-      { input: 'nums = [3,3], target = 6', output: '[0,1]' },
+      {
+        input: 'nums = [2,7,11,15], target = 9',
+        output: '[0,1]',
+        runners: {
+          javascript: 'console.log(JSON.stringify(twoSum([2,7,11,15], 9)));',
+          python: 'import json\nprint(json.dumps(Solution().twoSum([2,7,11,15], 9)))',
+          java: 'System.out.println(java.util.Arrays.toString(new Solution().twoSum(new int[]{2,7,11,15}, 9)));',
+          cpp: '#include<iostream>\n#include<vector>\nint main(){Solution s;auto r=s.twoSum({2,7,11,15},9);std::cout<<"["<<r[0]<<","<<r[1]<<"]";return 0;}',
+        },
+      },
+      {
+        input: 'nums = [3,2,4], target = 6',
+        output: '[1,2]',
+        runners: {
+          javascript: 'console.log(JSON.stringify(twoSum([3,2,4], 6)));',
+          python: 'import json\nprint(json.dumps(Solution().twoSum([3,2,4], 6)))',
+        },
+      },
+      {
+        input: 'nums = [3,3], target = 6',
+        output: '[0,1]',
+        runners: {
+          javascript: 'console.log(JSON.stringify(twoSum([3,3], 6)));',
+          python: 'import json\nprint(json.dumps(Solution().twoSum([3,3], 6)))',
+        },
+      },
     ],
     starterCode: {
       javascript: 'function twoSum(nums, target) {\n  // Write your solution here\n  \n}',
@@ -86,11 +109,46 @@ const problemsData = {
     ],
     constraints: ['1 <= s.length <= 10^4', "s consists of parentheses only '()[]{}'"],
     testCases: [
-      { input: 's = "()"', output: 'true' },
-      { input: 's = "()[]{}"', output: 'true' },
-      { input: 's = "(]"', output: 'false' },
-      { input: 's = "([)]"', output: 'false' },
-      { input: 's = "{[]}"', output: 'true' },
+      {
+        input: 's = "()"',
+        output: 'true',
+        runners: {
+          javascript: 'console.log(String(isValid("()")));',
+          python: 'print(str(Solution().isValid("()")).lower())',
+        },
+      },
+      {
+        input: 's = "()[]{}"',
+        output: 'true',
+        runners: {
+          javascript: 'console.log(String(isValid("()[]{}")).toLowerCase());',
+          python: 'print(str(Solution().isValid("()[]{}")).lower())',
+        },
+      },
+      {
+        input: 's = "(]"',
+        output: 'false',
+        runners: {
+          javascript: 'console.log(String(isValid("(]")));',
+          python: 'print(str(Solution().isValid("(]")).lower())',
+        },
+      },
+      {
+        input: 's = "([)]"',
+        output: 'false',
+        runners: {
+          javascript: 'console.log(String(isValid("([)]")).toLowerCase());',
+          python: 'print(str(Solution().isValid("([)]")).lower())',
+        },
+      },
+      {
+        input: 's = "{[]}"',
+        output: 'true',
+        runners: {
+          javascript: 'console.log(String(isValid("{[]}")).toLowerCase());',
+          python: 'print(str(Solution().isValid("{[]}")).lower())',
+        },
+      },
     ],
     starterCode: {
       javascript: 'function isValid(s) {\n  // Write your solution here\n  \n}',
@@ -119,10 +177,38 @@ const problemsData = {
       'Both lists are sorted in non-decreasing order.',
     ],
     testCases: [
-      { input: 'list1 = [1,2,4], list2 = [1,3,4]', output: '[1,1,2,3,4,4]' },
-      { input: 'list1 = [], list2 = [0]', output: '[0]' },
-      { input: 'list1 = [], list2 = []', output: '[]' },
-      { input: 'list1 = [5], list2 = [1,2,4]', output: '[1,2,4,5]' },
+      {
+        input: 'list1 = [1,2,4], list2 = [1,3,4]',
+        output: '[1,1,2,3,4,4]',
+        runners: {
+          javascript: 'console.log(JSON.stringify(mergeTwoLists([1,2,4], [1,3,4])));',
+          python: 'import json\nprint(json.dumps(Solution().mergeTwoLists([1,2,4], [1,3,4])))',
+        },
+      },
+      {
+        input: 'list1 = [], list2 = [0]',
+        output: '[0]',
+        runners: {
+          javascript: 'console.log(JSON.stringify(mergeTwoLists([], [0])));',
+          python: 'import json\nprint(json.dumps(Solution().mergeTwoLists([], [0])))',
+        },
+      },
+      {
+        input: 'list1 = [], list2 = []',
+        output: '[]',
+        runners: {
+          javascript: 'console.log(JSON.stringify(mergeTwoLists([], [])));',
+          python: 'import json\nprint(json.dumps(Solution().mergeTwoLists([], [])))',
+        },
+      },
+      {
+        input: 'list1 = [5], list2 = [1,2,4]',
+        output: '[1,2,4,5]',
+        runners: {
+          javascript: 'console.log(JSON.stringify(mergeTwoLists([5], [1,2,4])));',
+          python: 'import json\nprint(json.dumps(Solution().mergeTwoLists([5], [1,2,4])))',
+        },
+      },
     ],
     starterCode: {
       javascript:
@@ -149,11 +235,37 @@ const problemsData = {
     ],
     constraints: ['1 <= nums.length <= 10^5', '-10^4 <= nums[i] <= 10^4'],
     testCases: [
-      { input: 'nums = [-2,1,-3,4,-1,2,1,-5,4]', output: '6' },
-      { input: 'nums = [1]', output: '1' },
-      { input: 'nums = [5,4,-1,7,8]', output: '23' },
-      { input: 'nums = [-1]', output: '-1' },
-      { input: 'nums = [-2,-1]', output: '-1' },
+      {
+        input: 'nums = [-2,1,-3,4,-1,2,1,-5,4]',
+        output: '6',
+        runners: {
+          javascript: 'console.log(maxSubArray([-2,1,-3,4,-1,2,1,-5,4]));',
+          python: 'print(Solution().maxSubArray([-2,1,-3,4,-1,2,1,-5,4]))',
+        },
+      },
+      {
+        input: 'nums = [1]',
+        output: '1',
+        runners: { javascript: 'console.log(maxSubArray([1]));', python: 'print(Solution().maxSubArray([1]))' },
+      },
+      {
+        input: 'nums = [5,4,-1,7,8]',
+        output: '23',
+        runners: {
+          javascript: 'console.log(maxSubArray([5,4,-1,7,8]));',
+          python: 'print(Solution().maxSubArray([5,4,-1,7,8]))',
+        },
+      },
+      {
+        input: 'nums = [-1]',
+        output: '-1',
+        runners: { javascript: 'console.log(maxSubArray([-1]));', python: 'print(Solution().maxSubArray([-1]))' },
+      },
+      {
+        input: 'nums = [-2,-1]',
+        output: '-1',
+        runners: { javascript: 'console.log(maxSubArray([-2,-1]));', python: 'print(Solution().maxSubArray([-2,-1]))' },
+      },
     ],
     starterCode: {
       javascript: 'function maxSubArray(nums) {\n  // Write your solution here\n  \n}',
@@ -178,9 +290,30 @@ const problemsData = {
     ],
     constraints: ['0 <= number of nodes <= 2000', '-1000 <= Node.val <= 1000'],
     testCases: [
-      { input: 'root = [3,9,20,null,null,15,7]', output: '[[3],[9,20],[15,7]]' },
-      { input: 'root = [1]', output: '[[1]]' },
-      { input: 'root = []', output: '[]' },
+      {
+        input: 'root = [3,9,20,null,null,15,7]',
+        output: '[[3],[9,20],[15,7]]',
+        runners: {
+          javascript: 'console.log(JSON.stringify(levelOrder([3,9,20,null,null,15,7])));',
+          python: 'import json\nprint(json.dumps(Solution().levelOrder([3,9,20,None,None,15,7])))',
+        },
+      },
+      {
+        input: 'root = [1]',
+        output: '[[1]]',
+        runners: {
+          javascript: 'console.log(JSON.stringify(levelOrder([1])));',
+          python: 'import json\nprint(json.dumps(Solution().levelOrder([1])))',
+        },
+      },
+      {
+        input: 'root = []',
+        output: '[]',
+        runners: {
+          javascript: 'console.log(JSON.stringify(levelOrder([])));',
+          python: 'import json\nprint(json.dumps(Solution().levelOrder([])))',
+        },
+      },
     ],
     starterCode: {
       javascript:
@@ -202,10 +335,38 @@ const problemsData = {
     ],
     constraints: ['1 <= s.length <= 1000', 's consists of only digits and English letters.'],
     testCases: [
-      { input: 's = "babad"', output: '"bab"' },
-      { input: 's = "cbbd"', output: '"bb"' },
-      { input: 's = "a"', output: '"a"' },
-      { input: 's = "racecar"', output: '"racecar"' },
+      {
+        input: 's = "babad"',
+        output: '"bab"',
+        runners: {
+          javascript: 'console.log(JSON.stringify(longestPalindrome("babad")));',
+          python: 'import json\nprint(json.dumps(Solution().longestPalindrome("babad")))',
+        },
+      },
+      {
+        input: 's = "cbbd"',
+        output: '"bb"',
+        runners: {
+          javascript: 'console.log(JSON.stringify(longestPalindrome("cbbd")));',
+          python: 'import json\nprint(json.dumps(Solution().longestPalindrome("cbbd")))',
+        },
+      },
+      {
+        input: 's = "a"',
+        output: '"a"',
+        runners: {
+          javascript: 'console.log(JSON.stringify(longestPalindrome("a")));',
+          python: 'import json\nprint(json.dumps(Solution().longestPalindrome("a")))',
+        },
+      },
+      {
+        input: 's = "racecar"',
+        output: '"racecar"',
+        runners: {
+          javascript: 'console.log(JSON.stringify(longestPalindrome("racecar")));',
+          python: 'import json\nprint(json.dumps(Solution().longestPalindrome("racecar")))',
+        },
+      },
     ],
     starterCode: {
       javascript: 'function longestPalindrome(s) {\n  // Write your solution here\n  \n}',
@@ -239,10 +400,21 @@ const problemsData = {
         input:
           'capacity = 2, operations = ["put","put","get","put","get","put","get","get","get"], values = [[1,1],[2,2],[1],[3,3],[2],[4,4],[1],[3],[4]]',
         output: '[null,null,1,null,-1,null,-1,3,4]',
+        runners: {
+          javascript:
+            'console.log(JSON.stringify(lruCache(2,["put","put","get","put","get","put","get","get","get"],[[1,1],[2,2],[1],[3,3],[2],[4,4],[1],[3],[4]])));',
+          python:
+            'import json\nprint(json.dumps(Solution().lruCache(2,["put","put","get","put","get","put","get","get","get"],[[1,1],[2,2],[1],[3,3],[2],[4,4],[1],[3],[4]])))',
+        },
       },
       {
         input: 'capacity = 1, operations = ["put","put","get","get"], values = [[1,10],[2,20],[1],[2]]',
         output: '[null,null,-1,20]',
+        runners: {
+          javascript: 'console.log(JSON.stringify(lruCache(1,["put","put","get","get"],[[1,10],[2,20],[1],[2]])));',
+          python:
+            'import json\nprint(json.dumps(Solution().lruCache(1,["put","put","get","get"],[[1,10],[2,20],[1],[2]])))',
+        },
       },
     ],
     starterCode: {
@@ -273,10 +445,38 @@ const problemsData = {
     ],
     constraints: ['nums1.length == m', 'nums2.length == n', '0 <= m <= 1000', '0 <= n <= 1000', '1 <= m + n <= 2000'],
     testCases: [
-      { input: 'nums1 = [1,3], nums2 = [2]', output: '2' },
-      { input: 'nums1 = [1,2], nums2 = [3,4]', output: '2.5' },
-      { input: 'nums1 = [0,0], nums2 = [0,0]', output: '0' },
-      { input: 'nums1 = [], nums2 = [1]', output: '1' },
+      {
+        input: 'nums1 = [1,3], nums2 = [2]',
+        output: '2',
+        runners: {
+          javascript: 'console.log(findMedianSortedArrays([1,3], [2]));',
+          python: 'print(Solution().findMedianSortedArrays([1,3], [2]))',
+        },
+      },
+      {
+        input: 'nums1 = [1,2], nums2 = [3,4]',
+        output: '2.5',
+        runners: {
+          javascript: 'console.log(findMedianSortedArrays([1,2], [3,4]));',
+          python: 'print(Solution().findMedianSortedArrays([1,2], [3,4]))',
+        },
+      },
+      {
+        input: 'nums1 = [0,0], nums2 = [0,0]',
+        output: '0',
+        runners: {
+          javascript: 'console.log(findMedianSortedArrays([0,0], [0,0]));',
+          python: 'print(Solution().findMedianSortedArrays([0,0], [0,0]))',
+        },
+      },
+      {
+        input: 'nums1 = [], nums2 = [1]',
+        output: '1',
+        runners: {
+          javascript: 'console.log(findMedianSortedArrays([], [1]));',
+          python: 'print(Solution().findMedianSortedArrays([], [1]))',
+        },
+      },
     ],
     starterCode: {
       javascript: 'function findMedianSortedArrays(nums1, nums2) {\n  // Write your solution here\n  \n}',
@@ -301,10 +501,29 @@ const problemsData = {
     ],
     constraints: ['n == height.length', '1 <= n <= 2 * 10^4', '0 <= height[i] <= 10^5'],
     testCases: [
-      { input: 'height = [0,1,0,2,1,0,1,3,2,1,2,1]', output: '6' },
-      { input: 'height = [4,2,0,3,2,5]', output: '9' },
-      { input: 'height = [1,0,1]', output: '1' },
-      { input: 'height = [3,0,0,2,0,4]', output: '10' },
+      {
+        input: 'height = [0,1,0,2,1,0,1,3,2,1,2,1]',
+        output: '6',
+        runners: {
+          javascript: 'console.log(trap([0,1,0,2,1,0,1,3,2,1,2,1]));',
+          python: 'print(Solution().trap([0,1,0,2,1,0,1,3,2,1,2,1]))',
+        },
+      },
+      {
+        input: 'height = [4,2,0,3,2,5]',
+        output: '9',
+        runners: { javascript: 'console.log(trap([4,2,0,3,2,5]));', python: 'print(Solution().trap([4,2,0,3,2,5]))' },
+      },
+      {
+        input: 'height = [1,0,1]',
+        output: '1',
+        runners: { javascript: 'console.log(trap([1,0,1]));', python: 'print(Solution().trap([1,0,1]))' },
+      },
+      {
+        input: 'height = [3,0,0,2,0,4]',
+        output: '10',
+        runners: { javascript: 'console.log(trap([3,0,0,2,0,4]));', python: 'print(Solution().trap([3,0,0,2,0,4]))' },
+      },
     ],
     starterCode: {
       javascript: 'function trap(height) {\n  // Write your solution here\n  \n}',
@@ -325,10 +544,38 @@ const problemsData = {
     ],
     constraints: ['0 <= list length <= 5000', '-5000 <= Node.val <= 5000'],
     testCases: [
-      { input: 'head = [1,2,3,4,5]', output: '[5,4,3,2,1]' },
-      { input: 'head = [1,2]', output: '[2,1]' },
-      { input: 'head = []', output: '[]' },
-      { input: 'head = [1]', output: '[1]' },
+      {
+        input: 'head = [1,2,3,4,5]',
+        output: '[5,4,3,2,1]',
+        runners: {
+          javascript: 'console.log(JSON.stringify(reverseList([1,2,3,4,5])));',
+          python: 'import json\nprint(json.dumps(Solution().reverseList([1,2,3,4,5])))',
+        },
+      },
+      {
+        input: 'head = [1,2]',
+        output: '[2,1]',
+        runners: {
+          javascript: 'console.log(JSON.stringify(reverseList([1,2])));',
+          python: 'import json\nprint(json.dumps(Solution().reverseList([1,2])))',
+        },
+      },
+      {
+        input: 'head = []',
+        output: '[]',
+        runners: {
+          javascript: 'console.log(JSON.stringify(reverseList([])));',
+          python: 'import json\nprint(json.dumps(Solution().reverseList([])))',
+        },
+      },
+      {
+        input: 'head = [1]',
+        output: '[1]',
+        runners: {
+          javascript: 'console.log(JSON.stringify(reverseList([1])));',
+          python: 'import json\nprint(json.dumps(Solution().reverseList([1])))',
+        },
+      },
     ],
     starterCode: {
       javascript:
@@ -470,16 +717,30 @@ export default function CodingEditorPage() {
     );
   }
 
-  const evaluateCode = async () => {
-    const res = await secureFetch('/api/gemini', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'evaluate-code',
-        config: { problem: problem.description, language, code, testCases: problem.testCases },
-      }),
-    });
-    return await res.json();
+  // Fetch AI code quality analysis AFTER real execution results are known.
+  // AI is never used for pass/fail determination — only for feedback/complexity.
+  const analyzeCode = async (execResult) => {
+    try {
+      const res = await secureFetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'analyze-code',
+          config: {
+            problem: problem.description,
+            language,
+            code,
+            passed: execResult.passed,
+            score: execResult.score,
+            testResults: execResult.testResults,
+          },
+        }),
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
   };
 
   const handleRun = async () => {
@@ -517,29 +778,57 @@ export default function CodingEditorPage() {
     setSubmitted(false);
     setExecutionOutput(null);
     try {
-      const result = await evaluateCode();
-      setOutput(result);
+      // Step 1: Run code against test cases using the REAL Piston executor
+      const execRes = await secureFetch('/api/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, language, testCases: problem.testCases }),
+      });
+      const execData = await execRes.json();
 
-      // Save to database
+      // execData from runTestCases always has: { passed, score, testResults, executionTime }
+      const execResult = execData.testResults
+        ? execData
+        : {
+            passed: execData.exitCode === 0,
+            score: execData.exitCode === 0 ? 100 : 0,
+            testResults: [],
+            executionTime: execData.executionTime,
+          };
+
+      // Step 2: Ask Gemini for code quality ANALYSIS only (feedback / complexity)
+      // This runs in parallel-ish but we await it before rendering
+      const analysis = await analyzeCode(execResult);
+
+      // Step 3: Merge real execution results with AI analysis
+      const merged = {
+        ...execResult,
+        feedback: analysis?.feedback || null,
+        timeComplexity: analysis?.timeComplexity || null,
+        spaceComplexity: analysis?.spaceComplexity || null,
+        suggestions: analysis?.suggestions || [],
+      };
+      setOutput(merged);
+
+      // Step 4: Save activity to database
       const actRes = await secureFetch('/api/activities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'coding',
           title: problem.title,
-          score: result.score || 0,
+          score: merged.score || 0,
           totalMarks: 100,
           details: {
             language,
-            testResults: result.testResults,
-            feedback: result.feedback,
-            timeComplexity: result.timeComplexity,
-            spaceComplexity: result.spaceComplexity,
+            testResults: merged.testResults,
+            feedback: merged.feedback,
+            timeComplexity: merged.timeComplexity,
+            spaceComplexity: merged.spaceComplexity,
           },
         }),
       });
       if (actRes.ok) {
-        // Invalidate client cache so dashboard/analytics refresh on next visit
         cacheInvalidate('/api/dashboard');
         cacheInvalidate('/api/gamification');
         cacheInvalidate('/api/activities');
@@ -556,17 +845,17 @@ export default function CodingEditorPage() {
         }
       }
 
-      // Track coding submission in GA4
+      // Step 5: Track in GA4
       trackCodingSubmit({
         problemTitle: problem.title,
         language,
-        score: result.score || 0,
-        passed: result.passed || false,
+        score: merged.score || 0,
+        passed: merged.passed || false,
       });
       setSubmitted(true);
 
-      // Dispatch solved event for the coding page tracker
-      if (result.passed) {
+      // Step 6: Dispatch solved event
+      if (merged.passed) {
         try {
           window.dispatchEvent(
             new CustomEvent('coding-problem-solved', {
@@ -579,7 +868,7 @@ export default function CodingEditorPage() {
       }
     } catch (e) {
       clientLogger.error('Code submission error:', e.message);
-      setOutput({ passed: false, score: 0, testResults: [], feedback: 'Error submitting code.' });
+      setOutput({ passed: false, score: 0, testResults: [], feedback: 'Error submitting code. Please try again.' });
     }
     setSubmitting(false);
   };
