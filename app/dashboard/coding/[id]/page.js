@@ -620,8 +620,38 @@ export default function CodingEditorPage() {
   const [submitted, setSubmitted] = useState(false);
   const [executionOutput, setExecutionOutput] = useState(null);
   const [outputTab, setOutputTab] = useState('console'); // 'console' | 'tests' | 'analysis'
+  const [leftWidth, setLeftWidth] = useState(380); // px — left problem panel
+  const [outputHeight, setOutputHeight] = useState(250); // px — bottom output panel
   const codeInitialized = useRef(false);
   const { notify } = useNotification();
+
+  // Drag-to-resize: vertical divider between left (problem) and right (editor) panels
+  const startVDrag = (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = leftWidth;
+    const onMove = (ev) => setLeftWidth(Math.max(220, Math.min(600, startW + ev.clientX - startX)));
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  // Drag-to-resize: horizontal divider between editor and output panel
+  const startHDrag = (e) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = outputHeight;
+    const onMove = (ev) => setOutputHeight(Math.max(80, Math.min(520, startH - (ev.clientY - startY))));
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
 
   // Keyboard shortcuts: Ctrl+Enter = Run, Ctrl+Shift+Enter = Submit
   // Refs declared before conditional return to satisfy rules-of-hooks
@@ -898,7 +928,10 @@ export default function CodingEditorPage() {
 
   return (
     <div className="h-[calc(100vh-theme(spacing.16))] flex overflow-hidden bg-background">
-      <div className="flex flex-col w-[38%] min-w-[260px] max-w-[460px] border-r border-border overflow-hidden bg-card/30">
+      <div
+        className="flex flex-col border-r border-border overflow-hidden bg-card/30 shrink-0"
+        style={{ width: leftWidth, minWidth: 220, maxWidth: 600 }}
+      >
         <div className="p-4 border-b flex items-center justify-between shadow-sm">
           <Button variant="outline" asChild size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
             <Link href="/dashboard/coding">
@@ -963,6 +996,15 @@ export default function CodingEditorPage() {
             </ul>
           </div>
         </div>
+      </div>
+
+      {/* ── Vertical drag handle ── */}
+      <div
+        className="w-1 shrink-0 cursor-col-resize bg-border/40 hover:bg-primary/60 active:bg-primary transition-colors group relative"
+        onMouseDown={startVDrag}
+        title="Drag to resize"
+      >
+        <div className="absolute inset-y-0 -left-1 -right-1" />
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -1055,8 +1097,20 @@ export default function CodingEditorPage() {
           </div>
         </div>
 
+        {/* ── Horizontal drag handle ── */}
+        <div
+          className="h-1 shrink-0 cursor-row-resize bg-border/40 hover:bg-primary/60 active:bg-primary transition-colors relative"
+          onMouseDown={startHDrag}
+          title="Drag to resize"
+        >
+          <div className="absolute inset-x-0 -top-1 -bottom-1" />
+        </div>
+
         {/* ── Always-visible output panel ── */}
-        <div className="h-64 border-t border-border bg-card flex flex-col shrink-0">
+        <div
+          className="border-t border-border bg-card flex flex-col shrink-0 overflow-hidden"
+          style={{ height: outputHeight, minHeight: 80 }}
+        >
           {/* Tab bar */}
           <div className="flex items-center border-b border-border bg-muted/30 shrink-0 px-2 gap-1 pt-1">
             {[
