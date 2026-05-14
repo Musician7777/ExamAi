@@ -619,6 +619,7 @@ export default function CodingEditorPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [executionOutput, setExecutionOutput] = useState(null);
+  const [outputTab, setOutputTab] = useState('console'); // 'console' | 'tests' | 'analysis'
   const codeInitialized = useRef(false);
   const { notify } = useNotification();
 
@@ -759,11 +760,11 @@ export default function CodingEditorPage() {
       const result = await res.json();
 
       if (result.testResults) {
-        // Got test case results
         setOutput(result);
+        setOutputTab('tests');
       } else {
-        // Got raw execution output
         setExecutionOutput(result);
+        setOutputTab('console');
       }
     } catch (e) {
       clientLogger.error('Code execution error:', e.message);
@@ -809,6 +810,7 @@ export default function CodingEditorPage() {
         suggestions: analysis?.suggestions || [],
       };
       setOutput(merged);
+      setOutputTab(merged.testResults?.length > 0 ? 'tests' : 'console');
 
       // Step 4: Save activity to database
       const actRes = await secureFetch('/api/activities', {
@@ -895,12 +897,12 @@ export default function CodingEditorPage() {
   submitRef.current = handleSubmit;
 
   return (
-    <div className="h-[calc(100vh-theme(spacing.16))] flex flex-col lg:flex-row p-4 gap-4 bg-background">
-      <Card className="flex-1 flex flex-col overflow-hidden border-border bg-card/50">
+    <div className="h-[calc(100vh-theme(spacing.16))] flex overflow-hidden bg-background">
+      <div className="flex flex-col w-[38%] min-w-[260px] max-w-[460px] border-r border-border overflow-hidden bg-card/30">
         <div className="p-4 border-b flex items-center justify-between shadow-sm">
-          <Button variant="ghost" asChild size="sm" className="gap-2">
+          <Button variant="outline" asChild size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
             <Link href="/dashboard/coding">
-              <HiOutlineArrowLeft className="h-4 w-4" /> Back
+              <HiOutlineArrowLeft className="h-4 w-4" /> Exit
             </Link>
           </Button>
           <Badge
@@ -961,10 +963,10 @@ export default function CodingEditorPage() {
             </ul>
           </div>
         </div>
-      </Card>
+      </div>
 
-      <div className="flex-1 lg:flex-[1.5] xl:flex-[2] flex flex-col gap-4">
-        <Card className="flex-[2] flex flex-col overflow-hidden border-border shadow-sm bg-card">
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex items-center justify-between p-2 border-b bg-muted/20">
             <Select value={language} onValueChange={handleLangChange}>
               <SelectTrigger className="w-[180px] border-none bg-secondary/50 font-medium h-9">
@@ -1051,167 +1053,209 @@ export default function CodingEditorPage() {
               }}
             />
           </div>
-        </Card>
+        </div>
 
-        {(output || executionOutput) && (
-          <Card className="flex-1 max-h-[350px] flex flex-col overflow-hidden animate-in slide-in-from-bottom-2 fade-in-0 shadow-sm border-border">
-            {output ? (
-              <>
-                <div
-                  className={cn(
-                    'px-4 py-3 flex flex-wrap items-center justify-between font-semibold border-b gap-3',
-                    output.passed
-                      ? 'bg-success/10 text-success border-success/20'
-                      : 'bg-destructive/10 text-destructive border-destructive/20'
-                  )}
-                >
-                  <div className="flex items-center gap-2 text-base">
-                    {output.passed ? '✅ All Tests Passed!' : '❌ Some Tests Failed'}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {output.executionTime != null && (
-                      <Badge variant="outline" className="text-xs bg-secondary/50 font-mono py-1 px-3">
-                        ⏱️ {output.executionTime}ms
-                      </Badge>
-                    )}
-                    <Badge
-                      variant="outline"
+        {/* ── Always-visible output panel ── */}
+        <div className="h-64 border-t border-border bg-card flex flex-col shrink-0">
+          {/* Tab bar */}
+          <div className="flex items-center border-b border-border bg-muted/30 shrink-0 px-2 gap-1 pt-1">
+            {[
+              { id: 'console', label: 'Console' },
+              {
+                id: 'tests',
+                label:
+                  output?.testResults?.length > 0
+                    ? `Tests (${output.testResults.filter((t) => t.passed).length}/${output.testResults.length})`
+                    : 'Tests',
+              },
+              { id: 'analysis', label: 'AI Analysis' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setOutputTab(tab.id)}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-medium rounded-t border border-b-0 transition-colors',
+                  outputTab === tab.id
+                    ? 'bg-card border-border text-foreground'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+            {(running || submitting) && (
+              <div className="ml-auto mr-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="animate-spin inline-block w-3 h-3 border-2 border-primary border-t-transparent rounded-full" />
+                {submitting ? 'Submitting & analysing...' : 'Running...'}
+              </div>
+            )}
+            {submitted && output?.passed && !running && !submitting && (
+              <div className="ml-auto mr-2 flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-success animate-in fade-in">🎉 All tests passed!</span>
+              </div>
+            )}
+          </div>
+
+          {/* Tab content */}
+          <div className="flex-1 overflow-y-auto p-3">
+            {/* Console */}
+            {outputTab === 'console' && (
+              <div>
+                {executionOutput ? (
+                  <div className="space-y-2">
+                    <p
                       className={cn(
-                        'bg-background py-1 text-sm font-bold min-w-[90px] justify-center',
-                        output.passed ? 'text-success border-success/50' : 'text-destructive border-destructive/50'
+                        'text-xs font-semibold',
+                        executionOutput.exitCode === 0 ? 'text-success' : 'text-destructive'
                       )}
                     >
-                      Score: {output.score}/100
-                    </Badge>
-                    {submitted && (
-                      <Badge
-                        variant="secondary"
-                        className="bg-primary/20 text-primary border-primary/30 py-1 text-sm px-3"
-                      >
-                        💾 Saved
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-secondary/5">
-                  {output.testResults?.length > 0 && (
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1">
-                        Test Cases
-                      </h4>
-                      <div className="grid gap-3">
-                        {output.testResults?.map((t, i) => (
-                          <div
-                            key={i}
-                            className="flex flex-col sm:flex-row gap-3 p-3 rounded-lg border bg-background shadow-sm text-sm font-mono"
-                          >
-                            <div className="flex items-center gap-2 shrink-0 sm:w-20">
-                              <span
-                                className={cn(
-                                  'flex items-center justify-center w-6 h-6 rounded-full text-white',
-                                  t.passed ? 'bg-success' : 'bg-destructive'
-                                )}
-                              >
-                                {t.passed ? '✓' : '✗'}
-                              </span>
-                              <span className="font-semibold text-xs text-muted-foreground">Test {i + 1}</span>
-                            </div>
-                            <div className="grid grid-cols-1 gap-2 flex-1 w-full overflow-hidden text-xs sm:text-sm">
-                              <div className="truncate">
-                                <span className="text-muted-foreground w-10 inline-block font-sans">In:</span> {t.input}
-                              </div>
-                              <div className="truncate">
-                                <span className="text-muted-foreground w-10 inline-block font-sans">Exp:</span>{' '}
-                                {t.expected}
-                              </div>
-                              <div
-                                className={cn('truncate font-semibold', t.passed ? 'text-success' : 'text-destructive')}
-                              >
-                                <span className="text-muted-foreground w-10 inline-block font-sans">Got:</span>{' '}
-                                {t.actual}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {(output.feedback || output.timeComplexity) && (
-                    <div className="space-y-3 pt-4 border-t border-border/60">
-                      <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1">
-                        AI Analysis
-                      </h4>
-
-                      {output.timeComplexity && (
-                        <div className="flex gap-3 mt-2">
-                          <Badge variant="outline" className="text-xs bg-secondary/50 font-mono py-1 px-3">
-                            ⏱️ Time: {output.timeComplexity}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs bg-secondary/50 font-mono py-1 px-3">
-                            💾 Space: {output.spaceComplexity}
-                          </Badge>
-                        </div>
+                      {executionOutput.exitCode === 0 ? '✅ Success' : '❌ Failed'}
+                      {executionOutput.executionTime != null && (
+                        <span className="text-muted-foreground font-normal ml-2">
+                          {executionOutput.executionTime}ms
+                        </span>
                       )}
-
-                      {output.feedback && (
-                        <div className="mt-3 p-4 rounded-xl bg-primary/5 border border-primary/20 text-sm text-foreground/90 leading-relaxed shadow-inner">
-                          {output.feedback}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : executionOutput ? (
-              <>
-                <div
-                  className={cn(
-                    'px-4 py-3 flex flex-wrap items-center justify-between font-semibold border-b gap-3',
-                    executionOutput.exitCode === 0
-                      ? 'bg-success/10 text-success border-success/20'
-                      : 'bg-destructive/10 text-destructive border-destructive/20'
-                  )}
-                >
-                  <div className="flex items-center gap-2 text-base">
-                    {executionOutput.exitCode === 0 ? '✅ Execution Successful' : '❌ Execution Failed'}
-                  </div>
-                  {executionOutput.executionTime != null && (
-                    <Badge variant="outline" className="text-xs bg-secondary/50 font-mono py-1 px-3">
-                      ⏱️ {executionOutput.executionTime}ms
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-secondary/5">
-                  {executionOutput.stdout && (
-                    <div>
-                      <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1 mb-2">
-                        Output
-                      </h4>
-                      <pre className="p-3 rounded-lg bg-background border text-sm font-mono whitespace-pre-wrap break-words leading-relaxed">
+                    </p>
+                    {executionOutput.stdout && (
+                      <pre className="p-2 rounded bg-secondary/20 border border-border text-xs font-mono whitespace-pre-wrap break-words">
                         {executionOutput.stdout}
                       </pre>
-                    </div>
-                  )}
-                  {executionOutput.stderr && (
-                    <div>
-                      <h4 className="text-sm font-semibold text-destructive uppercase tracking-wider pl-1 mb-2">
-                        Errors
-                      </h4>
-                      <pre className="p-3 rounded-lg bg-destructive/5 border border-destructive/20 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed text-destructive">
+                    )}
+                    {executionOutput.stderr && (
+                      <pre className="p-2 rounded bg-destructive/5 border border-destructive/20 text-xs font-mono whitespace-pre-wrap text-destructive">
                         {executionOutput.stderr}
                       </pre>
+                    )}
+                    {!executionOutput.stdout && !executionOutput.stderr && (
+                      <p className="text-muted-foreground text-xs">No output produced.</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-xs">
+                    Press{' '}
+                    <kbd className="bg-secondary border border-border px-1.5 py-0.5 rounded text-[10px]">
+                      Ctrl+Enter
+                    </kbd>{' '}
+                    to run your code.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Test Results */}
+            {outputTab === 'tests' && (
+              <div>
+                {output ? (
+                  <div className="space-y-2">
+                    <div
+                      className={cn(
+                        'flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold border',
+                        output.passed
+                          ? 'bg-success/10 text-success border-success/20'
+                          : 'bg-destructive/10 text-destructive border-destructive/20'
+                      )}
+                    >
+                      <span>{output.passed ? '✅ All Tests Passed!' : '❌ Some Tests Failed'}</span>
+                      <div className="flex items-center gap-3">
+                        {output.executionTime != null && (
+                          <span className="font-mono font-normal text-muted-foreground">
+                            ⏱ {output.executionTime}ms
+                          </span>
+                        )}
+                        <span className="font-bold">{output.score}/100</span>
+                        {submitted && <span className="text-primary font-normal">💾 Saved</span>}
+                      </div>
                     </div>
-                  )}
-                  {!executionOutput.stdout && !executionOutput.stderr && (
-                    <div className="text-sm text-muted-foreground text-center py-4">No output produced.</div>
-                  )}
-                </div>
-              </>
-            ) : null}
-          </Card>
-        )}
+                    <div className="space-y-1.5">
+                      {output.testResults?.map((t, i) => (
+                        <div
+                          key={i}
+                          className={cn(
+                            'flex gap-3 items-start p-2.5 rounded-lg border text-xs font-mono',
+                            t.passed ? 'bg-success/5 border-success/20' : 'bg-destructive/5 border-destructive/20'
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              'flex items-center justify-center w-5 h-5 rounded-full text-white shrink-0 font-bold',
+                              t.passed ? 'bg-success' : 'bg-destructive'
+                            )}
+                          >
+                            {t.passed ? '✓' : '✗'}
+                          </span>
+                          <div className="flex-1 space-y-0.5 overflow-hidden">
+                            <div className="text-[10px] uppercase font-sans font-semibold text-muted-foreground">
+                              Test {i + 1}
+                            </div>
+                            <div className="truncate">
+                              <span className="text-muted-foreground">In: </span>
+                              {t.input}
+                            </div>
+                            <div className="truncate">
+                              <span className="text-muted-foreground">Expected: </span>
+                              <span className="text-foreground">{t.expected}</span>
+                            </div>
+                            {!t.passed && (
+                              <div className="truncate text-destructive">
+                                <span className="text-muted-foreground">Got: </span>
+                                {t.actual}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-xs">
+                    Click <strong>Run</strong> or <strong>Submit</strong> to see test results.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* AI Analysis */}
+            {outputTab === 'analysis' && (
+              <div>
+                {output?.feedback || output?.timeComplexity ? (
+                  <div className="space-y-3">
+                    {output.timeComplexity && (
+                      <div className="flex gap-2 flex-wrap">
+                        <span className="text-xs bg-secondary/50 border border-border px-2.5 py-1 rounded-full font-mono">
+                          ⏱ Time: {output.timeComplexity}
+                        </span>
+                        <span className="text-xs bg-secondary/50 border border-border px-2.5 py-1 rounded-full font-mono">
+                          💾 Space: {output.spaceComplexity}
+                        </span>
+                      </div>
+                    )}
+                    {output.feedback && (
+                      <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs text-foreground/90 leading-relaxed">
+                        {output.feedback}
+                      </div>
+                    )}
+                    {output.suggestions?.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase text-muted-foreground mb-1.5">Suggestions</p>
+                        <ul className="space-y-1">
+                          {output.suggestions.map((s, i) => (
+                            <li key={i} className="text-xs text-muted-foreground">
+                              • {s}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-xs">
+                    AI analysis appears here after you <strong>Submit</strong> your solution.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
