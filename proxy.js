@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
 /**
- * Next.js Middleware — Server-side route protection.
+ * Next.js Proxy (formerly middleware) — Server-side route protection.
+ * Renamed from middleware.js → proxy.js for Next.js 16 compatibility.
  *
  * - Unauthenticated users trying to access /dashboard/* are redirected to /login
  *   with a callbackUrl so they return after signing in.
@@ -10,7 +11,7 @@ import { getToken } from 'next-auth/jwt';
  *
  * Uses getToken() (JWT-only, no DB call) for fast edge-compatible checks.
  */
-export async function middleware(request) {
+export async function proxy(request) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
   const { pathname } = request.nextUrl;
 

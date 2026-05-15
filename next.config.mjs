@@ -38,7 +38,7 @@ const ContentSecurityPolicy = `
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net;
   img-src 'self' blob: data: https://www.googletagmanager.com https://www.google.com https://www.google-analytics.com https://fonts.gstatic.com https://lh3.googleusercontent.com https://*.googleusercontent.com https://tpc.googlesyndication.com https://googleads.g.doubleclick.net https://adservice.google.com https://partner.googleadservices.com https://www.googlesyndication.com;
   font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net;
-  connect-src 'self' https://www.google-analytics.com https://analytics.google.com https://www.google.com https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://adservice.google.com https://partner.googleadservices.com https://cdn.jsdelivr.net https://emkc.org;
+  connect-src 'self' https://www.google-analytics.com https://analytics.google.com https://www.google.com https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://adservice.google.com https://partner.googleadservices.com https://cdn.jsdelivr.net https://emkc.org https://integrate.api.nvidia.com;
   worker-src 'self' blob: https://cdn.jsdelivr.net;
   frame-src 'self' https://www.google.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://partner.googleadservices.com https://adservice.google.com;
   object-src 'none';
@@ -86,7 +86,7 @@ const nextConfig = {
   },
 
   // Packages that should not be bundled and should be kept as external
-  serverExternalPackages: ['@upstash/redis'],
+  serverExternalPackages: ['@upstash/redis', 'openai'],
 };
 
 export default nextConfig;
