@@ -264,7 +264,7 @@ export default function PathwayCalendar({ schedule, onTaskAction, onLaunchTest, 
             </div>
           </div>
           <div className="flex gap-2">
-            {selectedTask.actionRoute && selectedTask.completionStatus !== 'completed' && (
+            {selectedTask.type !== 'rest' && selectedTask.completionStatus !== 'completed' && (
               <Button
                 variant="brand"
                 size="sm"
