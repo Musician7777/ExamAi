@@ -32,6 +32,9 @@ const analyticsEventSchema = new mongoose.Schema(
         'daily_active',
         'returning_user',
         'new_signup',
+        // Interview events
+        'interview_start',
+        'interview_complete',
       ],
       index: true,
     },
@@ -115,7 +118,6 @@ analyticsEventSchema.index({ eventType: 1, sessionId: 1, createdAt: -1 });
 analyticsEventSchema.index({ userId: 1, topic: 1 });
 analyticsEventSchema.index({ userId: 1, difficulty: 1 });
 
-const AnalyticsEvent =
-  mongoose.models.AnalyticsEvent || mongoose.model('AnalyticsEvent', analyticsEventSchema);
+const AnalyticsEvent = mongoose.models.AnalyticsEvent || mongoose.model('AnalyticsEvent', analyticsEventSchema);
 
 export default AnalyticsEvent;
