@@ -82,6 +82,9 @@ export default function GeneratePage() {
   const selectedPresetRef = useRef(null);
   const runGenerateRef = useRef(null);
 
+  // Pending auto-config from pathway sessionStorage — set after refs are ready
+  const [pendingAutoConfig, setPendingAutoConfig] = useState(null);
+
   function openConfigForPreset(preset) {
     setSelectedPreset(preset.id);
     clearFetchedConfig();
@@ -101,18 +104,31 @@ export default function GeneratePage() {
 
   // (runGenerate, validateExamConfig, and handleGenerateFromModal are defined below)
 
+  // Step 1: Read sessionStorage on mount and stash config in state (ref not ready yet)
   useEffect(() => {
     try {
       const stored = sessionStorage.getItem('examConfigModalResult');
       if (stored) {
         const { mode, config } = JSON.parse(stored);
         sessionStorage.removeItem('examConfigModalResult');
-        if (mode === 'exam' && config) handleGenerateFromModalRef.current?.(config);
+        /* eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: bootstrapping pending config from sessionStorage on mount */
+        if (mode === 'exam' && config) setPendingAutoConfig(config);
       }
     } catch (e) {
       clientLogger.warn('Failed to read examConfigModalResult from sessionStorage:', e.message);
     }
   }, []);
+
+  // Step 2: Fire auto-generate once the ref is assigned and we have a pending config
+  useEffect(() => {
+    if (pendingAutoConfig && handleGenerateFromModalRef.current) {
+      const cfg = pendingAutoConfig;
+      /* eslint-disable react-hooks/set-state-in-effect -- intentional: clearing pending config to prevent double-trigger */
+      setPendingAutoConfig(null);
+      /* eslint-enable react-hooks/set-state-in-effect */
+      handleGenerateFromModalRef.current(cfg);
+    }
+  }, [pendingAutoConfig]);
 
   const [custom, setCustom] = useState({
     totalQuestions: 50,
@@ -213,7 +229,7 @@ export default function GeneratePage() {
       setConfigModalOpen(false);
       try {
         const config = {
-          examType: selectedPresetRef.current || 'Custom',
+          examType: modalConfig.examType || selectedPresetRef.current || 'Custom',
           totalQuestions: modalConfig.totalQuestions || modalConfig.questions || 20,
           difficulty: modalConfig.difficulty || 'Medium',
           questionType: modalConfig.questionType || modalConfig.questionTypes || 'MCQ',
