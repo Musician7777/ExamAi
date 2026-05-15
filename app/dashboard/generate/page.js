@@ -46,7 +46,15 @@ export default function GeneratePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('preset');
   const [selectedPreset, setSelectedPreset] = useState(null);
-  const [loading, setLoading] = useState(false);
+  // Start in loading state immediately if pathway sent us a config — prevents UI flash
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return !!sessionStorage.getItem('examConfigModalResult');
+    } catch {
+      return false;
+    }
+  });
   const [showFetchModal, setShowFetchModal] = useState(false);
   const [errorBanner, setErrorBanner] = useState(null); // { variant, title, message }
   const [lastGenerateConfig, setLastGenerateConfig] = useState(null);
