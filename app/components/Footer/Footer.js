@@ -93,8 +93,8 @@ export default function Footer() {
             <Link href="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Blog
             </Link>
-            <Link href="/careers" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Careers
+            <Link href="/contact#faq" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              FAQ
             </Link>
             <Link href="/contact" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Contact
